@@ -25,7 +25,7 @@ export class VoiceActivityDetector {
     minLevel = 0.004,
     minSpeechMs = 180,
     strictMinSpeechMs = 360,
-    endSilenceMs = 1200,
+    endSilenceMs = 900,
     floorAdapt = 0.05,
     warmupMs = 400,
   } = {}) {

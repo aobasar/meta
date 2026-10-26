@@ -122,6 +122,11 @@ For clarify, write one short question in the user's language in clarification_qu
 Use an empty string for every field that does not apply.
 Context: a current result exists: {has_result}. An image is attached: {has_image}."""
 
+# Muse Spark 1.3's lowest reasoning setting ("none" is rejected). Measured on
+# 2026-10-26: routing dropped from ~2.9 s to ~0.9 s and short spoken answers
+# from ~2.5 s to ~1.0 s, with the same routing decisions.
+FAST_REASONING = "minimal"
+
 AUTO_RESPONSE_FORMAT = {
     "type": "json_schema",
     "json_schema": {
@@ -314,8 +319,16 @@ def transcribe(wav: bytes, languages: list[str], api_key: str, opener) -> dict:
     }
 
 
-def chat(messages: list[dict], api_key: str, opener, response_format: dict | None = None) -> dict:
+def chat(
+    messages: list[dict],
+    api_key: str,
+    opener,
+    response_format: dict | None = None,
+    reasoning_effort: str | None = None,
+) -> dict:
     payload: dict = {"model": REASONING_MODEL, "messages": messages}
+    if reasoning_effort:
+        payload["reasoning_effort"] = reasoning_effort
     if response_format:
         payload["response_format"] = response_format
     request = urllib.request.Request(
@@ -449,7 +462,10 @@ def run_request(body: dict, api_key: str, opener) -> dict:
 
     note = None
     if action == "auto":
-        classified = chat(build_auto_messages(text, bool(current_result), bool(image)), api_key, opener, AUTO_RESPONSE_FORMAT)
+        classified = chat(
+            build_auto_messages(text, bool(current_result), bool(image)),
+            api_key, opener, AUTO_RESPONSE_FORMAT, FAST_REASONING,
+        )
         try:
             intent = json.loads(classified["text"])
         except ValueError:
@@ -463,7 +479,9 @@ def run_request(body: dict, api_key: str, opener) -> dict:
         label = f"Translate ({target_language})" if action == "translate" else ACTION_LABELS[action]
         note = f"Auto: {label}"
 
-    answer = chat(build_messages(action, text, target_language, image, history, voice), api_key, opener)
+    # Spoken turns favor speed; typed requests keep the model's default depth.
+    effort = FAST_REASONING if voice else None
+    answer = chat(build_messages(action, text, target_language, image, history, voice), api_key, opener, reasoning_effort=effort)
     return {"kind": "result", "text": answer["text"], "model": answer["model"], "truncated": answer["truncated"], "note": note}
 
 

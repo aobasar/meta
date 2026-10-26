@@ -61,6 +61,19 @@ class HistoryTests(unittest.TestCase):
         self.assertIn("read aloud", sent[0]["content"])
 
 
+class ReasoningEffortTests(unittest.TestCase):
+    def test_auto_routing_and_spoken_answers_use_minimal_reasoning(self):
+        intent = {"action": "ask", "content": "hi", "target_language": "", "clarification_question": ""}
+        opener = FakeOpener(chat_reply(json.dumps(intent)), chat_reply("Hello."))
+        server.run_request({"action": "auto", "text": "hi", "voice": True}, FAKE_KEY, opener)
+        efforts = [json.loads(r.data).get("reasoning_effort") for r in opener.requests]
+        self.assertEqual(efforts, ["minimal", "minimal"])
+
+    def test_typed_answers_keep_default_reasoning(self):
+        opener = FakeOpener(chat_reply("Hello."))
+        server.run_request({"action": "ask", "text": "hi"}, FAKE_KEY, opener)
+        self.assertNotIn("reasoning_effort", json.loads(opener.requests[0].data))
+
 class EmptyTranscriptTests(unittest.TestCase):
     def test_error_carries_a_code_through_http(self):
         with tempfile.TemporaryDirectory() as tmp:
