@@ -41,30 +41,60 @@ and a contextual radial menu.
 
 ### Prerequisites
 
-_TBD_
+- macOS with Python 3.10+ (standard library only, nothing to install)
+- Chrome or Edge, for microphone recording and verified file saving
+- A Meta Model API key from https://dev.meta.ai (API keys, then Create API key)
 
 ### Installation
 
 ```bash
 git clone https://github.com/aobasar/Nova.git
 cd Nova
-cp .env.example .env.local   # then fill in your API keys
-# further setup steps will be added once the stack is chosen
+cp .env.example .env.local   # then set MODEL_API_KEY
 ```
 
-### Running
+### Running the local web prototype
 
-_TBD_
+```bash
+scripts/serve.sh             # serves http://127.0.0.1:9005 on this Mac only
+```
+
+The prototype is called Star for now. A small Python server reads
+`MODEL_API_KEY` from `.env.local` on each request and forwards calls to the Meta
+Model API, so the key never reaches the browser.
+
+1. Record with the microphone, or add an audio file. The page converts it to
+   24 kHz mono WAV.
+2. Press **Send for transcription** to get the transcript (Muse Voice
+   Transcribe).
+3. Pick an action (Auto, Ask, Translate, Rewrite, Summarize, Plan task) and
+   press **Run** (Muse Spark 1.3).
+4. Copy the result, or save it as a text file. The file is read back to
+   verify the write.
+
+Paste a screenshot with ⌘V, or use **Attach image**, to ask about an image.
+Nothing is stored: recordings, images and results live only in the open tab.
+
+### Tests
+
+```bash
+python3 -m unittest discover -s web-prototype/tests
+node --test web-prototype/tests/
+```
 
 ## Project Structure
 
 ```
 Nova/
-├── README.md     # This file
-├── HACKATHON.md  # Hackathon rules, dates, and judging criteria
-├── CLAUDE.md     # Rules for AI-assisted development in this repo
-├── .env.example  # Required environment variables (copy to .env.local)
-└── .gitignore
+├── README.md          # This file
+├── HACKATHON.md       # Hackathon rules, dates, and judging criteria
+├── CLAUDE.md          # Rules for AI-assisted development in this repo
+├── .env.example       # Required environment variables (copy to .env.local)
+├── scripts/serve.sh   # Starts the local web prototype on port 9005
+└── web-prototype/
+    ├── server.py      # Local server: UI files + Meta Model API proxy
+    ├── static/        # Browser UI (HTML, CSS, JavaScript)
+    └── tests/         # Server (Python) and audio helper (Node) tests
 ```
 
 ## Hackathon Submission Checklist

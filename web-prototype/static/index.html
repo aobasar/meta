@@ -1,0 +1,211 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Star · local prototype</title>
+<link rel="stylesheet" href="/styles.css">
+<script type="module" src="/app.js"></script>
+</head>
+<body>
+<p class="topnote">Local prototype · real Meta Model API calls go through a server on this Mac · nothing is sent until you press a send or Run button</p>
+
+<main class="window">
+  <header class="titlebar">
+    <div class="lights" aria-hidden="true"><span class="light red"></span><span class="light yellow"></span><span class="light green"></span></div>
+    <div class="title">
+      <svg width="18" height="18" viewBox="0 0 24 24" class="star-icon" aria-hidden="true"><path d="M12 2l2.2 7.8L22 12l-7.8 2.2L12 22l-2.2-7.8L2 12l7.8-2.2z"></path></svg>
+      <span>Star</span>
+    </div>
+    <button id="settingsButton" class="icon-button" aria-label="Settings" aria-expanded="false" aria-controls="settings">
+      <svg width="20" height="20" viewBox="0 0 24 24" class="stroke" aria-hidden="true"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"></path></svg>
+    </button>
+  </header>
+
+  <div id="settings" class="popover" hidden>
+    <strong>Settings</strong>
+    <label class="field">Speech language hint
+      <select id="speechHint">
+        <option value="">Auto-detect</option>
+        <option value="English">English</option>
+        <option value="Turkish">Turkish</option>
+        <option value="English,Turkish">English + Turkish</option>
+      </select>
+    </label>
+    <ul class="facts">
+      <li>Key: <code>MODEL_API_KEY</code> in <code>.env.local</code>, read by the local server only</li>
+      <li>Speech to text: <span id="modelTranscribe">muse-voice-transcribe-1.0</span></li>
+      <li>Text and images: <span id="modelReasoning">muse-spark-1.3</span> (Standard tier)</li>
+      <li>Recordings, images and results stay in this tab and are gone when you close it</li>
+    </ul>
+    <button id="recheckKey" class="secondary">Check the key file again</button>
+  </div>
+
+  <div id="setup" class="banner warn" role="status" hidden>
+    <strong>Setup needed</strong>
+    <span id="setupText"></span>
+  </div>
+
+  <div class="columns">
+    <section class="left" aria-label="Voice input">
+      <div class="radial">
+        <div id="ring" class="ring" aria-hidden="true"></div>
+        <button class="sector s-ask" data-action="ask" aria-pressed="false">
+          <svg width="26" height="26" viewBox="0 0 24 24" class="stroke" aria-hidden="true"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"></path></svg>
+          <span>Ask</span>
+        </button>
+        <button class="sector s-translate" data-action="translate" aria-pressed="false">
+          <svg width="26" height="26" viewBox="0 0 24 24" class="stroke" aria-hidden="true"><path d="M4 5h9M8.5 3v2M6 5c.6 3.5 3 6.2 6 7.5M11 5c-.8 4-3.4 7-7 8.5"></path><path d="M13 21l4-9 4 9M14.4 18h5.2"></path></svg>
+          <span>Translate</span>
+        </button>
+        <button class="sector s-rewrite" data-action="rewrite" aria-pressed="false">
+          <svg width="26" height="26" viewBox="0 0 24 24" class="stroke" aria-hidden="true"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h5"></path><path d="M8 8h6M8 12h4"></path><path d="M18.5 11.5l2 2L14 20l-3 1 1-3z"></path></svg>
+          <span>Rewrite</span>
+        </button>
+        <button class="sector s-summarize" data-action="summarize" aria-pressed="false">
+          <svg width="26" height="26" viewBox="0 0 24 24" class="stroke" aria-hidden="true"><rect x="5" y="3" width="14" height="18" rx="2"></rect><path d="M9 8h6M9 12h6M9 16h4"></path></svg>
+          <span>Summarize</span>
+        </button>
+        <button class="sector s-plan" data-action="plan_task" aria-pressed="false">
+          <svg width="26" height="26" viewBox="0 0 24 24" class="stroke" aria-hidden="true"><rect x="4" y="5" width="16" height="16" rx="2"></rect><path d="M4 10h16M9 3v4M15 3v4M8.5 14h.01M12 14h.01M15.5 14h.01M8.5 17.5h.01M12 17.5h.01"></path></svg>
+          <span>Plan task</span>
+        </button>
+        <button class="sector s-auto" data-action="auto" aria-pressed="true">
+          <svg width="26" height="26" viewBox="0 0 24 24" class="stroke" aria-hidden="true"><path d="M12 3l1.6 4.6L18 9.2l-4.4 1.6L12 15.4l-1.6-4.6L6 9.2l4.4-1.6z"></path><path d="M18.5 15l.8 2.2 2.2.8-2.2.8-.8 2.2-.8-2.2-2.2-.8 2.2-.8z"></path></svg>
+          <span>Auto</span>
+        </button>
+        <div class="hub">
+          <button id="mic" class="mic" aria-label="Start recording">
+            <svg id="micIcon" width="40" height="40" viewBox="0 0 24 24" class="stroke thick" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"></rect><path d="M5 11a7 7 0 0 0 14 0M12 18v3M9 21h6"></path></svg>
+            <svg id="stopIcon" width="34" height="34" viewBox="0 0 24 24" class="fill" aria-hidden="true" hidden><rect x="6" y="6" width="12" height="12" rx="2"></rect></svg>
+            <span id="micTime" class="mic-time" hidden>00:00</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="clip">
+        <button id="play" class="play" aria-label="Play recording" disabled>
+          <svg id="playIcon" width="18" height="18" viewBox="0 0 24 24" class="fill" aria-hidden="true"><path d="M7 4.5v15l13-7.5z"></path></svg>
+          <svg id="pauseIcon" width="18" height="18" viewBox="0 0 24 24" class="fill" aria-hidden="true" hidden><rect x="6" y="5" width="4" height="14" rx="1"></rect><rect x="14" y="5" width="4" height="14" rx="1"></rect></svg>
+        </button>
+        <div id="wave" class="wave" aria-hidden="true"></div>
+        <span id="clipTime" class="clip-time">00:00</span>
+      </div>
+      <audio id="player" preload="auto"></audio>
+
+      <div class="two-up">
+        <button id="newRecording" class="secondary">
+          <svg width="18" height="18" viewBox="0 0 24 24" class="stroke" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"></rect><path d="M5 11a7 7 0 0 0 14 0M12 18v3"></path></svg>
+          <span id="newRecordingLabel">New recording</span>
+        </button>
+        <button id="addAudio" class="secondary">
+          <svg width="18" height="18" viewBox="0 0 24 24" class="stroke" aria-hidden="true"><path d="M21 11.5l-8.6 8.6a5 5 0 0 1-7.1-7.1l8.6-8.6a3.3 3.3 0 0 1 4.7 4.7l-8.6 8.6a1.7 1.7 0 0 1-2.4-2.4l7.9-7.9"></path></svg>
+          <span>Add audio file</span>
+        </button>
+        <input id="audioFile" type="file" accept="audio/*" hidden>
+      </div>
+
+      <button id="transcribe" class="primary wide" disabled>Send for transcription</button>
+      <p class="hint">The clip is converted to 24 kHz mono WAV in this tab and sent only when you press the button.</p>
+    </section>
+
+    <section class="right">
+      <div id="error" class="banner error" role="alert" hidden>
+        <strong>Error</strong>
+        <span id="errorText"></span>
+        <button id="dismissError" class="secondary small">Dismiss</button>
+      </div>
+
+      <section class="card" aria-labelledby="transcriptHeading">
+        <div class="card-head">
+          <svg width="22" height="22" viewBox="0 0 24 24" class="stroke accent" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"></path><path d="M14 3v5h5M9 13h6M9 17h6"></path></svg>
+          <h2 id="transcriptHeading">Transcript</h2>
+          <span id="imageChip" class="chip" hidden>
+            <img id="imageThumb" alt="Attached image">
+            <span id="imageName"></span>
+            <button id="removeImage" class="chip-remove" aria-label="Remove image">×</button>
+          </span>
+          <button id="attachImage" class="secondary">
+            <svg width="18" height="18" viewBox="0 0 24 24" class="stroke" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"></rect><circle cx="9" cy="10" r="2"></circle><path d="M21 16l-5-5-9 9"></path></svg>
+            <span>Attach image</span>
+          </button>
+          <input id="imageFile" type="file" accept="image/png,image/jpeg,image/gif,image/webp" hidden>
+        </div>
+        <label class="field">Editable text · paste a screenshot with ⌘V to attach it
+          <textarea id="transcript" rows="4" placeholder="Record or add an audio file, then send it for transcription. You can also type here."></textarea>
+        </label>
+        <div class="row">
+          <span>Action: <strong id="actionLabel">Auto</strong></span>
+          <label id="langWrap" class="inline-field" hidden>Target language
+            <select id="lang">
+              <option>English</option>
+              <option>Turkish</option>
+              <option>Spanish</option>
+              <option>German</option>
+              <option>French</option>
+              <option>Italian</option>
+              <option>Portuguese</option>
+              <option>Arabic</option>
+              <option>Japanese</option>
+              <option>Korean</option>
+            </select>
+          </label>
+          <span class="spacer"></span>
+          <button id="run" class="primary" disabled>
+            <svg width="16" height="16" viewBox="0 0 24 24" class="fill" aria-hidden="true"><path d="M7 4.5v15l13-7.5z"></path></svg>
+            <span>Run</span>
+          </button>
+        </div>
+      </section>
+
+      <section class="card" aria-labelledby="resultHeading">
+        <div class="card-head">
+          <svg width="22" height="22" viewBox="0 0 24 24" class="star-icon" aria-hidden="true"><path d="M12 2l2.2 7.8L22 12l-7.8 2.2L12 22l-2.2-7.8L2 12l7.8-2.2z"></path></svg>
+          <h2 id="resultHeading">Result</h2>
+          <span id="status" class="pill" role="status"><span class="pill-dot"></span><span id="statusText">Ready</span></span>
+        </div>
+        <p id="note" class="note" hidden></p>
+        <div id="result" class="result empty">Results appear here after you press Run.</div>
+        <p id="saved" class="saved" hidden></p>
+        <p id="notice" class="notice" hidden></p>
+        <div class="row">
+          <span id="modelLabel" class="fineprint"></span>
+          <button id="copy" class="secondary" disabled>
+            <svg width="17" height="17" viewBox="0 0 24 24" class="stroke" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"></rect><path d="M5 15V5a2 2 0 0 1 2-2h8"></path></svg>
+            <span>Copy</span>
+          </button>
+          <button id="save" class="secondary" disabled>
+            <svg width="17" height="17" viewBox="0 0 24 24" class="stroke" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"></path></svg>
+            <span>Save</span>
+          </button>
+        </div>
+      </section>
+    </section>
+  </div>
+
+  <footer class="statusbar">
+    <span id="keyDot" class="dot"></span>
+    <span id="keyText">Checking the API key…</span>
+    <button id="cancel" class="danger small" hidden>Cancel</button>
+    <span class="spacer"></span>
+    <span class="pipeline" aria-label="Progress">
+      <span id="stageAudio">Audio</span><span aria-hidden="true">→</span>
+      <span id="stageText">Text</span><span aria-hidden="true">→</span>
+      <span id="stageResult">Result</span>
+    </span>
+  </footer>
+
+  <div id="saveModal" class="modal" hidden>
+    <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="saveTitle">
+      <h2 id="saveTitle">Save as a text file?</h2>
+      <p>This is exactly what will be written. Next, the macOS save dialog opens so you choose the name and location.</p>
+      <pre id="savePreview" class="preview"></pre>
+      <div class="dialog-actions">
+        <button id="saveCancel" class="secondary">Cancel</button>
+        <button id="saveConfirm" class="primary">Choose location and save</button>
+      </div>
+    </div>
+  </div>
+</main>
+</body>
+</html>
