@@ -72,6 +72,13 @@ Model API, so the key never reaches the browser.
 4. Copy the result, or save it as a text file. The file is read back to
    verify the write.
 
+**Conversation mode.** Tap the microphone once to start talking with Nova:
+- Nova sends what you said as soon as you pause.
+- It answers out loud with the macOS system voice, then listens again.
+- If you start talking while Nova is speaking, it stops.
+- Tap the microphone again to end, or stay quiet for a minute.
+- Headphones keep Nova from hearing its own voice.
+
 Paste a screenshot with ⌘V, or use **Attach image**, to ask about an image.
 Nothing is stored: recordings, images and results live only in the open tab.
 

@@ -1,10 +1,20 @@
 import { computeBars, encodeWav16, formatTime } from "./audio-utils.js";
+import { Speaker } from "./speaker.js";
+import { looksLikeEcho, rms, VoiceActivityDetector } from "./voice-utils.js";
 
 const SAMPLE_RATE = 24000; // Muse Voice Transcribe's native rate
 const MAX_SECONDS = 600; // Meta's limit per clip
 const MAX_WAV_BYTES = 32 * 1024 * 1024;
 const MAX_IMAGE_EDGE = 2048;
 const BAR_COUNT = 44;
+
+// Conversation mode
+const FRAME_MS = 20; // pcm-worklet.js posts 480-sample frames at 24 kHz
+const PREROLL_FRAMES = 20; // keep 400 ms before speech starts so the first word isn't clipped
+const MIN_UTTERANCE_SECONDS = 0.4;
+const MAX_UTTERANCE_FRAMES = (60 * 1000) / FRAME_MS;
+const IDLE_LIMIT_MS = 60 * 1000; // end the conversation after a minute without speech
+const MAX_HISTORY_MESSAGES = 12;
 
 const ACTION_LABELS = {
   auto: "Auto",
@@ -28,6 +38,9 @@ const PHASES = {
   clarify: { label: "Needs clarification", tone: "clarify" },
   saving: { label: "Saving…", tone: "busy" },
   error: { label: "Error", tone: "error" },
+  listening: { label: "Listening…", tone: "live" },
+  hearing: { label: "Hearing you…", tone: "recording" },
+  speaking: { label: "Speaking…", tone: "live" },
 };
 const BUSY_PHASES = new Set(["preparing", "transcribing", "processing", "saving"]);
 
@@ -48,6 +61,27 @@ const state = {
   recordStartedAt: 0,
 };
 
+// Live conversation session; everything here lives in memory only and is
+// dropped when the conversation ends.
+const convo = {
+  active: false,
+  context: null,
+  stream: null,
+  node: null,
+  vad: null,
+  preroll: [],
+  utterance: [],
+  capturing: false,
+  turnId: 0,
+  turnController: null,
+  history: [],
+  spokenText: "",
+  pausedForBargeIn: false,
+  lastActivity: 0,
+  idleTimer: null,
+  level: 0,
+};
+
 let recorder = null;
 let stream = null;
 let chunks = [];
@@ -55,13 +89,15 @@ let discardRecording = false;
 let recordTimer = null;
 let controller = null;
 let pendingSaveText = "";
+const speaker = new Speaker();
 
 const $ = (id) => document.getElementById(id);
 const el = {
   settingsButton: $("settingsButton"), settings: $("settings"), speechHint: $("speechHint"), recheckKey: $("recheckKey"),
+  speakReplies: $("speakReplies"),
   setup: $("setup"), setupText: $("setupText"),
   ring: $("ring"), sectors: [...document.querySelectorAll(".sector")],
-  mic: $("mic"), micIcon: $("micIcon"), stopIcon: $("stopIcon"), micTime: $("micTime"),
+  mic: $("mic"), micIcon: $("micIcon"), stopIcon: $("stopIcon"), micTime: $("micTime"), micHint: $("micHint"),
   play: $("play"), playIcon: $("playIcon"), pauseIcon: $("pauseIcon"), wave: $("wave"), clipTime: $("clipTime"), player: $("player"),
   newRecording: $("newRecording"), newRecordingLabel: $("newRecordingLabel"), addAudio: $("addAudio"), audioFile: $("audioFile"),
   transcribe: $("transcribe"),
@@ -70,7 +106,7 @@ const el = {
   attachImage: $("attachImage"), imageFile: $("imageFile"),
   transcript: $("transcript"), actionLabel: $("actionLabel"), langWrap: $("langWrap"), lang: $("lang"), run: $("run"),
   status: $("status"), statusText: $("statusText"), note: $("note"), result: $("result"), saved: $("saved"), notice: $("notice"),
-  modelLabel: $("modelLabel"), copy: $("copy"), save: $("save"),
+  modelLabel: $("modelLabel"), readAloud: $("readAloud"), copy: $("copy"), save: $("save"),
   keyDot: $("keyDot"), keyText: $("keyText"), cancel: $("cancel"),
   stageAudio: $("stageAudio"), stageText: $("stageText"), stageResult: $("stageResult"),
   saveModal: $("saveModal"), savePreview: $("savePreview"), saveCancel: $("saveCancel"), saveConfirm: $("saveConfirm"),
@@ -106,9 +142,10 @@ function restingPhase() {
 }
 
 class RequestError extends Error {
-  constructor(message, kind) {
+  constructor(message, kind, code) {
     super(message);
     this.kind = kind;
+    this.code = code;
   }
 }
 
@@ -116,7 +153,7 @@ async function readJson(response) {
   const data = await response.json().catch(() => null);
   if (!response.ok) {
     const message = data?.error?.message || `The local server answered with HTTP ${response.status}.`;
-    throw new RequestError(message, data?.error?.kind);
+    throw new RequestError(message, data?.error?.kind, data?.error?.code);
   }
   return data;
 }
@@ -127,12 +164,61 @@ function handleRequestError(err, canceledNotice) {
     setPhase(restingPhase());
     return;
   }
-  if (err instanceof TypeError) {
-    fail("Couldn't reach the local Nova server. Is it still running?");
-    return;
-  }
+  fail(describeError(err));
+}
+
+function describeError(err) {
+  if (err instanceof TypeError) return "Couldn't reach the local Nova server. Is it still running?";
   if (err.kind === "setup") refreshKeyStatus();
-  fail(err.message);
+  return err.message;
+}
+
+function postTranscribe(wavBlob, signal) {
+  const hint = el.speechHint.value;
+  const url = "/api/transcribe" + (hint ? `?languages=${encodeURIComponent(hint)}` : "");
+  return fetch(url, { method: "POST", headers: { "Content-Type": "audio/wav" }, body: wavBlob, signal }).then(readJson);
+}
+
+function postRun(text, signal, extra = {}) {
+  const body = {
+    action: state.action,
+    text,
+    targetLanguage: el.lang.value,
+    image: state.image?.dataUrl ?? null,
+    currentResult: hasResult() ? state.result : null,
+    ...extra,
+  };
+  return fetch("/api/run", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+    signal,
+  }).then(readJson);
+}
+
+// Apply a /api/run answer to the result card. Returns the text to speak, if any.
+function applyRunResult(data) {
+  state.note = data.note || "";
+  if (data.kind === "result") {
+    state.result = data.text;
+    state.resultIsQuestion = false;
+    state.model = data.model;
+    if (data.truncated) state.note = `${state.note ? `${state.note} · ` : ""}The answer hit the length limit and may be cut off.`;
+    setPhase("completed");
+    return data.text;
+  }
+  if (data.kind === "clarify") {
+    state.result = data.question;
+    state.resultIsQuestion = true;
+    setPhase("clarify");
+    return data.question;
+  }
+  if (data.kind === "save") {
+    setPhase("completed");
+    openSaveModal(data.text);
+    return "The text is ready to save. Confirm it on the screen.";
+  }
+  return "";
 }
 
 // ---------------------------------------------------------------------------
@@ -150,19 +236,21 @@ async function refreshKeyStatus() {
   render();
 }
 
+function micErrorMessage(err) {
+  return err.name === "NotAllowedError"
+    ? "Microphone access was denied. Allow it in the browser's site settings and, if macOS asks, in System Settings › Privacy & Security › Microphone."
+    : `Couldn't start the microphone (${err.name}).`;
+}
+
 // ---------------------------------------------------------------------------
-// Recording and audio files
+// Single recording (New recording button)
 
 async function startRecording() {
   clearMessages();
   try {
     stream = await navigator.mediaDevices.getUserMedia({ audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true } });
   } catch (err) {
-    fail(
-      err.name === "NotAllowedError"
-        ? "Microphone access was denied. Allow it in the browser's site settings and, if macOS asks, in System Settings › Privacy & Security › Microphone."
-        : `Couldn't start the microphone (${err.name}).`
-    );
+    fail(micErrorMessage(err));
     return;
   }
   chunks = [];
@@ -244,19 +332,15 @@ function replaceClip(clip) {
 }
 
 // ---------------------------------------------------------------------------
-// Meta calls through the local server
+// Manual flow: Send for transcription, then Run
 
 async function transcribe() {
-  if (!state.clip || isBusy() || isRecording()) return;
+  if (!state.clip || isBusy() || isRecording() || convo.active) return;
   clearMessages();
   setPhase("transcribing");
   controller = new AbortController();
   try {
-    const hint = el.speechHint.value;
-    const url = "/api/transcribe" + (hint ? `?languages=${encodeURIComponent(hint)}` : "");
-    const data = await readJson(
-      await fetch(url, { method: "POST", headers: { "Content-Type": "audio/wav" }, body: state.clip.blob, signal: controller.signal })
-    );
+    const data = await postTranscribe(state.clip.blob, controller.signal);
     el.transcript.value = data.transcript;
     setPhase("transcribed");
   } catch (err) {
@@ -268,41 +352,211 @@ async function transcribe() {
 
 async function run() {
   const text = el.transcript.value.trim();
-  if (!text || isBusy() || isRecording()) return;
+  if (!text || isBusy() || isRecording() || convo.active) return;
   clearMessages();
   setPhase("processing");
   controller = new AbortController();
   try {
-    const body = {
-      action: state.action,
-      text,
-      targetLanguage: el.lang.value,
-      image: state.image?.dataUrl ?? null,
-      currentResult: hasResult() ? state.result : null,
-    };
-    const data = await readJson(
-      await fetch("/api/run", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body), signal: controller.signal })
-    );
-    state.note = data.note || "";
-    if (data.kind === "result") {
-      state.result = data.text;
-      state.resultIsQuestion = false;
-      state.model = data.model;
-      if (data.truncated) state.note = `${state.note ? `${state.note} · ` : ""}The answer hit the length limit and may be cut off.`;
-      setPhase("completed");
-    } else if (data.kind === "clarify") {
-      state.result = data.question;
-      state.resultIsQuestion = true;
-      setPhase("clarify");
-    } else if (data.kind === "save") {
-      setPhase("completed");
-      openSaveModal(data.text);
-    }
+    applyRunResult(await postRun(text, controller.signal));
   } catch (err) {
     handleRequestError(err, "Canceled. Meta may still finish the request, but its answer is ignored.");
   } finally {
     controller = null;
   }
+}
+
+// ---------------------------------------------------------------------------
+// Conversation mode: one tap starts it. Nova listens, sends each utterance
+// when you stop talking, answers out loud, and listens again. Talking while
+// Nova speaks interrupts it. Tap again, or stay quiet for a minute, to end.
+
+async function startConversation() {
+  clearMessages();
+  let micStream;
+  try {
+    micStream = await navigator.mediaDevices.getUserMedia({
+      audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+    });
+  } catch (err) {
+    fail(micErrorMessage(err));
+    return;
+  }
+  try {
+    const context = new AudioContext({ sampleRate: SAMPLE_RATE });
+    await context.audioWorklet.addModule("/pcm-worklet.js");
+    const node = new AudioWorkletNode(context, "pcm-capture");
+    const mute = context.createGain();
+    mute.gain.value = 0;
+    context.createMediaStreamSource(micStream).connect(node);
+    node.connect(mute).connect(context.destination); // keeps the worklet running without playing the mic
+    node.port.onmessage = (event) => onConversationFrame(event.data);
+    Object.assign(convo, {
+      active: true, context, stream: micStream, node, vad: new VoiceActivityDetector({ frameMs: FRAME_MS }),
+      preroll: [], utterance: [], capturing: false, history: [], spokenText: "", pausedForBargeIn: false,
+      lastActivity: Date.now(),
+    });
+    convo.idleTimer = setInterval(checkIdle, 1000);
+    state.notice = "Conversation on. Speak naturally; Nova answers when you pause. Headphones keep Nova from hearing itself.";
+    setPhase("listening");
+  } catch (err) {
+    micStream.getTracks().forEach((track) => track.stop());
+    fail(`Couldn't start conversation mode (${err.message}).`);
+  }
+}
+
+function stopConversation(notice = "Conversation ended. The microphone is off.") {
+  if (!convo.active) return;
+  convo.active = false;
+  convo.turnId += 1;
+  convo.turnController?.abort();
+  convo.turnController = null;
+  speaker.cancel();
+  clearInterval(convo.idleTimer);
+  convo.node?.port.close();
+  convo.node?.disconnect();
+  convo.stream?.getTracks().forEach((track) => track.stop());
+  convo.context?.close();
+  Object.assign(convo, { context: null, stream: null, node: null, vad: null, preroll: [], utterance: [], capturing: false, history: [], level: 0 });
+  state.notice = notice;
+  setPhase(restingPhase());
+}
+
+function checkIdle() {
+  if (convo.active && state.phase === "listening" && Date.now() - convo.lastActivity > IDLE_LIMIT_MS) {
+    stopConversation("Conversation ended after a minute of silence. The microphone is off.");
+  }
+}
+
+function onConversationFrame(frame) {
+  if (!convo.active) return;
+  const level = rms(frame);
+  convo.level = level;
+  convo.preroll.push(frame);
+  if (convo.preroll.length > PREROLL_FRAMES) convo.preroll.shift();
+  if (convo.capturing) convo.utterance.push(frame);
+
+  let event = convo.vad.push(level, { strict: state.phase === "speaking" });
+  if (convo.capturing && convo.utterance.length >= MAX_UTTERANCE_FRAMES) {
+    convo.vad.reset();
+    event = "end";
+  }
+  if (event === "start") onSpeechStart();
+  else if (event === "end" && convo.capturing) onSpeechEnd();
+  updateMicGlow();
+}
+
+function onSpeechStart() {
+  convo.lastActivity = Date.now();
+  if (state.phase === "speaking") {
+    // Barge-in: pause first; if it turns out to be Nova's own echo, resume.
+    speaker.pause();
+    convo.pausedForBargeIn = true;
+  } else if (state.phase === "transcribing" || state.phase === "processing") {
+    // The user kept talking: drop the pending answer and take the new turn.
+    convo.turnId += 1;
+    convo.turnController?.abort();
+  }
+  convo.capturing = true;
+  convo.utterance = [...convo.preroll];
+  setPhase("hearing");
+}
+
+function onSpeechEnd() {
+  convo.capturing = false;
+  convo.lastActivity = Date.now();
+  const frames = convo.utterance;
+  convo.utterance = [];
+  const samples = new Float32Array(frames.reduce((total, frame) => total + frame.length, 0));
+  let offset = 0;
+  for (const frame of frames) {
+    samples.set(frame, offset);
+    offset += frame.length;
+  }
+  if (samples.length < SAMPLE_RATE * MIN_UTTERANCE_SECONDS) {
+    resumeAfterNoise();
+    return;
+  }
+  handleTurn(samples);
+}
+
+// A false start (a cough, a click, Nova's echo): carry on as before.
+function resumeAfterNoise() {
+  if (convo.pausedForBargeIn) {
+    convo.pausedForBargeIn = false;
+    speaker.resume();
+    setPhase("speaking");
+  } else {
+    setPhase("listening");
+  }
+}
+
+async function handleTurn(samples) {
+  const turn = ++convo.turnId;
+  const turnController = new AbortController();
+  convo.turnController = turnController;
+  const wav = new Blob([encodeWav16(samples, SAMPLE_RATE)], { type: "audio/wav" });
+  replaceClip({ blob: wav, seconds: samples.length / SAMPLE_RATE, bars: computeBars(samples, BAR_COUNT) });
+  clearMessages();
+  setPhase("transcribing");
+  try {
+    const heard = await postTranscribe(wav, turnController.signal);
+    if (turn !== convo.turnId) return;
+    if (convo.pausedForBargeIn && looksLikeEcho(heard.transcript, convo.spokenText)) {
+      resumeAfterNoise();
+      return;
+    }
+    if (convo.pausedForBargeIn) {
+      speaker.cancel();
+      convo.pausedForBargeIn = false;
+    }
+    el.transcript.value = heard.transcript;
+    setPhase("processing");
+    const data = await postRun(heard.transcript, turnController.signal, { history: convo.history, voice: true });
+    if (turn !== convo.turnId) return;
+    const reply = applyRunResult(data);
+    if (data.kind === "result" || data.kind === "clarify") {
+      convo.history.push({ role: "user", content: heard.transcript }, { role: "assistant", content: reply });
+      convo.history = convo.history.slice(-MAX_HISTORY_MESSAGES);
+    }
+    speakReply(reply);
+  } catch (err) {
+    if (err.name === "AbortError" || turn !== convo.turnId) return;
+    if (err.code === "empty_transcript") {
+      resumeAfterNoise();
+      return;
+    }
+    const message = describeError(err);
+    stopConversation("");
+    fail(message);
+  } finally {
+    if (convo.turnController === turnController) convo.turnController = null;
+  }
+}
+
+function speakReply(text) {
+  if (!convo.active) return;
+  if (!text || !el.speakReplies.checked || !speaker.available) {
+    setPhase("listening");
+    return;
+  }
+  convo.spokenText = text;
+  convo.vad.reset();
+  speaker.speak(text, () => {
+    if (convo.active && state.phase === "speaking") {
+      convo.lastActivity = Date.now();
+      setPhase("listening");
+    }
+  });
+  if (speaker.missingVoice === "tr-TR") {
+    state.notice = "No Turkish system voice found. Add one in System Settings › Accessibility › Spoken Content › System Voice.";
+  }
+  setPhase("speaking");
+}
+
+function updateMicGlow() {
+  const live = convo.active && (state.phase === "listening" || state.phase === "hearing");
+  const ring = live ? 10 + Math.min(18, Math.round(convo.level * 400)) : 10;
+  el.mic.style.setProperty("--glow", `${ring}px`);
 }
 
 // ---------------------------------------------------------------------------
@@ -338,6 +592,7 @@ async function confirmSave() {
     }
     return;
   }
+  const resumeTo = convo.active ? state.phase : null;
   clearMessages();
   setPhase("saving");
   try {
@@ -348,7 +603,7 @@ async function confirmSave() {
     if (readBack !== text) throw new Error("the file on disk doesn't match what Nova wrote");
     const bytes = new TextEncoder().encode(text).length;
     state.saved = `Saved and verified: “${handle.name}” in the folder you chose · ${bytes} bytes.`;
-    setPhase("completed");
+    setPhase(resumeTo ?? "completed");
   } catch (err) {
     fail(`Saving failed: ${err.message}. The file may be missing or incomplete.`);
   }
@@ -392,6 +647,7 @@ function render() {
   const phase = PHASES[state.phase];
   const busy = isBusy();
   const recording = isRecording();
+  const talking = convo.active;
 
   el.statusText.textContent = phase.label;
   el.status.className = `pill ${phase.tone}`;
@@ -405,19 +661,24 @@ function render() {
   el.actionLabel.textContent = ACTION_LABELS[state.action];
   el.langWrap.hidden = state.action !== "translate";
 
-  // Microphone and clip
-  el.mic.classList.toggle("recording", recording);
-  el.mic.setAttribute("aria-label", recording ? "Stop recording" : "Start recording");
-  el.mic.disabled = busy;
-  el.micIcon.hidden = recording;
-  el.stopIcon.hidden = !recording;
+  // Microphone: in conversation mode it ends the conversation; during a
+  // single recording it stops that recording.
+  const stopMode = talking || recording;
+  el.mic.classList.toggle("recording", recording || state.phase === "hearing");
+  el.mic.classList.toggle("live", talking && state.phase !== "hearing");
+  el.mic.setAttribute("aria-label", talking ? "End conversation" : recording ? "Stop recording" : "Start conversation");
+  el.mic.disabled = (busy && !talking) || state.phase === "preparing";
+  el.micIcon.hidden = stopMode;
+  el.stopIcon.hidden = !stopMode;
   el.micTime.hidden = !recording;
   el.micTime.textContent = formatTime(recording ? elapsedSeconds() : 0);
-  el.newRecording.disabled = busy;
+  el.micHint.textContent = talking ? "Tap to end the conversation" : recording ? "Tap to stop recording" : "Tap to talk with Nova";
+  updateMicGlow();
+  el.newRecording.disabled = busy || talking;
   el.newRecordingLabel.textContent = recording ? "Stop recording" : "New recording";
-  el.addAudio.disabled = busy || recording;
+  el.addAudio.disabled = busy || recording || talking;
   el.play.disabled = !state.clip || recording;
-  el.transcribe.disabled = !state.clip || busy || recording;
+  el.transcribe.disabled = !state.clip || busy || recording || talking;
   el.clipTime.textContent = formatTime(recording ? elapsedSeconds() : state.clip?.seconds ?? 0);
   renderWave();
 
@@ -428,7 +689,7 @@ function render() {
     el.imageThumb.src = state.image.dataUrl;
     el.imageName.textContent = state.image.name;
   }
-  el.run.disabled = busy || recording || el.transcript.value.trim().length === 0;
+  el.run.disabled = busy || recording || talking || el.transcript.value.trim().length === 0;
   el.result.textContent = state.result || "Results appear here after you press Run.";
   el.result.classList.toggle("empty", !state.result);
   el.result.classList.toggle("question", state.resultIsQuestion);
@@ -436,21 +697,23 @@ function render() {
   showText(el.saved, state.saved);
   showText(el.notice, state.notice);
   el.modelLabel.textContent = hasResult() ? `AI-generated by ${state.model}. Check it before you rely on it.` : "";
+  el.readAloud.disabled = !state.result || talking || !speaker.available;
   el.copy.disabled = !hasResult() || busy;
   el.save.disabled = !hasResult() || busy;
   el.error.hidden = !state.error;
   el.errorText.textContent = state.error;
 
   // Status bar
-  el.cancel.hidden = !(busy || recording) || state.phase === "preparing" || state.phase === "saving";
+  el.cancel.textContent = talking ? "End conversation" : "Cancel";
+  el.cancel.hidden = !(talking || ((busy || recording) && state.phase !== "preparing" && state.phase !== "saving"));
   el.keyDot.className = `dot ${state.keyLoaded === null ? "" : state.keyLoaded ? "ok" : "missing"}`;
   el.keyText.textContent =
     state.keyLoaded === null ? "Checking the API key…" : state.keyLoaded ? "API key loaded from .env.local" : "API key missing";
   el.setup.hidden = state.keyLoaded !== false;
   el.setupText.textContent = state.setupMessage;
-  el.stageAudio.classList.toggle("active", ["recording", "preparing", "ready"].includes(state.phase));
+  el.stageAudio.classList.toggle("active", ["recording", "preparing", "ready", "listening", "hearing"].includes(state.phase));
   el.stageText.classList.toggle("active", ["transcribing", "transcribed"].includes(state.phase));
-  el.stageResult.classList.toggle("active", ["processing", "completed", "clarify", "saving"].includes(state.phase));
+  el.stageResult.classList.toggle("active", ["processing", "completed", "clarify", "saving", "speaking"].includes(state.phase));
 }
 
 function showText(node, text) {
@@ -490,13 +753,16 @@ for (const sector of el.sectors) {
   });
 }
 
-const toggleRecording = () => {
-  if (isBusy()) return;
+el.mic.addEventListener("click", () => {
+  if (isRecording()) stopRecording(false);
+  else if (convo.active) stopConversation();
+  else if (!isBusy()) startConversation();
+});
+el.newRecording.addEventListener("click", () => {
+  if (isBusy() || convo.active) return;
   if (isRecording()) stopRecording(false);
   else startRecording();
-};
-el.mic.addEventListener("click", toggleRecording);
-el.newRecording.addEventListener("click", toggleRecording);
+});
 
 el.addAudio.addEventListener("click", () => el.audioFile.click());
 el.audioFile.addEventListener("change", () => {
@@ -520,7 +786,8 @@ el.run.addEventListener("click", run);
 el.transcript.addEventListener("input", render);
 
 el.cancel.addEventListener("click", () => {
-  if (isRecording()) stopRecording(true);
+  if (convo.active) stopConversation();
+  else if (isRecording()) stopRecording(true);
   else controller?.abort();
 });
 el.dismissError.addEventListener("click", () => {
@@ -545,6 +812,9 @@ document.addEventListener("paste", (event) => {
   attachImage(item.getAsFile(), "Pasted image");
 });
 
+el.readAloud.addEventListener("click", () => {
+  if (state.result && !convo.active) speaker.speak(state.result);
+});
 el.copy.addEventListener("click", async () => {
   try {
     await navigator.clipboard.writeText(state.result);

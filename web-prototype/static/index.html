@@ -32,7 +32,9 @@
         <option value="English,Turkish">English + Turkish</option>
       </select>
     </label>
+    <label class="check"><input id="speakReplies" type="checkbox" checked> Speak replies aloud in conversations (macOS system voice)</label>
     <ul class="facts">
+      <li>Conversation: tap the microphone once. Nova answers when you pause and listens again; talk over it to interrupt. Headphones work best.</li>
       <li>Key: <code>MODEL_API_KEY</code> in <code>.env.local</code>, read by the local server only</li>
       <li>Speech to text: <span id="modelTranscribe">muse-voice-transcribe-1.0</span></li>
       <li>Text and images: <span id="modelReasoning">muse-spark-1.3</span> (Standard tier)</li>
@@ -75,13 +77,14 @@
           <span>Auto</span>
         </button>
         <div class="hub">
-          <button id="mic" class="mic" aria-label="Start recording">
+          <button id="mic" class="mic" aria-label="Start conversation">
             <svg id="micIcon" width="40" height="40" viewBox="0 0 24 24" class="stroke thick" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"></rect><path d="M5 11a7 7 0 0 0 14 0M12 18v3M9 21h6"></path></svg>
             <svg id="stopIcon" width="34" height="34" viewBox="0 0 24 24" class="fill" aria-hidden="true" hidden><rect x="6" y="6" width="12" height="12" rx="2"></rect></svg>
             <span id="micTime" class="mic-time" hidden>00:00</span>
           </button>
         </div>
       </div>
+      <p id="micHint" class="mic-hint">Tap to talk with Nova</p>
 
       <div class="clip">
         <button id="play" class="play" aria-label="Play recording" disabled>
@@ -170,6 +173,10 @@
         <p id="notice" class="notice" hidden></p>
         <div class="row">
           <span id="modelLabel" class="fineprint"></span>
+          <button id="readAloud" class="secondary" disabled>
+            <svg width="17" height="17" viewBox="0 0 24 24" class="stroke" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9z"></path><path d="M16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12"></path></svg>
+            <span>Read aloud</span>
+          </button>
           <button id="copy" class="secondary" disabled>
             <svg width="17" height="17" viewBox="0 0 24 24" class="stroke" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"></rect><path d="M5 15V5a2 2 0 0 1 2-2h8"></path></svg>
             <span>Copy</span>

@@ -109,11 +109,19 @@ svg.accent { color: var(--accent); }
   background: radial-gradient(circle at 35% 30%, #8cc0ff, #2f7af5 55%, #1b56c8 100%);
   box-shadow: 0 0 0 10px rgba(47, 122, 245, 0.12), 0 12px 34px rgba(47, 122, 245, 0.45);
 }
+/* --glow is set from the microphone level while a conversation is listening. */
+.mic.live {
+  box-shadow: 0 0 0 var(--glow, 10px) rgba(47, 122, 245, 0.22), 0 12px 34px rgba(47, 122, 245, 0.5);
+  transition: box-shadow 80ms linear;
+}
 .mic.recording {
   background: radial-gradient(circle at 35% 30%, #ff8a80, #d93025 70%);
-  box-shadow: 0 0 0 10px rgba(217, 48, 37, 0.15), 0 10px 30px rgba(217, 48, 37, 0.35);
+  box-shadow: 0 0 0 var(--glow, 10px) rgba(217, 48, 37, 0.18), 0 10px 30px rgba(217, 48, 37, 0.35);
 }
 .mic-time { font-size: 13px; font-variant-numeric: tabular-nums; }
+.mic-hint { margin: -6px 0 0; font-size: 13px; color: var(--ink-soft); }
+.check { display: flex; align-items: flex-start; gap: 8px; font-size: 13px; color: var(--ink); }
+.check input { margin-top: 2px; }
 
 .clip {
   width: 100%; max-width: 440px; background: var(--panel); border: 1px solid var(--line); border-radius: 14px;
@@ -167,7 +175,7 @@ textarea:focus, select:focus, button:focus-visible { outline: 2px solid var(--ac
 .pill { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px; border-radius: 14px; font-size: 13px; font-weight: 600; color: #4a5568; background: #eef1f6; }
 .pill-dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; display: block; }
 .pill.recording, .pill.error { color: var(--danger); background: #fdecea; }
-.pill.busy, .pill.ready { color: var(--accent-ink); background: #e6efff; }
+.pill.busy, .pill.ready, .pill.live { color: var(--accent-ink); background: #e6efff; }
 .pill.done { color: #1a6b33; background: #e7f6ec; }
 .pill.clarify { color: #8a4b00; background: #fff2e0; }
 

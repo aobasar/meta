@@ -64,6 +64,17 @@ STYLE_RULE = (
     "Markdown headings or bold; short '-' bullet lists are fine."
 )
 
+VOICE_RULE = (
+    "Your reply will be read aloud by a speech synthesizer in a spoken conversation. "
+    "Keep it short, at most three sentences unless the user asks for more, and avoid "
+    "lists, symbols and URLs."
+)
+
+# Actions that use earlier conversation turns; the others work on the given text only.
+CONVERSATIONAL_ACTIONS = ("ask", "plan_task")
+MAX_HISTORY_MESSAGES = 12
+MAX_HISTORY_CHARS = 4000
+
 ACTION_PROMPTS = {
     "ask": (
         "Answer the user's request or question directly and concisely, in the language "
@@ -144,10 +155,11 @@ class BadRequest(Exception):
 class UpstreamError(Exception):
     """Meta's API returned an error or could not be reached."""
 
-    def __init__(self, status: int, message: str):
+    def __init__(self, status: int, message: str, code: str | None = None):
         super().__init__(message)
         self.status = status
         self.message = message
+        self.code = code
 
 
 # ---------------------------------------------------------------------------
@@ -293,7 +305,7 @@ def transcribe(wav: bytes, languages: list[str], api_key: str, opener) -> dict:
     data = call_meta(request, api_key, opener)
     transcript = (data.get("transcript") or "").strip()
     if not transcript:
-        raise UpstreamError(0, "Meta returned an empty transcript. Was there speech in the recording?")
+        raise UpstreamError(0, "Meta returned an empty transcript. Was there speech in the recording?", "empty_transcript")
     return {
         "transcript": transcript,
         "sessionId": data.get("sessionId"),
@@ -341,12 +353,40 @@ def user_message(text: str, image: str | None) -> dict:
     }
 
 
-def build_messages(action: str, text: str, target_language: str, image: str | None) -> list[dict]:
+def build_messages(
+    action: str,
+    text: str,
+    target_language: str,
+    image: str | None,
+    history: list[dict] | None = None,
+    voice: bool = False,
+) -> list[dict]:
     instruction = ACTION_PROMPTS[action].format(language=target_language)
-    return [
-        {"role": "developer", "content": f"{STYLE_RULE}\n\n{instruction}"},
-        user_message(text, image),
-    ]
+    rules = f"{STYLE_RULE}\n\n{instruction}"
+    if voice:
+        rules += f"\n\n{VOICE_RULE}"
+    earlier = list(history or []) if action in CONVERSATIONAL_ACTIONS else []
+    return [{"role": "developer", "content": rules}, *earlier, user_message(text, image)]
+
+
+def parse_history(value) -> list[dict]:
+    """Validate earlier conversation turns sent by the page."""
+    if value is None:
+        return []
+    if not isinstance(value, list) or len(value) > MAX_HISTORY_MESSAGES:
+        raise BadRequest(f"History must be a list of at most {MAX_HISTORY_MESSAGES} messages.")
+    turns = []
+    for item in value:
+        if (
+            not isinstance(item, dict)
+            or item.get("role") not in ("user", "assistant")
+            or not isinstance(item.get("content"), str)
+            or not item["content"].strip()
+            or len(item["content"]) > MAX_HISTORY_CHARS
+        ):
+            raise BadRequest("Invalid conversation history.")
+        turns.append({"role": item["role"], "content": item["content"]})
+    return turns
 
 
 def build_auto_messages(text: str, has_result: bool, has_image: bool) -> list[dict]:
@@ -395,6 +435,8 @@ def run_request(body: dict, api_key: str, opener) -> dict:
     image = body.get("image") or None
     current_result = body.get("currentResult") or None
     target_language = str(body.get("targetLanguage") or "English").strip()
+    history = parse_history(body.get("history"))
+    voice = body.get("voice") is True
 
     if action not in ACTION_LABELS:
         raise BadRequest("Unknown action.")
@@ -421,7 +463,7 @@ def run_request(body: dict, api_key: str, opener) -> dict:
         label = f"Translate ({target_language})" if action == "translate" else ACTION_LABELS[action]
         note = f"Auto: {label}"
 
-    answer = chat(build_messages(action, text, target_language, image), api_key, opener)
+    answer = chat(build_messages(action, text, target_language, image, history, voice), api_key, opener)
     return {"kind": "result", "text": answer["text"], "model": answer["model"], "truncated": answer["truncated"], "note": note}
 
 
@@ -492,7 +534,7 @@ class NovaHandler(BaseHTTPRequestHandler):
         except BadRequest as exc:
             self._json(400, {"error": {"kind": "request", "message": str(exc)}})
         except UpstreamError as exc:
-            self._json(502, {"error": {"kind": "upstream", "status": exc.status, "message": exc.message}})
+            self._json(502, {"error": {"kind": "upstream", "status": exc.status, "code": exc.code, "message": exc.message}})
         except (BrokenPipeError, ConnectionResetError):
             pass  # the page canceled the request
 
