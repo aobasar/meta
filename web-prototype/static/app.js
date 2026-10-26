@@ -622,7 +622,7 @@ function speakReply(text) {
 
 function updateMicGlow() {
   const live = convo.active && (state.phase === "listening" || state.phase === "hearing");
-  const ring = live ? 10 + Math.min(18, Math.round(convo.level * 400)) : 10;
+  const ring = live ? 6 + Math.min(12, Math.round(convo.level * 300)) : 6;
   el.mic.style.setProperty("--glow", `${ring}px`);
 }
 

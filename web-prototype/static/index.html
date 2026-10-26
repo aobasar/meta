@@ -8,7 +8,7 @@
 <script type="module" src="/app.js"></script>
 </head>
 <body>
-<p class="topnote">Local prototype · real Meta Model API calls go through a server on this Mac · nothing is sent until you press a send or Run button</p>
+<p class="topnote">Local prototype · Meta Model API calls go through a server on this Mac</p>
 
 <main class="window">
   <header class="titlebar">
@@ -110,7 +110,6 @@
       </div>
 
       <button id="transcribe" class="primary wide" disabled>Send for transcription</button>
-      <p class="hint">The clip is converted to 24 kHz mono WAV in this tab and sent only when you press the button.</p>
     </section>
 
     <section class="right">
@@ -136,7 +135,7 @@
           <input id="imageFile" type="file" accept="image/png,image/jpeg,image/gif,image/webp" hidden>
         </div>
         <label class="field">Editable text · paste a screenshot with ⌘V to attach it
-          <textarea id="transcript" rows="4" placeholder="Record or add an audio file, then send it for transcription. You can also type here."></textarea>
+          <textarea id="transcript" rows="2" placeholder="Record or add an audio file, then send it for transcription. You can also type here."></textarea>
         </label>
         <div class="row">
           <span>Action: <strong id="actionLabel">Auto</strong></span>
