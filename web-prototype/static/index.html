@@ -191,6 +191,23 @@
     </section>
   </div>
 
+  <section class="workspace" aria-label="Lists and notes">
+    <div class="card">
+      <div class="card-head">
+        <svg width="22" height="22" viewBox="0 0 24 24" class="stroke accent" aria-hidden="true"><path d="M9 6h11M9 12h11M9 18h11"></path><path d="M4 6l1 1 2-2M4 12l1 1 2-2M4 18l1 1 2-2"></path></svg>
+        <h2>Lists</h2>
+      </div>
+      <div id="lists" class="workspace-body"></div>
+    </div>
+    <div class="card">
+      <div class="card-head">
+        <svg width="22" height="22" viewBox="0 0 24 24" class="stroke accent" aria-hidden="true"><path d="M6 3h9l4 4v14H6z"></path><path d="M14 3v5h5M9 12h7M9 16h5"></path></svg>
+        <h2>Notes</h2>
+      </div>
+      <div id="notes" class="workspace-body"></div>
+    </div>
+  </section>
+
   <footer class="statusbar">
     <span id="keyDot" class="dot"></span>
     <span id="keyText">Checking the API key…</span>
@@ -211,6 +228,17 @@
       <div class="dialog-actions">
         <button id="saveCancel" class="secondary">Cancel</button>
         <button id="saveConfirm" class="primary">Choose location and save</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="confirmModal" class="modal" hidden>
+    <div class="dialog" role="alertdialog" aria-modal="true" aria-labelledby="confirmTitle" aria-describedby="confirmText">
+      <h2 id="confirmTitle">Delete?</h2>
+      <p id="confirmText"></p>
+      <div class="dialog-actions">
+        <button id="confirmCancel" class="secondary">Cancel</button>
+        <button id="confirmOk" class="danger">Delete</button>
       </div>
     </div>
   </div>

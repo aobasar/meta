@@ -59,6 +59,9 @@ cp .env.example .env.local   # then set MODEL_API_KEY
 scripts/serve.sh             # serves http://127.0.0.1:9005 on this Mac only
 ```
 
+The server is registered in SwiftBar as **Nova** (port 9005), so you can also
+start and stop it from the menu bar.
+
 A small Python server reads
 `MODEL_API_KEY` from `.env.local` on each request and forwards calls to the Meta
 Model API, so the key never reaches the browser.
@@ -80,6 +83,16 @@ Model API, so the key never reaches the browser.
 - If you start talking while Nova is speaking, it stops.
 - Tap the microphone again to end, or stay quiet for a minute.
 - Headphones keep Nova from hearing its own voice.
+
+**Lists and notes.** Ask in your own words, by voice or text:
+- “Make a shopping list with milk, eggs and bread.”
+- “Add tomatoes to the shopping list.” / “I bought the milk, check it off.”
+- “Take a note: meeting with Ali tomorrow at 10, prepare the slides.”
+
+Nova uses Muse Spark tool calling to make these changes and shows them in the
+Lists and Notes panels. They are saved on this Mac in `web-prototype/data/`
+(git-ignored). Nova never deletes anything; deleting is done from the panels,
+after a confirmation.
 
 Paste a screenshot with ⌘V, or use **Attach image**, to ask about an image.
 Nothing is stored: recordings, images and results live only in the open tab.

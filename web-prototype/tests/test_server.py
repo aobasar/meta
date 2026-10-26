@@ -234,7 +234,7 @@ class HttpServerTests(unittest.TestCase):
         self.env = Path(self.tmp.name) / ".env.local"
         self.env.write_text(f"MODEL_API_KEY={FAKE_KEY}\n")
         self.opener = FakeOpener()
-        self.httpd = server.NovaServer(0, self.env, self.opener)
+        self.httpd = server.NovaServer(0, self.env, self.opener, data_dir=Path(self.tmp.name))
         self.port = self.httpd.server_address[1]
         self.origin = f"http://127.0.0.1:{self.port}"
         threading.Thread(target=self.httpd.serve_forever, daemon=True).start()

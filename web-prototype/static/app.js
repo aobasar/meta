@@ -61,6 +61,7 @@ const state = {
   keyLoaded: null,
   setupMessage: "",
   recordStartedAt: 0,
+  workspace: { notes: [], lists: [] },
 };
 
 // Live conversation session; everything here lives in memory only and is
@@ -115,6 +116,9 @@ const el = {
   keyDot: $("keyDot"), keyText: $("keyText"), cancel: $("cancel"),
   stageAudio: $("stageAudio"), stageText: $("stageText"), stageResult: $("stageResult"),
   saveModal: $("saveModal"), savePreview: $("savePreview"), saveCancel: $("saveCancel"), saveConfirm: $("saveConfirm"),
+  lists: $("lists"), notes: $("notes"),
+  confirmModal: $("confirmModal"), confirmTitle: $("confirmTitle"), confirmText: $("confirmText"),
+  confirmOk: $("confirmOk"), confirmCancel: $("confirmCancel"),
 };
 
 // ---------------------------------------------------------------------------
@@ -209,6 +213,10 @@ function postRun(text, signal, extra = {}) {
 function applyRunResult(data) {
   state.note = data.note || "";
   if (data.kind === "result") {
+    if (data.workspace) {
+      setWorkspace(data.workspace, data.changes);
+      state.note = [state.note, ...data.changes.map((change) => change.summary)].filter(Boolean).join(" · ");
+    }
     state.result = data.text;
     state.resultIsQuestion = false;
     state.model = data.model;
@@ -680,6 +688,126 @@ function downloadFallback(text) {
 }
 
 // ---------------------------------------------------------------------------
+// Lists and notes. Nova adds to them when asked; deleting happens only here,
+// after a confirmation.
+
+let pendingDelete = null;
+
+async function loadWorkspace() {
+  try {
+    setWorkspace(await readJson(await fetch("/api/workspace")));
+  } catch {
+    // The panels stay empty; the next answer that uses them refreshes them.
+  }
+}
+
+function setWorkspace(data, changes = []) {
+  state.workspace = { notes: data.notes ?? [], lists: data.lists ?? [] };
+  const fresh = new Set();
+  for (const change of changes) {
+    fresh.add(change.id);
+    for (const id of change.itemIds ?? []) fresh.add(id);
+  }
+  renderWorkspace(fresh);
+}
+
+async function editWorkspace(body) {
+  try {
+    const data = await readJson(
+      await fetch("/api/workspace", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })
+    );
+    setWorkspace(data);
+  } catch (err) {
+    state.notice = describeError(err);
+    render();
+    loadWorkspace();
+  }
+}
+
+function confirmDelete(title, text, body) {
+  pendingDelete = body;
+  el.confirmTitle.textContent = title;
+  el.confirmText.textContent = text;
+  el.confirmModal.hidden = false;
+  el.confirmCancel.focus();
+}
+
+function make(tag, props = {}, ...children) {
+  const node = Object.assign(document.createElement(tag), props);
+  node.append(...children);
+  return node;
+}
+
+function removeButton(label, onClick) {
+  const button = make("button", { className: "icon-remove", textContent: "×", type: "button" });
+  button.setAttribute("aria-label", label);
+  button.addEventListener("click", onClick);
+  return button;
+}
+
+const emptyHint = (text) => make("p", { className: "empty-hint", textContent: text });
+
+function renderWorkspace(fresh = new Set()) {
+  const { lists, notes } = state.workspace;
+  el.lists.replaceChildren(
+    ...(lists.length ? lists.map((list) => listNode(list, fresh)) : [emptyHint("No lists yet. Try “Make a shopping list with milk and eggs.”")])
+  );
+  el.notes.replaceChildren(
+    ...(notes.length ? notes.map((note) => noteNode(note, fresh)) : [emptyHint("No notes yet. Try “Take a note: call the dentist on Friday.”")])
+  );
+  if (fresh.size) setTimeout(() => document.querySelectorAll(".fresh").forEach((node) => node.classList.remove("fresh")), 4000);
+}
+
+function listNode(list, fresh) {
+  const done = list.items.filter((item) => item.done).length;
+  const head = make(
+    "div",
+    { className: "ws-head" },
+    make("h3", { textContent: list.name }),
+    make("span", { className: "ws-meta", textContent: `${done}/${list.items.length}` }),
+    removeButton(`Delete the list ${list.name}`, () =>
+      confirmDelete("Delete this list?", `“${list.name}” and its ${list.items.length} items will be deleted. This can't be undone.`, {
+        op: "delete_list",
+        id: list.id,
+      })
+    )
+  );
+  const items = make("ul", { className: "ws-items" }, ...list.items.map((item) => itemNode(list, item, fresh)));
+  return make("article", { className: `ws-list${fresh.has(list.id) ? " fresh" : ""}` }, head, items);
+}
+
+function itemNode(list, item, fresh) {
+  const box = make("input", { type: "checkbox", checked: item.done });
+  box.addEventListener("change", () => editWorkspace({ op: "toggle_item", id: list.id, itemId: item.id }));
+  return make(
+    "li",
+    { className: `ws-item${item.done ? " done" : ""}${fresh.has(item.id) ? " fresh" : ""}` },
+    make("label", {}, box, make("span", { textContent: item.text })),
+    removeButton(`Delete ${item.text}`, () =>
+      confirmDelete("Delete this item?", `“${item.text}” will be removed from “${list.name}”.`, {
+        op: "delete_item",
+        id: list.id,
+        itemId: item.id,
+      })
+    )
+  );
+}
+
+function noteNode(note, fresh) {
+  const when = new Date(note.updatedAt).toLocaleString([], { dateStyle: "medium", timeStyle: "short" });
+  const head = make(
+    "div",
+    { className: "ws-head" },
+    make("h3", { textContent: note.title }),
+    make("span", { className: "ws-meta", textContent: when }),
+    removeButton(`Delete the note ${note.title}`, () =>
+      confirmDelete("Delete this note?", `“${note.title}” will be deleted. This can't be undone.`, { op: "delete_note", id: note.id })
+    )
+  );
+  return make("article", { className: `ws-note${fresh.has(note.id) ? " fresh" : ""}` }, head, make("p", { textContent: note.text }));
+}
+
+// ---------------------------------------------------------------------------
 // Images
 
 async function attachImage(blob, name) {
@@ -892,6 +1020,17 @@ el.saveCancel.addEventListener("click", () => {
   render();
 });
 el.saveConfirm.addEventListener("click", confirmSave);
+el.confirmCancel.addEventListener("click", () => {
+  pendingDelete = null;
+  el.confirmModal.hidden = true;
+});
+el.confirmOk.addEventListener("click", () => {
+  const body = pendingDelete;
+  pendingDelete = null;
+  el.confirmModal.hidden = true;
+  if (body) editWorkspace(body);
+});
 
 render();
 refreshKeyStatus();
+loadWorkspace();

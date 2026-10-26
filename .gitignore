@@ -25,3 +25,4 @@ venv/
 # Local tooling
 AOB/
 .claude-sessions
+web-prototype/data/
