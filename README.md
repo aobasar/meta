@@ -4,28 +4,36 @@
 
 ## Overview
 
-Movo is our entry for the Meta Global AI Developer Hackathon. This repository
-holds all project files: source code, documentation, demo assets, and
-submission materials.
+Movo is a macOS AI companion that helps users understand on-screen content,
+translate and rewrite text, and complete desktop tasks through voice commands
+and a contextual radial menu.
 
-**Status:** 🚧 Early setup. The product concept is being finalized.
+**Status:** 🚧 Early prototype. This description is a working draft.
 
-## Problem
+## How It Works
 
-_TBD: the problem Movo solves and who it is for._
-
-## Solution
-
-_TBD: what Movo does and how it uses AI._
+1. The user shares context (on-screen content or selected text) by voice or
+   through the radial menu.
+2. Meta open-weight models, deployed behind inference endpoints on
+   [Modal](https://modal.com) GPU infrastructure, interpret the context and
+   plan multi-step actions.
+3. The macOS app executes approved actions through local tools and verifies
+   the results.
 
 ## Key Features
 
-- _TBD_
+- Understand and explain on-screen content
+- Translate and rewrite text
+- Complete desktop tasks with voice commands
+- Contextual radial menu for quick actions
+- User approval before any action runs
 
 ## Tech Stack
 
-_TBD: models (e.g. Llama), frameworks, and infrastructure will be listed here
-once chosen._
+- **Client:** native macOS app
+- **Models:** Meta open-weight models
+- **Inference:** Modal GPU endpoints, also used to measure latency,
+  reliability, and inference cost during prototyping
 
 ## Getting Started
 
