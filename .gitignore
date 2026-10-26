@@ -1,8 +1,9 @@
 # macOS
 .DS_Store
 
-# Environment / secrets
+# Environment / secrets (API keys live in .env.local)
 .env
+.env.local
 .env.*
 !.env.example
 

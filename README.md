@@ -46,7 +46,8 @@ _TBD_
 ```bash
 git clone https://github.com/aobasar/Nova.git
 cd Nova
-# setup steps will be added once the stack is chosen
+cp .env.example .env.local   # then fill in your API keys
+# further setup steps will be added once the stack is chosen
 ```
 
 ### Running
@@ -59,6 +60,7 @@ _TBD_
 Nova/
 ├── README.md     # This file
 ├── CLAUDE.md     # Rules for AI-assisted development in this repo
+├── .env.example  # Required environment variables (copy to .env.local)
 └── .gitignore
 ```
 
