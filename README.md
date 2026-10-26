@@ -1,6 +1,8 @@
 # Nova
 
-> Project repository for the **Meta Global AI Developer Hackathon**.
+> Project repository for the **Meta Global AI Developer Hackathon**
+> (Oct 26 – Nov 4, 2026). Rules, dates, and judging criteria:
+> [HACKATHON.md](HACKATHON.md).
 
 ## Overview
 
@@ -59,6 +61,7 @@ _TBD_
 ```
 Nova/
 ├── README.md     # This file
+├── HACKATHON.md  # Hackathon rules, dates, and judging criteria
 ├── CLAUDE.md     # Rules for AI-assisted development in this repo
 ├── .env.example  # Required environment variables (copy to .env.local)
 └── .gitignore
@@ -66,12 +69,16 @@ Nova/
 
 ## Hackathon Submission Checklist
 
-- [ ] Finalize the product concept
-- [ ] Choose the tech stack
+Submissions are due **Nov 4, 9:00 PM ET (6:00 PM PT)**.
+
+- [ ] Pick the problem statement Nova fits
+- [ ] Choose the track (Indie or Startup)
+- [ ] Claim Meta Model API credits (by Nov 4, 9:00 PM ET)
+- [ ] Finalize the product concept and tech stack
 - [ ] Build the MVP
 - [ ] Record the demo video
 - [ ] Decide on repository visibility (currently private) and add a license
-- [ ] Submit
+- [ ] Submit through the Cerebral Valley portal
 
 ## Team
 
