@@ -55,7 +55,7 @@ code { font-size: 12px; background: #eef3fb; padding: 1px 4px; border-radius: 4p
 svg.stroke { fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 svg.stroke.thick { stroke-width: 2; }
 svg.fill { fill: currentColor; }
-svg.star-icon { fill: var(--accent); }
+svg.nova-icon { fill: var(--accent); }
 svg.accent { color: var(--accent); }
 
 .icon-button { width: 44px; height: 36px; border: 0; background: transparent; color: var(--ink-soft); border-radius: 8px; display: flex; align-items: center; justify-content: center; }

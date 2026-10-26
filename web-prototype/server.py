@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Local prototype server for Star.
+"""Local prototype server for Nova.
 
 Serves the web UI and forwards its requests to the Meta Model API. The API key
 is read from .env.local on every request and never leaves this process: the
@@ -60,7 +60,7 @@ ACTION_LABELS = {
 EXECUTABLE_ACTIONS = ("ask", "translate", "rewrite", "summarize", "plan_task")
 
 STYLE_RULE = (
-    "You are Star, a desktop assistant on the user's Mac. Write plain text without "
+    "You are Nova, a desktop assistant on the user's Mac. Write plain text without "
     "Markdown headings or bold; short '-' bullet lists are fine."
 )
 
@@ -98,7 +98,7 @@ AUTO_ACTIONS = [
     "save_result_as_text_file", "clarify",
 ]
 
-AUTO_PROMPT = """You route spoken requests for Star, a desktop assistant. Pick exactly one action:
+AUTO_PROMPT = """You route spoken requests for Nova, a desktop assistant. Pick exactly one action:
 - ask: a question or a general request.
 - translate: translate text. Set target_language to the English name of the target language, such as "English".
 - rewrite: rewrite or polish text.
@@ -114,7 +114,7 @@ Context: a current result exists: {has_result}. An image is attached: {has_image
 AUTO_RESPONSE_FORMAT = {
     "type": "json_schema",
     "json_schema": {
-        "name": "star_intent",
+        "name": "nova_intent",
         "schema": {
             "type": "object",
             "properties": {
@@ -272,7 +272,7 @@ def transcribe(wav: bytes, languages: list[str], api_key: str, opener) -> dict:
     settings = {"model": TRANSCRIBE_MODEL, "audioEncoding": "WAV", "mode": "PUSH_TO_TALK"}
     if languages:
         settings["languageBias"] = languages
-    boundary = f"star-{uuid.uuid4().hex}"
+    boundary = f"nova-{uuid.uuid4().hex}"
     body = build_multipart(
         [
             ("request", None, "application/json", json.dumps(settings).encode()),
@@ -435,11 +435,11 @@ CSP = (
 )
 
 
-class StarServer(ThreadingHTTPServer):
+class NovaServer(ThreadingHTTPServer):
     daemon_threads = True
 
     def __init__(self, port: int, env_file: Path, opener=urllib.request.urlopen):
-        super().__init__(("127.0.0.1", port), StarHandler)
+        super().__init__(("127.0.0.1", port), NovaHandler)
         self.env_file = env_file
         self.opener = opener
         bound = self.server_address[1]
@@ -447,9 +447,9 @@ class StarServer(ThreadingHTTPServer):
         self.allowed_origins = {f"http://{host}" for host in self.allowed_hosts}
 
 
-class StarHandler(BaseHTTPRequestHandler):
-    server: StarServer
-    server_version = "StarPrototype/0.1"
+class NovaHandler(BaseHTTPRequestHandler):
+    server: NovaServer
+    server_version = "NovaPrototype/0.1"
 
     # Requests only from this machine's own pages: the Host check blocks DNS
     # rebinding, the Origin check blocks other websites posting to localhost.
@@ -462,7 +462,7 @@ class StarHandler(BaseHTTPRequestHandler):
     def _origin_ok(self) -> bool:
         if self.headers.get("Origin") in self.server.allowed_origins:
             return True
-        self._json(403, {"error": {"kind": "request", "message": "Requests must come from the Star page."}})
+        self._json(403, {"error": {"kind": "request", "message": "Requests must come from the Nova page."}})
         return False
 
     def do_GET(self) -> None:
@@ -576,12 +576,12 @@ class StarHandler(BaseHTTPRequestHandler):
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Run the Star local web prototype.")
-    parser.add_argument("--port", type=int, default=int(os.environ.get("STAR_PORT", DEFAULT_PORT)))
+    parser = argparse.ArgumentParser(description="Run the Nova local web prototype.")
+    parser.add_argument("--port", type=int, default=int(os.environ.get("NOVA_PORT", DEFAULT_PORT)))
     args = parser.parse_args()
-    env_file = Path(os.environ.get("STAR_ENV_FILE", DEFAULT_ENV_FILE)).expanduser()
-    server = StarServer(args.port, env_file)
-    print(f"Star prototype: http://127.0.0.1:{args.port}  (key file: {env_file})", flush=True)
+    env_file = Path(os.environ.get("NOVA_ENV_FILE", DEFAULT_ENV_FILE)).expanduser()
+    server = NovaServer(args.port, env_file)
+    print(f"Nova prototype: http://127.0.0.1:{args.port}  (key file: {env_file})", flush=True)
     try:
         server.serve_forever()
     except KeyboardInterrupt:

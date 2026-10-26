@@ -59,7 +59,7 @@ cp .env.example .env.local   # then set MODEL_API_KEY
 scripts/serve.sh             # serves http://127.0.0.1:9005 on this Mac only
 ```
 
-The prototype is called Star for now. A small Python server reads
+A small Python server reads
 `MODEL_API_KEY` from `.env.local` on each request and forwards calls to the Meta
 Model API, so the key never reaches the browser.
 

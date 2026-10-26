@@ -128,7 +128,7 @@ function handleRequestError(err, canceledNotice) {
     return;
   }
   if (err instanceof TypeError) {
-    fail("Couldn't reach the local Star server. Is it still running?");
+    fail("Couldn't reach the local Nova server. Is it still running?");
     return;
   }
   if (err.kind === "setup") refreshKeyStatus();
@@ -145,7 +145,7 @@ async function refreshKeyStatus() {
     state.setupMessage = data.message || "";
   } catch {
     state.keyLoaded = false;
-    state.setupMessage = "Couldn't reach the local Star server.";
+    state.setupMessage = "Couldn't reach the local Nova server.";
   }
   render();
 }
@@ -326,7 +326,7 @@ async function confirmSave() {
   let handle;
   try {
     handle = await window.showSaveFilePicker({
-      suggestedName: "Star result.txt",
+      suggestedName: "Nova result.txt",
       types: [{ description: "Text file", accept: { "text/plain": [".txt"] } }],
     });
   } catch (err) {
@@ -345,7 +345,7 @@ async function confirmSave() {
     await writable.write(text);
     await writable.close();
     const readBack = await (await handle.getFile()).text();
-    if (readBack !== text) throw new Error("the file on disk doesn't match what Star wrote");
+    if (readBack !== text) throw new Error("the file on disk doesn't match what Nova wrote");
     const bytes = new TextEncoder().encode(text).length;
     state.saved = `Saved and verified: “${handle.name}” in the folder you chose · ${bytes} bytes.`;
     setPhase("completed");
@@ -358,7 +358,7 @@ function downloadFallback(text) {
   const url = URL.createObjectURL(new Blob([text], { type: "text/plain;charset=utf-8" }));
   const link = document.createElement("a");
   link.href = url;
-  link.download = "Star result.txt";
+  link.download = "Nova result.txt";
   link.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
   state.notice = "Handed to the browser as a download. This browser can't confirm the write, so it isn't marked as saved. Use Chrome or Edge for a verified save.";

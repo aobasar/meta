@@ -1,4 +1,4 @@
-"""Tests for the Star prototype server. Meta is never called: a fake opener
+"""Tests for the Nova prototype server. Meta is never called: a fake opener
 stands in for urllib and records each outgoing request."""
 
 import io
@@ -234,7 +234,7 @@ class HttpServerTests(unittest.TestCase):
         self.env = Path(self.tmp.name) / ".env.local"
         self.env.write_text(f"MODEL_API_KEY={FAKE_KEY}\n")
         self.opener = FakeOpener()
-        self.httpd = server.StarServer(0, self.env, self.opener)
+        self.httpd = server.NovaServer(0, self.env, self.opener)
         self.port = self.httpd.server_address[1]
         self.origin = f"http://127.0.0.1:{self.port}"
         threading.Thread(target=self.httpd.serve_forever, daemon=True).start()
@@ -271,7 +271,7 @@ class HttpServerTests(unittest.TestCase):
     def test_serves_ui_with_csp(self):
         status, body, headers = self.request("/")
         self.assertEqual(status, 200)
-        self.assertIn(b"<title>Star", body)
+        self.assertIn(b"<title>Nova", body)
         self.assertIn("default-src 'self'", headers["Content-Security-Policy"])
 
     def test_blocks_path_traversal(self):
