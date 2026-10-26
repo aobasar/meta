@@ -1,10 +1,10 @@
-# Movo
+# Nova
 
 > Project repository for the **Meta Global AI Developer Hackathon**.
 
 ## Overview
 
-Movo is a macOS AI companion that helps users understand on-screen content,
+Nova is a macOS AI companion that helps users understand on-screen content,
 translate and rewrite text, and complete desktop tasks through voice commands
 and a contextual radial menu.
 
@@ -44,8 +44,8 @@ _TBD_
 ### Installation
 
 ```bash
-git clone https://github.com/aobasar/Movo.git
-cd Movo
+git clone https://github.com/aobasar/Nova.git
+cd Nova
 # setup steps will be added once the stack is chosen
 ```
 
@@ -56,7 +56,7 @@ _TBD_
 ## Project Structure
 
 ```
-Movo/
+Nova/
 ├── README.md     # This file
 ├── CLAUDE.md     # Rules for AI-assisted development in this repo
 └── .gitignore
