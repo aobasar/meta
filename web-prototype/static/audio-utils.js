@@ -30,6 +30,16 @@ export function encodeWav16(samples, sampleRate) {
   return buffer;
 }
 
+/** Mono float samples (-1...1) as signed 16-bit little-endian PCM bytes. */
+export function toPcm16(samples) {
+  const view = new DataView(new ArrayBuffer(samples.length * 2));
+  for (let i = 0; i < samples.length; i += 1) {
+    const s = Math.max(-1, Math.min(1, samples[i]));
+    view.setInt16(i * 2, s < 0 ? Math.round(s * 0x8000) : Math.round(s * 0x7fff), true);
+  }
+  return view.buffer;
+}
+
 function writeAscii(view, offset, text) {
   for (let i = 0; i < text.length; i += 1) view.setUint8(offset + i, text.charCodeAt(i));
 }

@@ -15,12 +15,16 @@ import json
 import os
 import re
 import sys
+import threading
+import time
 import urllib.error
 import urllib.request
 import uuid
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs
+
+import ws
 
 HERE = Path(__file__).resolve().parent
 REPO_ROOT = HERE.parent
@@ -40,6 +44,11 @@ REASONING_MODEL = "muse-spark-1.3"
 MAX_AUDIO_BYTES = 32 * 1024 * 1024  # Meta's transcribe request limit
 MAX_RUN_BYTES = 40 * 1024 * 1024  # text plus an inline image
 UPSTREAM_TIMEOUT_SECONDS = 120
+
+REALTIME_URL = "wss://api.meta.ai/v1/asr/realtime"
+REALTIME_MAX_SECONDS = 120  # one conversation turn; Meta allows 60-minute sessions
+REALTIME_HANDSHAKE_SECONDS = 10
+MAX_LANGUAGE_HINTS = 3
 
 # Languages Muse Voice Transcribe supports, as named in Meta's docs.
 SPEECH_LANGUAGES = {
@@ -486,22 +495,158 @@ def run_request(body: dict, api_key: str, opener) -> dict:
 
 
 # ---------------------------------------------------------------------------
+# Realtime transcription relay
+#
+# The page streams one spoken turn over a WebSocket to this server, which
+# forwards it to Meta's realtime endpoint. The key only appears in the
+# handshake this server sends to Meta, never in anything sent to the page.
+
+
+def parse_languages(value) -> list[str]:
+    if value is None:
+        return []
+    if (
+        not isinstance(value, list)
+        or len(value) > MAX_LANGUAGE_HINTS
+        or any(name not in SPEECH_LANGUAGES for name in value)
+    ):
+        raise BadRequest("Unsupported speech language hint.")
+    return list(value)
+
+
+def open_realtime(api_key: str, languages: list[str], connect) -> tuple[ws.WebSocket, str]:
+    """Open a Meta realtime session in ENDPOINTING mode; returns (socket, sessionId)."""
+    try:
+        upstream = connect(f"{REALTIME_URL}?sessionId=nova-{uuid.uuid4().hex}")
+    except (OSError, ws.HandshakeError) as exc:
+        raise UpstreamError(0, f"Couldn't open Meta's realtime session ({exc.__class__.__name__}).") from None
+    handshake = {
+        "authorization": {"accessToken": f"Bearer {api_key}"},
+        "audioEncoding": "PCM_24KHZ",
+        "model": TRANSCRIBE_MODEL,
+        "mode": "ENDPOINTING",
+        "partialMode": "CUMULATIVE",
+        "emitAudioProgress": False,
+    }
+    if languages:
+        handshake["languageBias"] = languages
+    try:
+        upstream.sock.settimeout(REALTIME_HANDSHAKE_SECONDS)
+        upstream.send_text(json.dumps(handshake))
+        _, payload = upstream.recv()
+        upstream.sock.settimeout(None)
+        ack = json.loads(payload)
+    except ws.WebSocketClosed as closed:
+        upstream.shutdown()
+        reason = redact(closed.reason, api_key)
+        raise UpstreamError(closed.code or 0, f"Meta closed the realtime session ({closed.code}). {reason}".strip()) from None
+    except (OSError, ValueError):
+        upstream.shutdown()
+        raise UpstreamError(0, "Meta's realtime session didn't answer the handshake.") from None
+    if not isinstance(ack, dict) or "sessionId" not in ack:
+        upstream.shutdown()
+        message = ack.get("message") if isinstance(ack, dict) else None
+        raise UpstreamError(0, redact(str(message or "Meta rejected the realtime handshake."), api_key))
+    return upstream, str(ack["sessionId"])
+
+
+def relay_realtime(browser: ws.WebSocket, env_file: Path, connect) -> None:
+    """Run one realtime turn: page audio to Meta, Meta events back to the page."""
+
+    def send_event(event: dict) -> None:
+        try:
+            browser.send_text(json.dumps(event))
+        except (OSError, ws.WebSocketClosed):
+            pass
+
+    api_key = ""
+    try:
+        opcode, payload = browser.recv()
+        config = json.loads(payload) if opcode == ws.OP_TEXT else None
+        if not isinstance(config, dict):
+            raise BadRequest("The first message must be the JSON configuration.")
+        languages = parse_languages(config.get("languages"))
+        api_key = load_api_key(env_file)
+        upstream, session_id = open_realtime(api_key, languages, connect)
+    except ConfigError as exc:
+        send_event({"type": "error", "kind": "setup", "message": str(exc)})
+        return
+    except BadRequest as exc:
+        send_event({"type": "error", "kind": "request", "message": str(exc)})
+        return
+    except UpstreamError as exc:
+        send_event({"type": "error", "kind": "upstream", "message": exc.message})
+        return
+    except (ValueError, OSError, ws.WebSocketClosed):
+        return
+
+    send_event({"type": "ready", "sessionId": session_id, "model": TRANSCRIBE_MODEL})
+    upstream_done = threading.Event()
+
+    def pump_events() -> None:
+        try:
+            while True:
+                opcode, payload = upstream.recv()
+                if opcode != ws.OP_TEXT:
+                    continue
+                event = json.loads(payload)
+                if not isinstance(event, dict):
+                    continue
+                if event.get("type") == "error":
+                    event = {"type": "error", "kind": "upstream", "message": redact(str(event.get("message", "")), api_key)}
+                send_event(event)
+        except ws.WebSocketClosed as closed:
+            if closed.code not in (None, 1000):
+                reason = redact(closed.reason, api_key)
+                send_event({"type": "error", "kind": "upstream", "message": f"Meta closed the realtime session ({closed.code}). {reason}".strip()})
+        except (OSError, ValueError):
+            pass
+        finally:
+            upstream_done.set()
+            send_event({"type": "closed"})
+            browser.close()
+
+    threading.Thread(target=pump_events, daemon=True).start()
+
+    deadline = time.monotonic() + REALTIME_MAX_SECONDS
+    try:
+        while not upstream_done.is_set() and time.monotonic() < deadline:
+            opcode, payload = browser.recv()
+            if opcode == ws.OP_BINARY:
+                upstream.send_binary(payload)
+            elif opcode == ws.OP_TEXT and json.loads(payload).get("type") == "endStream":
+                break
+    except (ws.WebSocketClosed, OSError, ValueError, AttributeError):
+        pass
+    try:
+        upstream.send_text(json.dumps({"type": "endStream"}))
+    except (OSError, ws.WebSocketClosed):
+        pass
+    # Let Meta flush the final transcript, then make sure both sides are closed.
+    upstream_done.wait(timeout=10)
+    upstream.close()
+    upstream.shutdown()
+    browser.close()
+
+
+# ---------------------------------------------------------------------------
 # HTTP server
 
 CONTENT_TYPES = {".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8", ".svg": "image/svg+xml"}
 CSP = (
     "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; "
-    "media-src 'self' blob:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'"
+    "media-src 'self' blob:; connect-src 'self' {websockets}; frame-ancestors 'none'; base-uri 'none'"
 )
 
 
 class NovaServer(ThreadingHTTPServer):
     daemon_threads = True
 
-    def __init__(self, port: int, env_file: Path, opener=urllib.request.urlopen):
+    def __init__(self, port: int, env_file: Path, opener=urllib.request.urlopen, ws_connect=ws.connect):
         super().__init__(("127.0.0.1", port), NovaHandler)
         self.env_file = env_file
         self.opener = opener
+        self.ws_connect = ws_connect
         bound = self.server_address[1]
         self.allowed_hosts = {f"127.0.0.1:{bound}", f"localhost:{bound}"}
         self.allowed_origins = {f"http://{host}" for host in self.allowed_hosts}
@@ -531,8 +676,30 @@ class NovaHandler(BaseHTTPRequestHandler):
         path = self.path.split("?", 1)[0]
         if path == "/api/status":
             self._json(200, self._status())
+        elif path == "/api/realtime":
+            self._realtime()
         else:
             self._static(path)
+
+    def _realtime(self) -> None:
+        if not self._origin_ok():
+            return
+        key = self.headers.get("Sec-WebSocket-Key")
+        if self.headers.get("Upgrade", "").lower() != "websocket" or not key:
+            self._json(400, {"error": {"kind": "request", "message": "Expected a WebSocket upgrade."}})
+            return
+        self.send_response(101)
+        self.send_header("Upgrade", "websocket")
+        self.send_header("Connection", "Upgrade")
+        self.send_header("Sec-WebSocket-Accept", ws.accept_key(key))
+        self.end_headers()
+        self.wfile.flush()
+        self.close_connection = True
+        browser = ws.WebSocket(self.rfile, self.connection, mask_outgoing=False)
+        try:
+            relay_realtime(browser, self.server.env_file, self.server.ws_connect)
+        finally:
+            browser.close()
 
     def do_POST(self) -> None:
         if not self._host_ok() or not self._origin_ok():
@@ -615,7 +782,8 @@ class NovaHandler(BaseHTTPRequestHandler):
         self.send_header("Content-Type", CONTENT_TYPES.get(target.suffix, "application/octet-stream"))
         self.send_header("Content-Length", str(len(data)))
         self.send_header("Cache-Control", "no-store")
-        self.send_header("Content-Security-Policy", CSP)
+        websockets = " ".join(f"ws://{host}" for host in sorted(self.server.allowed_hosts))
+        self.send_header("Content-Security-Policy", CSP.format(websockets=websockets))
         self.send_header("X-Content-Type-Options", "nosniff")
         self.end_headers()
         self.wfile.write(data)

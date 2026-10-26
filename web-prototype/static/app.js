@@ -1,4 +1,5 @@
 import { computeBars, encodeWav16, formatTime } from "./audio-utils.js";
+import { RealtimeTurn } from "./realtime.js";
 import { Speaker } from "./speaker.js";
 import { looksLikeEcho, rms, VoiceActivityDetector } from "./voice-utils.js";
 
@@ -15,6 +16,7 @@ const MIN_UTTERANCE_SECONDS = 0.4;
 const MAX_UTTERANCE_FRAMES = (60 * 1000) / FRAME_MS;
 const IDLE_LIMIT_MS = 60 * 1000; // end the conversation after a minute without speech
 const MAX_HISTORY_MESSAGES = 12;
+const REALTIME_FLUSH_MS = 2500; // how long to wait for Meta's final transcript after local end-of-speech
 
 const ACTION_LABELS = {
   auto: "Auto",
@@ -80,6 +82,9 @@ const convo = {
   lastActivity: 0,
   idleTimer: null,
   level: 0,
+  realtime: null, // RealtimeTurn streaming the current utterance, if any
+  inflightText: "", // transcript of the turn waiting for an answer
+  carry: "", // that transcript, kept when the user keeps talking over it
 };
 
 let recorder = null;
@@ -94,7 +99,7 @@ const speaker = new Speaker();
 const $ = (id) => document.getElementById(id);
 const el = {
   settingsButton: $("settingsButton"), settings: $("settings"), speechHint: $("speechHint"), recheckKey: $("recheckKey"),
-  speakReplies: $("speakReplies"),
+  speakReplies: $("speakReplies"), realtimeAsr: $("realtimeAsr"),
   setup: $("setup"), setupText: $("setupText"),
   ring: $("ring"), sectors: [...document.querySelectorAll(".sector")],
   mic: $("mic"), micIcon: $("micIcon"), stopIcon: $("stopIcon"), micTime: $("micTime"), micHint: $("micHint"),
@@ -171,6 +176,10 @@ function describeError(err) {
   if (err instanceof TypeError) return "Couldn't reach the local Nova server. Is it still running?";
   if (err.kind === "setup") refreshKeyStatus();
   return err.message;
+}
+
+function languageHints() {
+  return el.speechHint.value ? el.speechHint.value.split(",") : [];
 }
 
 function postTranscribe(wavBlob, signal) {
@@ -410,13 +419,17 @@ function stopConversation(notice = "Conversation ended. The microphone is off.")
   convo.turnId += 1;
   convo.turnController?.abort();
   convo.turnController = null;
+  convo.realtime?.abort();
   speaker.cancel();
   clearInterval(convo.idleTimer);
   convo.node?.port.close();
   convo.node?.disconnect();
   convo.stream?.getTracks().forEach((track) => track.stop());
   convo.context?.close();
-  Object.assign(convo, { context: null, stream: null, node: null, vad: null, preroll: [], utterance: [], capturing: false, history: [], level: 0 });
+  Object.assign(convo, {
+    context: null, stream: null, node: null, vad: null, preroll: [], utterance: [], capturing: false, history: [], level: 0,
+    realtime: null, inflightText: "", carry: "",
+  });
   state.notice = notice;
   setPhase(restingPhase());
 }
@@ -433,7 +446,10 @@ function onConversationFrame(frame) {
   convo.level = level;
   convo.preroll.push(frame);
   if (convo.preroll.length > PREROLL_FRAMES) convo.preroll.shift();
-  if (convo.capturing) convo.utterance.push(frame);
+  if (convo.capturing) {
+    convo.utterance.push(frame);
+    convo.realtime?.pushFrame(frame);
+  }
 
   let event = convo.vad.push(level, { strict: state.phase === "speaking" });
   if (convo.capturing && convo.utterance.length >= MAX_UTTERANCE_FRAMES) {
@@ -441,7 +457,7 @@ function onConversationFrame(frame) {
     event = "end";
   }
   if (event === "start") onSpeechStart();
-  else if (event === "end" && convo.capturing) onSpeechEnd();
+  else if (event === "end" && convo.capturing) finishUtterance();
   updateMicGlow();
 }
 
@@ -452,18 +468,42 @@ function onSpeechStart() {
     speaker.pause();
     convo.pausedForBargeIn = true;
   } else if (state.phase === "transcribing" || state.phase === "processing") {
-    // The user kept talking: drop the pending answer and take the new turn.
+    // The user kept talking: drop the pending answer, keep what they said so
+    // far, and take it together with the new speech.
+    convo.carry = convo.inflightText;
     convo.turnId += 1;
     convo.turnController?.abort();
   }
   convo.capturing = true;
   convo.utterance = [...convo.preroll];
+  convo.realtime = el.realtimeAsr.checked ? startRealtime() : null;
+  for (const frame of convo.preroll) convo.realtime?.pushFrame(frame);
   setPhase("hearing");
 }
 
-function onSpeechEnd() {
+// Stream the utterance to Meta while the user talks. Meta's own end-of-speech
+// detection usually finishes the turn before the local silence timer does.
+function startRealtime() {
+  const realtime = new RealtimeTurn({
+    languages: languageHints(),
+    onPartial: (text) => {
+      if (convo.realtime === realtime && convo.capturing) {
+        el.transcript.value = convo.carry ? `${convo.carry} ${text}` : text;
+      }
+    },
+  });
+  realtime.done.then((outcome) => {
+    if (convo.realtime === realtime && convo.capturing && outcome.complete) finishUtterance();
+  });
+  return realtime;
+}
+
+function finishUtterance() {
   convo.capturing = false;
   convo.lastActivity = Date.now();
+  convo.vad.reset();
+  const realtime = convo.realtime;
+  convo.realtime = null;
   const frames = convo.utterance;
   convo.utterance = [];
   const samples = new Float32Array(frames.reduce((total, frame) => total + frame.length, 0));
@@ -472,12 +512,15 @@ function onSpeechEnd() {
     samples.set(frame, offset);
     offset += frame.length;
   }
-  if (samples.length < SAMPLE_RATE * MIN_UTTERANCE_SECONDS) {
+  if (samples.length < SAMPLE_RATE * MIN_UTTERANCE_SECONDS && !realtime?.finalText) {
+    realtime?.abort();
     resumeAfterNoise();
     return;
   }
-  handleTurn(samples);
+  handleTurn(samples, realtime);
 }
+
+const within = (promise, ms) => Promise.race([promise, new Promise((resolve) => setTimeout(() => resolve(null), ms))]);
 
 // A false start (a cough, a click, Nova's echo): carry on as before.
 function resumeAfterNoise() {
@@ -490,7 +533,7 @@ function resumeAfterNoise() {
   }
 }
 
-async function handleTurn(samples) {
+async function handleTurn(samples, realtime) {
   const turn = ++convo.turnId;
   const turnController = new AbortController();
   convo.turnController = turnController;
@@ -499,9 +542,19 @@ async function handleTurn(samples) {
   clearMessages();
   setPhase("transcribing");
   try {
-    const heard = await postTranscribe(wav, turnController.signal);
+    // Prefer the realtime transcript; fall back to uploading the clip.
+    let heard = null;
+    if (realtime) {
+      realtime.end();
+      const outcome = await within(realtime.done, REALTIME_FLUSH_MS);
+      if (outcome?.error?.kind === "setup") throw new RequestError(outcome.error.message, "setup");
+      heard = outcome?.text ?? null;
+      if (!outcome?.complete) realtime.abort();
+    }
     if (turn !== convo.turnId) return;
-    if (convo.pausedForBargeIn && looksLikeEcho(heard.transcript, convo.spokenText)) {
+    if (!heard) heard = (await postTranscribe(wav, turnController.signal)).transcript;
+    if (turn !== convo.turnId) return;
+    if (convo.pausedForBargeIn && looksLikeEcho(heard, convo.spokenText)) {
       resumeAfterNoise();
       return;
     }
@@ -509,13 +562,19 @@ async function handleTurn(samples) {
       speaker.cancel();
       convo.pausedForBargeIn = false;
     }
-    el.transcript.value = heard.transcript;
+    if (convo.carry) {
+      heard = `${convo.carry} ${heard}`;
+      convo.carry = "";
+    }
+    convo.inflightText = heard;
+    el.transcript.value = heard;
     setPhase("processing");
-    const data = await postRun(heard.transcript, turnController.signal, { history: convo.history, voice: true });
+    const data = await postRun(heard, turnController.signal, { history: convo.history, voice: true });
     if (turn !== convo.turnId) return;
+    convo.inflightText = "";
     const reply = applyRunResult(data);
     if (data.kind === "result" || data.kind === "clarify") {
-      convo.history.push({ role: "user", content: heard.transcript }, { role: "assistant", content: reply });
+      convo.history.push({ role: "user", content: heard }, { role: "assistant", content: reply });
       convo.history = convo.history.slice(-MAX_HISTORY_MESSAGES);
     }
     speakReply(reply);

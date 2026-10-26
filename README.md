@@ -73,7 +73,9 @@ Model API, so the key never reaches the browser.
    verify the write.
 
 **Conversation mode.** Tap the microphone once to start talking with Nova:
-- Nova sends what you said as soon as you pause.
+- Nova streams what you say to Meta's realtime transcription while you talk.
+  Meta detects the end of your sentence, so the transcript is ready about
+  0.2–0.6 s after you stop. If streaming fails, Nova uploads the clip instead.
 - It answers out loud with the macOS system voice, then listens again.
 - If you start talking while Nova is speaking, it stops.
 - Tap the microphone again to end, or stay quiet for a minute.

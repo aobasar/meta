@@ -47,3 +47,13 @@ test("formatTime pads minutes and seconds", () => {
   assert.equal(formatTime(7.9), "00:07");
   assert.equal(formatTime(600), "10:00");
 });
+
+test("toPcm16 writes signed 16-bit little-endian samples", async () => {
+  const { toPcm16 } = await import("../static/audio-utils.js");
+  const view = new DataView(toPcm16(new Float32Array([0, 1, -1, 0.5, 3])));
+  assert.equal(view.byteLength, 10);
+  assert.deepEqual(
+    Array.from({ length: 5 }, (_, i) => view.getInt16(i * 2, true)),
+    [0, 32767, -32768, 16384, 32767]
+  );
+});
