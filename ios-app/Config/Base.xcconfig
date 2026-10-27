@@ -2,4 +2,5 @@
 // Local.xcconfig; copy Local.example.xcconfig to start one.
 DEVELOPMENT_TEAM =
 NOVA_SERVER_URL =
+NOVA_PUBLIC_URL =
 #include? "Local.xcconfig"

@@ -222,6 +222,36 @@
         }
       }
     },
+    "Internet address": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "İnternet adresi"
+          }
+        }
+      }
+    },
+    "Invite code": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Davet kodu"
+          }
+        }
+      }
+    },
+    "Invite code not accepted": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Davet kodu kabul edilmedi"
+          }
+        }
+      }
+    },
     "LiDAR": {
       "localizations": {
         "tr": {
@@ -242,6 +272,16 @@
         }
       }
     },
+    "Mac (Tailscale)": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mac (Tailscale)"
+          }
+        }
+      }
+    },
     "Mac address": {
       "localizations": {
         "tr": {
@@ -252,22 +292,22 @@
         }
       }
     },
-    "Mac connected": {
-      "localizations": {
-        "tr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Mac bağlı"
-          }
-        }
-      }
-    },
     "Mac not reachable": {
       "localizations": {
         "tr": {
           "stringUnit": {
             "state": "translated",
             "value": "Mac'e ulaşılamıyor"
+          }
+        }
+      }
+    },
+    "Mac over Tailscale": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tailscale üzerinden Mac"
           }
         }
       }
@@ -322,6 +362,16 @@
         }
       }
     },
+    "Nova (internet)": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nova (internet)"
+          }
+        }
+      }
+    },
     "Nova Guide shows where to touch; you do every step yourself. Its guidance is AI-generated and can be wrong.": {
       "localizations": {
         "tr": {
@@ -352,12 +402,12 @@
         }
       }
     },
-    "Nova on your Mac": {
+    "Nova over the internet": {
       "localizations": {
         "tr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Mac'inizdeki Nova"
+            "value": "İnternet üzerinden Nova"
           }
         }
       }
@@ -562,16 +612,6 @@
         }
       }
     },
-    "The phone talks only to your Mac over Tailscale. The Mac holds the API key.": {
-      "localizations": {
-        "tr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Telefon yalnızca Tailscale üzerinden Mac'inizle konuşur. API anahtarı Mac'te durur."
-          }
-        }
-      }
-    },
     "Thinking…": {
       "localizations": {
         "tr": {
@@ -598,6 +638,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Telefonu yukarı eğin"
+          }
+        }
+      }
+    },
+    "Tried first. Needs the invite code you were given; it is kept in this iPhone's Keychain.": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Önce bu denenir. Size verilen davet kodu gerekir; kod bu iPhone'un Keychain'inde saklanır."
           }
         }
       }
@@ -638,6 +688,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Anlıyorum…"
+          }
+        }
+      }
+    },
+    "Used when the internet address doesn't answer. The phone never holds the API key; the Mac does.": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "İnternet adresi yanıt vermezse kullanılır. API anahtarı telefonda değil, Mac'te durur."
           }
         }
       }

@@ -52,6 +52,7 @@ targets:
               NSIncludesSubdomains: true
               NSExceptionAllowsInsecureHTTPLoads: true
         NovaServerURL: $(NOVA_SERVER_URL)
+        NovaPublicURL: $(NOVA_PUBLIC_URL)
   NovaGuideTests:
     type: bundle.unit-test
     platform: iOS

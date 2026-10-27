@@ -8,23 +8,32 @@ After each step the phone sends a close-up of the control, and Muse Spark checks
 The guide endpoints are served by their own small server, bound to the Mac's Tailscale address only when
 NOVA_GUIDE_HOST is set in .env.local. It answers nothing but /api/guide/*, so the phone cannot reach the notes,
 lists or the realtime relay of the main prototype. The API key stays on the Mac (HACKATHON.md, design rule 2).
+
+A second guide listener, for testers outside the tailnet, binds to 127.0.0.1 (NOVA_GUIDE_PUBLIC_PORT, 9015) when
+NOVA_PUBLIC_HOST is set; a tunnel (Cloudflare Tunnel) is meant to forward the public host name to it. Every request
+there needs an invite code (`python3 guide.py invite NAME`), each code has daily limits, and only codes created with
+--record may use recording mode. The tailnet listener needs no code: only the maintainer's devices are on it.
 Standard model IDs only; any Contributor model in a response discards the result (design rule 1).
 """
 
 from __future__ import annotations
 
+import argparse
 import base64
+import hashlib
 import ipaddress
 import json
 import math
+import os
 import re
+import secrets
 import socket
 import sys
 import threading
 import time
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor
-from datetime import datetime
+from datetime import date, datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlsplit
@@ -536,6 +545,94 @@ def record(recordings: Path, frame: bytes, body: dict, result: dict, kind: str =
 
 
 # ---------------------------------------------------------------------------
+# Invite codes and daily limits (internet listener only)
+
+CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"  # no 0/O or 1/I: codes are read aloud and typed on a phone
+PER_CODE_LIMITS = {"plan": 40, "verify": 300, "ask": 100, "transcribe": 150}
+TOTAL_LIMITS = {"plan": 150, "verify": 1000, "ask": 300, "transcribe": 500}
+
+
+class LimitReached(Exception):
+    """A code or all codes together used today's allowance for one kind of request."""
+
+
+def normalize_code(code: str) -> str:
+    return re.sub(r"[^A-Z0-9]", "", code.upper())
+
+
+def code_hash(code: str) -> str:
+    return hashlib.sha256(normalize_code(code).encode()).hexdigest()
+
+
+class Invites:
+    """Invite codes (only their hashes are stored) and today's usage, in two JSON files under web-prototype/data/."""
+
+    def __init__(self, folder: Path, per_code: dict | None = None, total: dict | None = None):
+        self.path = folder / "guide-invites.json"
+        self.usage_path = folder / "guide-usage.json"
+        self.per_code = per_code or PER_CODE_LIMITS
+        self.total = total or TOTAL_LIMITS
+        self.lock = threading.Lock()
+
+    def _load(self, path: Path, empty: dict) -> dict:
+        try:
+            return json.loads(path.read_text())
+        except (OSError, ValueError):
+            return empty
+
+    def _save(self, path: Path, data: dict) -> None:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        temporary = path.with_suffix(".tmp")
+        temporary.write_text(json.dumps(data, ensure_ascii=False, indent=1))
+        temporary.replace(path)
+
+    def create(self, name: str, record: bool = False) -> tuple[str, dict]:
+        code = "-".join("".join(secrets.choice(CODE_ALPHABET) for _ in range(4)) for _ in range(3))
+        with self.lock:
+            data = self._load(self.path, {"invites": []})
+            invite = {"id": secrets.token_hex(4), "name": name, "hash": code_hash(code), "record": record,
+                      "created": datetime.now().isoformat(timespec="seconds"), "revoked": False}
+            data["invites"].append(invite)
+            self._save(self.path, data)
+        return code, invite
+
+    def revoke(self, invite_id: str) -> bool:
+        with self.lock:
+            data = self._load(self.path, {"invites": []})
+            found = [invite for invite in data["invites"] if invite["id"] == invite_id]
+            for invite in found:
+                invite["revoked"] = True
+            self._save(self.path, data)
+        return bool(found)
+
+    def all(self) -> list[dict]:
+        return self._load(self.path, {"invites": []})["invites"]
+
+    def find(self, code: str) -> dict | None:
+        if not code:
+            return None
+        wanted = code_hash(code)
+        return next((invite for invite in self.all()
+                     if not invite.get("revoked") and secrets.compare_digest(invite["hash"], wanted)), None)
+
+    def consume(self, invite: dict, kind: str) -> None:
+        """Count one request of `kind`, or raise LimitReached when today's allowance is used up."""
+        with self.lock:
+            today = date.today().isoformat()
+            usage = self._load(self.usage_path, {})
+            if usage.get("date") != today:
+                usage = {"date": today, "codes": {}, "total": {}}
+            mine = usage["codes"].setdefault(invite["id"], {})
+            if mine.get(kind, 0) >= self.per_code.get(kind, 0):
+                raise LimitReached(kind)
+            if usage["total"].get(kind, 0) >= self.total.get(kind, 0):
+                raise LimitReached(kind)
+            mine[kind] = mine.get(kind, 0) + 1
+            usage["total"][kind] = usage["total"].get(kind, 0) + 1
+            self._save(self.usage_path, usage)
+
+
+# ---------------------------------------------------------------------------
 # HTTP
 
 
@@ -556,18 +653,23 @@ class GuideServer(ThreadingHTTPServer):
     daemon_threads = True
 
     def __init__(self, address: str, port: int, host_names: list[str], env_file: Path, recordings: Path,
-                 opener=urllib.request.urlopen):
+                 opener=urllib.request.urlopen, invites: Invites | None = None):
         super().__init__((address, port), GuideHandler)
         self.env_file = env_file
         self.recordings = recordings
         self.opener = opener
+        self.invites = invites  # set: the internet listener, where every request needs an invite code
         bound = self.server_address[1]
         self.allowed_hosts = {f"{name}:{bound}" for name in [*host_names, address]}
+        if invites:
+            # Behind a tunnel the Host header is the public name, on the default HTTPS port.
+            self.allowed_hosts |= {name for name in host_names} | {f"{name}:443" for name in host_names}
 
 
 class GuideHandler(BaseHTTPRequestHandler):
     server: GuideServer
     server_version = "NovaGuide/0.1"
+    invite: dict | None = None
 
     # The Host check blocks DNS rebinding; the client header blocks web pages (they can't set it without a preflight).
     def _allowed(self) -> bool:
@@ -577,7 +679,22 @@ class GuideHandler(BaseHTTPRequestHandler):
         if self.headers.get(CLIENT_HEADER) != CLIENT_NAME:
             self._json(403, {"error": {"kind": "request", "message": "Requests must come from the Nova Guide app."}})
             return False
+        if self.server.invites is not None:
+            authorization = self.headers.get("Authorization", "")
+            code = authorization[7:].strip() if authorization.startswith("Bearer ") else ""
+            self.invite = self.server.invites.find(code)
+            if not self.invite:
+                self._json(401, {"error": {"kind": "invite", "message": "Enter a valid invite code in Settings."}})
+                return False
         return True
+
+    def _spend(self, kind: str) -> None:
+        """Count a request against the invite's daily limits (internet listener only)."""
+        if self.invite is not None:
+            self.server.invites.consume(self.invite, kind)
+
+    def _may_record(self, body: dict) -> bool:
+        return body.get("record") is True and (self.invite is None or bool(self.invite.get("record")))
 
     def do_GET(self) -> None:
         if not self._allowed():
@@ -590,7 +707,8 @@ class GuideHandler(BaseHTTPRequestHandler):
             loaded, message = True, None
         except ConfigError as exc:
             loaded, message = False, str(exc)
-        self._json(200, {"keyLoaded": loaded, "message": message,
+        self._json(200, {"keyLoaded": loaded, "message": message, "internet": self.invite is not None,
+                         "mayRecord": self.invite is None or bool(self.invite.get("record")),
                          "models": {"reasoning": nova.REASONING_MODEL, "segmentation": SAM_MODEL}})
 
     def do_POST(self) -> None:
@@ -614,6 +732,8 @@ class GuideHandler(BaseHTTPRequestHandler):
             self._json(400, {"error": {"kind": "request", "message": str(exc)}})
         except UpstreamError as exc:
             self._json(502, {"error": {"kind": "upstream", "status": exc.status, "message": exc.message}})
+        except LimitReached as exc:
+            self._json(429, {"error": {"kind": "limit", "message": f"Today's limit for {exc} is used up. Try again tomorrow."}})
         except (BrokenPipeError, ConnectionResetError):
             pass  # the app canceled the request
 
@@ -649,8 +769,9 @@ class GuideHandler(BaseHTTPRequestHandler):
         language = self._language(body)
         frame = strip_metadata(decode_frame(body.get("frame")))
         api_key = nova.load_api_key(self.server.env_file)
+        self._spend("plan")
         result = plan(frame, question.strip(), language, api_key, self.server.opener)
-        if body.get("record") is True:
+        if self._may_record(body):
             result["recording"] = record(self.server.recordings, frame, body, result)
         return result
 
@@ -662,8 +783,9 @@ class GuideHandler(BaseHTTPRequestHandler):
         language = self._language(body)
         crop = strip_metadata(decode_frame(body.get("frame")))
         api_key = nova.load_api_key(self.server.env_file)
+        self._spend("verify")
         result = verify(crop, texts[0].strip(), texts[1].strip(), language, api_key, self.server.opener)
-        if body.get("record") is True:
+        if self._may_record(body):
             result["recording"] = record(self.server.recordings, crop, body, result, "verify")
         return result
 
@@ -676,8 +798,9 @@ class GuideHandler(BaseHTTPRequestHandler):
         context = ask_context(body)
         frame = strip_metadata(decode_frame(body.get("frame")))
         api_key = nova.load_api_key(self.server.env_file)
+        self._spend("ask")
         result = ask(frame, question.strip(), language, context, api_key, self.server.opener)
-        if body.get("record") is True:
+        if self._may_record(body):
             result["recording"] = record(self.server.recordings, frame, body, result, "ask")
         return result
 
@@ -696,6 +819,7 @@ class GuideHandler(BaseHTTPRequestHandler):
         if language not in nova.SPEECH_LANGUAGES:
             raise BadRequest("Unsupported language.")
         api_key = nova.load_api_key(self.server.env_file)
+        self._spend("transcribe")
         return {"transcript": transcribe(wav, language, api_key, self.server.opener)}
 
     def _json(self, status: int, payload: dict) -> None:
@@ -712,25 +836,90 @@ class GuideHandler(BaseHTTPRequestHandler):
         sys.stderr.write(f"guide {self.log_date_time_string()} {format % args}\n")
 
 
-def guide_host(env_file: Path) -> str:
-    """NOVA_GUIDE_HOST from .env.local (the Mac's Tailscale MagicDNS name), or empty when the guide is off."""
+def env_value(env_file: Path, name: str) -> str:
     try:
-        return nova.parse_env(env_file.read_text(encoding="utf-8")).get("NOVA_GUIDE_HOST", "").strip()
+        return nova.parse_env(env_file.read_text(encoding="utf-8")).get(name, "").strip()
     except (OSError, UnicodeDecodeError):
         return ""
 
 
-def start(port: int, env_file: Path, data_dir: Path) -> GuideServer | None:
-    """Start the guide server on the Tailscale address in a background thread, if NOVA_GUIDE_HOST is set."""
-    host = guide_host(env_file)
-    if not host:
-        return None
-    try:
-        address = tailscale_address(host)
-    except ConfigError as exc:
-        print(f"Nova guide is off: {exc}", file=sys.stderr, flush=True)
-        return None
-    server = GuideServer(address, port, [host], env_file, data_dir / "recordings")
+def guide_host(env_file: Path) -> str:
+    """NOVA_GUIDE_HOST from .env.local (the Mac's Tailscale MagicDNS name), or empty when the guide is off."""
+    return env_value(env_file, "NOVA_GUIDE_HOST")
+
+
+class Listeners:
+    """The guide listeners that started, closed together when the Nova server stops."""
+
+    def __init__(self, servers: list[GuideServer]):
+        self.servers = servers
+
+    def __bool__(self) -> bool:
+        return bool(self.servers)
+
+    def server_close(self) -> None:
+        for server in self.servers:
+            server.server_close()
+
+
+def serve(server: GuideServer) -> GuideServer:
     threading.Thread(target=server.serve_forever, daemon=True).start()
-    print(f"Nova guide: http://{host}:{port}/api/guide/ (Tailscale {address}, guide endpoints only)", flush=True)
     return server
+
+
+def start(port: int, env_file: Path, data_dir: Path) -> Listeners:
+    """Start the guide listeners in background threads: on the Tailscale address when NOVA_GUIDE_HOST is set, and on
+    127.0.0.1 for a tunnel when NOVA_PUBLIC_HOST is set."""
+    servers = []
+    host = guide_host(env_file)
+    if host:
+        try:
+            address = tailscale_address(host)
+            servers.append(serve(GuideServer(address, port, [host], env_file, data_dir / "recordings")))
+            print(f"Nova guide: http://{host}:{port}/api/guide/ (Tailscale {address}, guide endpoints only)", flush=True)
+        except ConfigError as exc:
+            print(f"Nova guide is off on Tailscale: {exc}", file=sys.stderr, flush=True)
+    public_host = env_value(env_file, "NOVA_PUBLIC_HOST")
+    if public_host:
+        public_port = int(env_value(env_file, "NOVA_GUIDE_PUBLIC_PORT") or 9015)
+        try:
+            servers.append(serve(GuideServer("127.0.0.1", public_port, [public_host], env_file, data_dir / "recordings",
+                                             invites=Invites(data_dir))))
+            print(f"Nova guide: https://{public_host}/api/guide/ via a tunnel to 127.0.0.1:{public_port} "
+                  "(invite codes required)", flush=True)
+        except OSError as exc:
+            print(f"Nova guide is off for the internet: port {public_port}: {exc.strerror}", file=sys.stderr, flush=True)
+    return Listeners(servers)
+
+
+def main() -> None:
+    """Manage invite codes for the internet listener."""
+    parser = argparse.ArgumentParser(description="Nova Guide invite codes (internet listener only).")
+    commands = parser.add_subparsers(dest="command", required=True)
+    invite = commands.add_parser("invite", help="create a code and print it once")
+    invite.add_argument("name", help="who the code is for, as you will recognize it in the list")
+    invite.add_argument("--record", action="store_true", help="allow recording mode (the maintainer only)")
+    revoke = commands.add_parser("revoke", help="stop a code from working")
+    revoke.add_argument("id")
+    commands.add_parser("list", help="list codes (never the codes themselves) and today's usage")
+    args = parser.parse_args()
+    data_dir = Path(os.environ.get("NOVA_DATA_DIR", nova.DEFAULT_DATA_DIR)).expanduser()
+    invites = Invites(data_dir)
+    if args.command == "invite":
+        code, created = invites.create(args.name, args.record)
+        print(f"Invite code for {created['name']} (id {created['id']}): {code}")
+        print("Shown once: it is stored only as a hash. Limits per day: "
+              + ", ".join(f"{kind} {count}" for kind, count in PER_CODE_LIMITS.items()))
+    elif args.command == "revoke":
+        print("Revoked." if invites.revoke(args.id) else "No code with that id.")
+    else:
+        usage = invites._load(invites.usage_path, {})
+        today = usage.get("codes", {}) if usage.get("date") == date.today().isoformat() else {}
+        for item in invites.all():
+            state = "revoked" if item.get("revoked") else ("record" if item.get("record") else "active")
+            used = ", ".join(f"{kind} {count}" for kind, count in today.get(item["id"], {}).items()) or "no use today"
+            print(f"{item['id']}  {item['name']:<20} {state:<8} created {item['created']}  today: {used}")
+
+
+if __name__ == "__main__":
+    main()

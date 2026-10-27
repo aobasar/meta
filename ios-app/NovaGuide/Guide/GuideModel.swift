@@ -14,7 +14,7 @@ final class GuideModel: ObservableObject {
     }
 
     enum Connection: Equatable {
-        case unknown, connected, noKey, unreachable
+        case unknown, connected(Route.Kind), noKey, unreachable, rejected(String)
     }
 
     /// What Nova knows about one step in this session (physical state memory).
@@ -58,6 +58,7 @@ final class GuideModel: ObservableObject {
 
     let settings: GuideSettings
     let ar: ARGuideController
+    let router: ServerRouter
     private let speaker = Speaker()
     private var task: Task<Void, Never>?
     private var checkTask: Task<Void, Never>?
@@ -67,6 +68,7 @@ final class GuideModel: ObservableObject {
     init(settings: GuideSettings, ar: ARGuideController) {
         self.settings = settings
         self.ar = ar
+        router = ServerRouter()
         recorder.onFinish = { [weak self] wav in self?.heardRecording(wav) }
     }
 
@@ -75,11 +77,22 @@ final class GuideModel: ObservableObject {
         return plan.steps[stepIndex]
     }
 
+    /// A request on the current route (internet first, then Tailscale), with the routes from Settings.
+    private func send<T>(_ request: @escaping (GuideClient) async throws -> T) async throws -> T {
+        await router.update(settings.routes)
+        return try await router.perform(request)
+    }
+
     func checkConnection() async {
-        do {
-            connection = try await settings.client.status() ? .connected : .noKey
-        } catch {
-            connection = .unreachable
+        await router.update(settings.routes)
+        connection = Self.connection(await router.resolve())
+    }
+
+    private static func connection(_ state: ServerRouter.State) -> Connection {
+        switch state {
+        case .connected(let kind, let keyLoaded): keyLoaded ? .connected(kind) : .noKey
+        case .rejected(let message): .rejected(message)
+        case .unreachable, .unknown: .unreachable
         }
     }
 
@@ -99,10 +112,12 @@ final class GuideModel: ObservableObject {
             let status = Task { await self.cycleStatus() }
             defer { status.cancel() }
             do {
-                let plan = try await settings.client.plan(
-                    jpeg: capture.jpeg, question: text, language: settings.language.serverName,
-                    record: settings.record, camera: capture.cameraInfo)
-                connection = .connected
+                let language = settings.language.serverName, record = settings.record
+                let plan = try await send {
+                    try await $0.plan(jpeg: capture.jpeg, question: text, language: language, record: record,
+                                      camera: capture.cameraInfo)
+                }
+                connection = Self.connection(await router.state)
                 show(plan, capture: capture)
             } catch is CancellationError {
                 phase = .asking
@@ -171,8 +186,10 @@ final class GuideModel: ObservableObject {
             let index = stepIndex, settings = self.settings
             checkTask = Task {
                 do {
-                    let check = try await settings.client.verify(
-                        jpeg: jpeg, step: step, language: settings.language.serverName, record: settings.record)
+                    let language = settings.language.serverName, record = settings.record
+                    let check = try await send {
+                        try await $0.verify(jpeg: jpeg, step: step, language: language, record: record)
+                    }
                     guard !Task.isCancelled, index == stepIndex else { return }
                     apply(check, to: index)
                 } catch is CancellationError {
@@ -295,7 +312,8 @@ final class GuideModel: ObservableObject {
         let settings = self.settings
         voiceTask = Task {
             do {
-                let text = try await settings.client.transcribe(wav: wav, language: settings.language.serverName)
+                let language = settings.language.serverName
+                let text = try await send { try await $0.transcribe(wav: wav, language: language) }
                 listening = .idle
                 handle(spoken: text.trimmingCharacters(in: .whitespacesAndNewlines))
             } catch {
@@ -355,9 +373,11 @@ final class GuideModel: ObservableObject {
         let settings = self.settings
         voiceTask = Task {
             do {
-                let answer = try await settings.client.ask(
-                    jpeg: capture.jpeg, question: text, language: settings.language.serverName, context: context,
-                    record: settings.record)
+                let language = settings.language.serverName, record = settings.record
+                let answer = try await send {
+                    try await $0.ask(jpeg: capture.jpeg, question: text, language: language, context: context,
+                                     record: record)
+                }
                 listening = .idle
                 switch answer.kind {
                 case .answer:

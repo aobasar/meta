@@ -93,7 +93,9 @@ private struct TopBar: View {
 
     @ViewBuilder private var connectionChip: some View {
         switch model.connection {
-        case .connected: Chip(text: String(localized: "Mac connected"), systemImage: "checkmark.circle.fill", tint: .green)
+        case .connected(.internet): Chip(text: String(localized: "Nova (internet)"), systemImage: "checkmark.circle.fill", tint: .green)
+        case .connected(.tailscale): Chip(text: String(localized: "Mac (Tailscale)"), systemImage: "checkmark.circle.fill", tint: .green)
+        case .rejected: Chip(text: String(localized: "Invite code not accepted"), systemImage: "key.slash", tint: .orange)
         case .noKey: Chip(text: String(localized: "The Mac has no API key"), systemImage: "key.fill", tint: .orange)
         case .unreachable: Chip(text: String(localized: "Mac not reachable"), systemImage: "wifi.exclamationmark", tint: .orange)
         case .unknown: EmptyView()

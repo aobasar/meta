@@ -4,13 +4,13 @@ import Foundation
 struct GuideClient {
     enum Failure: LocalizedError {
         case noServer
-        case server(String)
+        case server(status: Int, message: String)
         case unreadable
 
         var errorDescription: String? {
             switch self {
             case .noServer: String(localized: "Set the Mac's address in Settings.")
-            case .server(let message): message
+            case .server(_, let message): message
             case .unreadable: String(localized: "The Mac sent an answer the app couldn't read.")
             }
         }
@@ -33,10 +33,19 @@ struct GuideClient {
     }
 
     var baseURL: URL?
+    /// Sent on the internet route only; the Tailscale route needs none.
+    var inviteCode: String? = nil
     var session: URLSession = .shared
 
+    /// True for failures where the server never answered, so another route may work.
+    static func isConnectionFailure(_ error: Error) -> Bool {
+        guard let error = error as? URLError else { return false }
+        return [.cannotConnectToHost, .cannotFindHost, .dnsLookupFailed, .timedOut, .networkConnectionLost,
+                .notConnectedToInternet, .secureConnectionFailed, .badServerResponse].contains(error.code)
+    }
+
     func status() async throws -> Bool {
-        let (data, _) = try await send(path: "api/guide/status", body: nil, timeout: 8)
+        let (data, _) = try await send(path: "api/guide/status", body: nil, timeout: 3)
         struct Status: Decodable { var keyLoaded: Bool }
         guard let status = try? JSONDecoder().decode(Status.self, from: data) else { throw Failure.unreadable }
         return status.keyLoaded
@@ -128,6 +137,9 @@ struct GuideClient {
         }
         var request = URLRequest(url: url, timeoutInterval: timeout)
         request.setValue("guide-ios", forHTTPHeaderField: "X-Nova-Client")
+        if let inviteCode, !inviteCode.isEmpty {
+            request.setValue("Bearer \(inviteCode)", forHTTPHeaderField: "Authorization")
+        }
         if let body {
             request.httpMethod = "POST"
             request.setValue(contentType, forHTTPHeaderField: "Content-Type")
@@ -137,7 +149,8 @@ struct GuideClient {
         guard let http = response as? HTTPURLResponse else { throw Failure.unreadable }
         guard http.statusCode == 200 else {
             let message = (try? JSONDecoder().decode(ServerError.self, from: data))?.error.message
-            throw Failure.server(message ?? String(localized: "The Mac answered with HTTP \(http.statusCode)."))
+            throw Failure.server(status: http.statusCode,
+                                 message: message ?? String(localized: "The Mac answered with HTTP \(http.statusCode)."))
         }
         return (data, http)
     }

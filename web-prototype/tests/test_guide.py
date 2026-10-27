@@ -341,12 +341,124 @@ class HttpTests(unittest.TestCase):
         self.assertEqual(self.request("/api/guide/plan", self.frame_body(frame="AAAA"))[0], 400)
 
 
+class InviteTests(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.invites = guide.Invites(Path(self.tmp.name), per_code={"plan": 2}, total={"plan": 3})
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def test_codes_are_stored_only_as_hashes_and_typing_is_forgiving(self):
+        code, created = self.invites.create("Ayşe")
+        self.assertRegex(code, r"^[A-Z2-9]{4}-[A-Z2-9]{4}-[A-Z2-9]{4}$")
+        self.assertNotIn(code, (Path(self.tmp.name) / "guide-invites.json").read_text())
+        self.assertEqual(self.invites.find(code.lower().replace("-", " "))["id"], created["id"])
+        self.assertIsNone(self.invites.find("AAAA-BBBB-CCCC"))
+        self.assertIsNone(self.invites.find(""))
+
+    def test_revoked_codes_stop_working(self):
+        code, created = self.invites.create("x")
+        self.assertTrue(self.invites.revoke(created["id"]))
+        self.assertIsNone(self.invites.find(code))
+
+    def test_per_code_and_total_limits(self):
+        first, second = (self.invites.find(self.invites.create(name)[0]) for name in ("a", "b"))
+        self.invites.consume(first, "plan")
+        self.invites.consume(first, "plan")
+        with self.assertRaises(guide.LimitReached):
+            self.invites.consume(first, "plan")
+        self.invites.consume(second, "plan")
+        with self.assertRaises(guide.LimitReached):  # total of 3 reached
+            self.invites.consume(second, "plan")
+        with self.assertRaises(guide.LimitReached):  # a kind without a limit is not allowed
+            self.invites.consume(second, "ask")
+
+
+class InternetListenerTests(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        folder = Path(self.tmp.name)
+        self.env = folder / ".env.local"
+        self.env.write_text(f"MODEL_API_KEY={FAKE_KEY}\n")
+        self.recordings = folder / "recordings"
+        self.invites = guide.Invites(folder)
+        self.code, _ = self.invites.create("tester")
+        self.owner, _ = self.invites.create("maintainer", record=True)
+        self.httpd = guide.GuideServer("127.0.0.1", 0, ["guide.example.com"], self.env, self.recordings,
+                                       RoutingOpener(), invites=self.invites)
+        self.port = self.httpd.server_address[1]
+        threading.Thread(target=self.httpd.serve_forever, daemon=True).start()
+
+    def tearDown(self):
+        self.httpd.shutdown()
+        self.httpd.server_close()
+        self.tmp.cleanup()
+
+    def request(self, path, body=None, code=None, host="guide.example.com"):
+        headers = {"Host": host, guide.CLIENT_HEADER: guide.CLIENT_NAME, "Content-Type": "application/json"}
+        if code:
+            headers["Authorization"] = f"Bearer {code}"
+        request = urllib.request.Request(f"http://127.0.0.1:{self.port}{path}", headers=headers,
+                                         data=json.dumps(body).encode() if body is not None else None,
+                                         method="POST" if body is not None else "GET")
+        try:
+            with urllib.request.urlopen(request, timeout=10) as response:
+                return response.status, json.loads(response.read())
+        except urllib.error.HTTPError as exc:
+            return exc.code, json.loads(exc.read())
+
+    def frame_body(self, **extra):
+        return {"frame": base64.b64encode(tiny_jpeg()).decode(), "question": "Nasıl?", "language": "Turkish", **extra}
+
+    def test_every_request_needs_a_valid_code(self):
+        status, body = self.request("/api/guide/status")
+        self.assertEqual((status, body["error"]["kind"]), (401, "invite"))
+        self.assertEqual(self.request("/api/guide/status", code="WRONG-CODE-0000")[0], 401)
+        status, body = self.request("/api/guide/status", code=self.code)
+        self.assertEqual(status, 200)
+        self.assertTrue(body["internet"])
+        self.assertFalse(body["mayRecord"])
+
+    def test_the_public_name_is_accepted_without_a_port_and_others_are_not(self):
+        self.assertEqual(self.request("/api/guide/status", code=self.code, host="guide.example.com:443")[0], 200)
+        self.assertEqual(self.request("/api/guide/status", code=self.code, host="evil.example")[0], 403)
+
+    def test_testers_cannot_record_but_the_maintainer_can(self):
+        status, body = self.request("/api/guide/plan", self.frame_body(record=True), code=self.code)
+        self.assertEqual(status, 200)
+        self.assertNotIn("recording", body)
+        self.assertFalse(self.recordings.exists())
+        status, body = self.request("/api/guide/plan", self.frame_body(record=True), code=self.owner)
+        self.assertIn("recording", body)
+
+    def test_a_used_up_limit_answers_429(self):
+        self.invites.per_code = {"plan": 1}
+        self.assertEqual(self.request("/api/guide/plan", self.frame_body(), code=self.code)[0], 200)
+        status, body = self.request("/api/guide/plan", self.frame_body(), code=self.code)
+        self.assertEqual((status, body["error"]["kind"]), (429, "limit"))
+
+
 class StartTests(unittest.TestCase):
     def test_guide_is_off_without_a_host(self):
         with tempfile.TemporaryDirectory() as tmp:
             env = Path(tmp) / ".env.local"
             env.write_text("MODEL_API_KEY=x\n")
-            self.assertIsNone(guide.start(0, env, Path(tmp)))
+            self.assertFalse(guide.start(0, env, Path(tmp)))
+
+    def test_the_internet_listener_starts_on_loopback_only(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            env = Path(tmp) / ".env.local"
+            env.write_text("MODEL_API_KEY=x\nNOVA_PUBLIC_HOST=guide.example.com\nNOVA_GUIDE_PUBLIC_PORT=0\n")
+            listeners = guide.start(0, env, Path(tmp))
+            try:
+                self.assertEqual(len(listeners.servers), 1)
+                self.assertEqual(listeners.servers[0].server_address[0], "127.0.0.1")
+                self.assertIsNotNone(listeners.servers[0].invites)
+            finally:
+                for server in listeners.servers:
+                    server.shutdown()
+                listeners.server_close()
 
     def test_a_non_tailscale_address_is_refused(self):
         with self.assertRaises(server.ConfigError):

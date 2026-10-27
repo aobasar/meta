@@ -16,14 +16,27 @@ struct SettingsView: View {
                     }
                 }
                 Section {
+                    TextField(String(localized: "Internet address"), text: $settings.publicURL)
+                        .keyboardType(.URL)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+                    SecureField(String(localized: "Invite code"), text: $settings.inviteCode)
+                        .textInputAutocapitalization(.characters)
+                        .autocorrectionDisabled()
+                } header: {
+                    Text("Nova over the internet")
+                } footer: {
+                    Text("Tried first. Needs the invite code you were given; it is kept in this iPhone's Keychain.")
+                }
+                Section {
                     TextField(String(localized: "Mac address"), text: $settings.serverURL)
                         .keyboardType(.URL)
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
                 } header: {
-                    Text("Nova on your Mac")
+                    Text("Mac over Tailscale")
                 } footer: {
-                    Text("The phone talks only to your Mac over Tailscale. The Mac holds the API key.")
+                    Text("Used when the internet address doesn't answer. The phone never holds the API key; the Mac does.")
                 }
                 Section {
                     Toggle(String(localized: "Recording mode"), isOn: $settings.record)

@@ -169,3 +169,65 @@ final class WavTests: XCTestCase {
         XCTAssertEqual(VoiceRecorder.rms([Int16.max, Int16.max]), 1, accuracy: 1e-4)
     }
 }
+
+final class ServerRouterTests: XCTestCase {
+    let internet = Route(kind: .internet, baseURL: URL(string: "https://guide.example.com")!, inviteCode: "AAAA-BBBB-CCCC")
+    let tailscale = Route(kind: .tailscale, baseURL: URL(string: "http://mac.example.ts.net:9005")!)
+
+    func testCandidatesNeedAnInviteCodeForTheInternetRoute() {
+        XCTAssertEqual(Route.candidates(publicURL: "https://guide.example.com", inviteCode: "AAAA-BBBB-CCCC",
+                                        tailscaleURL: "http://mac.example.ts.net:9005"), [internet, tailscale])
+        XCTAssertEqual(Route.candidates(publicURL: "https://guide.example.com", inviteCode: " ",
+                                        tailscaleURL: "http://mac.example.ts.net:9005"), [tailscale])
+        XCTAssertEqual(Route.candidates(publicURL: "", inviteCode: "x", tailscaleURL: ""), [])
+        XCTAssertNil(tailscale.client.inviteCode)  // the code never goes to the Mac over Tailscale
+        XCTAssertEqual(internet.client.inviteCode, "AAAA-BBBB-CCCC")
+    }
+
+    func testTheInternetRouteIsTriedFirstAndTailscaleIsTheFallback() async {
+        let router = ServerRouter { $0.kind == .internet ? .ok(keyLoaded: true) : .unreachable }
+        await router.update([internet, tailscale])
+        let first = await router.resolve()
+        XCTAssertEqual(first, .connected(.internet, keyLoaded: true))
+
+        let fallback = ServerRouter { $0.kind == .internet ? .unreachable : .ok(keyLoaded: true) }
+        await fallback.update([internet, tailscale])
+        let second = await fallback.resolve()
+        XCTAssertEqual(second, .connected(.tailscale, keyLoaded: true))
+    }
+
+    func testARejectedCodeFallsBackButIsReportedWhenNothingElseAnswers() async {
+        let router = ServerRouter { $0.kind == .internet ? .rejected("bad code") : .unreachable }
+        await router.update([internet, tailscale])
+        let state = await router.resolve()
+        XCTAssertEqual(state, .rejected("bad code"))
+    }
+
+    func testAConnectionFailureMovesToTheNextRouteAndTriesOnce() async throws {
+        let router = ServerRouter { _ in .ok(keyLoaded: true) }
+        await router.update([internet, tailscale])
+        var used: [URL?] = []
+        let result: String = try await router.perform { client in
+            used.append(client.baseURL)
+            if client.baseURL == self.internet.baseURL { throw URLError(.cannotConnectToHost) }
+            return "ok"
+        }
+        XCTAssertEqual(result, "ok")
+        XCTAssertEqual(used, [internet.baseURL, tailscale.baseURL])
+    }
+
+    func testAServerErrorIsNotRetried() async {
+        let router = ServerRouter { _ in .ok(keyLoaded: true) }
+        await router.update([internet, tailscale])
+        var calls = 0
+        do {
+            let _: String = try await router.perform { _ in
+                calls += 1
+                throw GuideClient.Failure.server(status: 502, message: "upstream")
+            }
+            XCTFail("expected an error")
+        } catch {
+            XCTAssertEqual(calls, 1)
+        }
+    }
+}

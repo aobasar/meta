@@ -3,3 +3,5 @@
 DEVELOPMENT_TEAM =
 // The Nova server on your Mac over Tailscale. "/$()/" keeps xcconfig from reading "//" as a comment.
 NOVA_SERVER_URL = http:/$()/your-mac.your-tailnet.ts.net:9005
+// The guide server over the internet (a Cloudflare Tunnel to the Mac); tried before Tailscale. Empty: Tailscale only.
+NOVA_PUBLIC_URL =
