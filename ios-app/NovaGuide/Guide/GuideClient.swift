@@ -22,6 +22,8 @@ struct GuideClient {
         var imageHeight: Int
         var intrinsics: [Float]  // 3x3, column-major
         var transform: [Float]  // 4x4 camera-to-world, column-major
+        /// How the sent frame was turned upright from the sensor image: "landscapeRight", "portrait", "landscapeLeft".
+        var orientation: String
     }
 
     private struct PlanRequest: Encodable {

@@ -1,0 +1,75 @@
+import AVKit
+import Photos
+import SwiftUI
+
+/// After a screen recording: watch it, then save it to Photos, share it, or delete it. Closing this sheet deletes
+/// Nova's copy; a saved or shared copy stays where the user put it.
+struct RecordingPreview: View {
+    let video: RecordedVideo
+    @Environment(\.dismiss) private var dismiss
+    @State private var player: AVPlayer?
+    @State private var saved = false
+    @State private var message: String?
+
+    var body: some View {
+        NavigationStack {
+            VStack(spacing: 14) {
+                VideoPlayer(player: player)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                Label(String(localized: "Before you share, check that no faces or personal details are in the video."),
+                      systemImage: "person.crop.circle.badge.exclamationmark")
+                    .font(.footnote)
+                    .foregroundStyle(Color.novaText2)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                if let message {
+                    Text(message).font(.footnote.weight(.semibold)).foregroundStyle(Color.novaOrange)
+                }
+                HStack(spacing: 10) {
+                    Button(action: save) {
+                        Label(saved ? String(localized: "Saved") : String(localized: "Save to Photos"),
+                              systemImage: saved ? "checkmark" : "square.and.arrow.down")
+                    }
+                    .buttonStyle(PrimaryButtonStyle(enabled: !saved))
+                    .disabled(saved)
+                    ShareLink(item: video.url) {
+                        Label(String(localized: "Share"), systemImage: "square.and.arrow.up")
+                    }
+                    .buttonStyle(OutlineButtonStyle())
+                }
+                Button(role: .destructive) { dismiss() } label: {
+                    Text(saved ? String(localized: "Done") : String(localized: "Delete"))
+                }
+                .buttonStyle(OutlineButtonStyle())
+            }
+            .padding(16)
+            .background(Color.novaGround.ignoresSafeArea())
+            .navigationTitle(Text("Screen recording"))
+            .navigationBarTitleDisplayMode(.inline)
+        }
+        .onAppear { player = AVPlayer(url: video.url) }
+        .onDisappear {
+            player?.pause()
+            try? FileManager.default.removeItem(at: video.url)
+        }
+    }
+
+    private func save() {
+        Task {
+            // Add-only access: Nova can put the video in Photos but can't see the library.
+            guard await PHPhotoLibrary.requestAuthorization(for: .addOnly) == .authorized else {
+                message = String(localized: "Allow Nova Guide to add to Photos in Settings, then try again.")
+                return
+            }
+            do {
+                try await PHPhotoLibrary.shared().performChanges {
+                    PHAssetCreationRequest.forAsset().addResource(with: .video, fileURL: video.url, options: nil)
+                }
+                saved = true
+                message = nil
+            } catch {
+                message = error.localizedDescription
+            }
+        }
+    }
+}

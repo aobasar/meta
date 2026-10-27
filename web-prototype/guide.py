@@ -74,6 +74,7 @@ PLAN_SCHEMA = {
                         "type": "object",
                         "properties": {
                             "instruction": {"type": "string"},
+                            "detail": {"type": "string"},
                             "target_phrase": {"type": "string"},
                             "x": {"type": "integer"},
                             "y": {"type": "integer"},
@@ -82,7 +83,7 @@ PLAN_SCHEMA = {
                             "success_condition": {"type": "string"},
                             "visible_result": {"type": "boolean"},
                         },
-                        "required": ["instruction", "target_phrase", "x", "y", "set_to_label", "set_to_meaning",
+                        "required": ["instruction", "detail", "target_phrase", "x", "y", "set_to_label", "set_to_meaning",
                                      "success_condition", "visible_result"],
                         "additionalProperties": False,
                     },
@@ -102,8 +103,12 @@ They read and speak {language}.
 1. Identify the device type, and any brand or model text you can read. Answer in English.
 2. Decide whether it is safe to guide them. Refuse gas valves, electrical panels, a moving vehicle, and medication
    dosing; for payments, guide up to the payment and leave paying to them. Put the reason in safety_note, in {language}.
-3. Give the shortest list of physical steps (at most {max_steps}). For each step:
+3. Give the shortest list of physical steps (at most {max_steps}). Add a step that starts the device (Start,
+   Start/Pause, Run) only when their task is to run it; to set the clock, a timer or a setting, end with the key that
+   confirms that setting instead. For each step:
    - instruction: one short sentence in {language}.
+   - detail: one short sentence in {language} that helps them find the control or tell the step is done (for
+     example "The large dial in the middle; its arrow should point at normal.").
    - target_phrase: a short English noun phrase naming the exact control to touch, as it looks in the photo
      (for example "rinse button", "program selector dial"). Name one control, not a region.
    - x, y: where that control is, on a 0-1000 grid of this image, (0,0) top-left.
@@ -533,6 +538,7 @@ def plan(frame: bytes, question: str, language: str, api_key: str, opener) -> di
     for step, target, label, (px, py), (box, method) in zip(raw_steps, targets, labels, points, located):
         entry = {
             "instruction": str(step.get("instruction", "")),
+            "detail": str(step.get("detail", "")),
             "target": target,
             "success": str(step.get("success_condition", "")),
             "point": normalized_point(px, py, width, height),

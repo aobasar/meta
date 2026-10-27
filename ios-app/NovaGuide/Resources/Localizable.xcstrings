@@ -2,12 +2,52 @@
   "sourceLanguage": "en",
   "version": "1.0",
   "strings": {
+    "AI-generated guidance · Nova": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yapay zekâ yönlendirmesi · Nova"
+          }
+        }
+      }
+    },
     "AI-generated guidance. Check before you press.": {
       "localizations": {
         "tr": {
           "stringUnit": {
             "state": "translated",
             "value": "Yapay zekâ yönlendirmesidir. Basmadan önce kontrol edin."
+          }
+        }
+      }
+    },
+    "AI-generated guidance. Check before you press. It can be wrong; labels and manuals come first.": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yapay zekâ yönlendirmesidir; basmadan önce kontrol et. Hatalı olabilir; etiket ve kılavuz önce gelir."
+          }
+        }
+      }
+    },
+    "About": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hakkında"
+          }
+        }
+      }
+    },
+    "Allow Nova Guide to add to Photos in Settings, then try again.": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ayarlar'da Nova Guide'ın Fotoğraflar'a eklemesine izin ver, sonra tekrar dene."
           }
         }
       }
@@ -22,22 +62,52 @@
         }
       }
     },
-    "Almost there…": {
+    "Ask": {
       "localizations": {
         "tr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Neredeyse hazır…"
+            "value": "Soru sor"
           }
         }
       }
     },
-    "Back": {
+    "Automatic": {
       "localizations": {
         "tr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Geri"
+            "value": "Otomatik"
+          }
+        }
+      }
+    },
+    "Back to the question": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Soruya dön"
+          }
+        }
+      }
+    },
+    "Before you share, check that no faces or personal details are in the video.": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Paylaşmadan önce videoda yüz ya da kişisel bilgi olmadığından emin ol."
+          }
+        }
+      }
+    },
+    "Before you start": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Başlamadan önce"
           }
         }
       }
@@ -48,16 +118,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Kamera takibi kullanılamıyor."
-          }
-        }
-      }
-    },
-    "Cancel": {
-      "localizations": {
-        "tr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Vazgeç"
           }
         }
       }
@@ -92,6 +152,66 @@
         }
       }
     },
+    "Connected over the internet": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "İnternet üzerinden bağlı"
+          }
+        }
+      }
+    },
+    "Connected to the Mac (Tailscale)": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mac'e bağlı (Tailscale)"
+          }
+        }
+      }
+    },
+    "Connection": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bağlantı"
+          }
+        }
+      }
+    },
+    "Continue": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Devam"
+          }
+        }
+      }
+    },
+    "Continue 5 s after a check": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Doğrulanınca 5 sn sonra devam et"
+          }
+        }
+      }
+    },
+    "Continue →": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Devam →"
+          }
+        }
+      }
+    },
     "Correct.": {
       "localizations": {
         "tr": {
@@ -102,12 +222,32 @@
         }
       }
     },
+    "Delete": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sil"
+          }
+        }
+      }
+    },
     "Depth sensor": {
       "localizations": {
         "tr": {
           "stringUnit": {
             "state": "translated",
             "value": "Derinlik sensörü"
+          }
+        }
+      }
+    },
+    "Do it right.": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Doğru yap."
           }
         }
       }
@@ -142,6 +282,86 @@
         }
       }
     },
+    "Follow": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Takip et"
+          }
+        }
+      }
+    },
+    "For ages 18 and up.": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "18 yaş ve üstü içindir."
+          }
+        }
+      }
+    },
+    "For wide control panels, turn your iPhone sideways. Portrait is fully supported.": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Geniş panellerde telefonu yan çevir. Dikey kullanım da tamamen desteklenir."
+          }
+        }
+      }
+    },
+    "Frames and your voice go to the Nova server and AI models only when you ask; they aren't kept.": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kareler ve sesin yalnızca sorduğunda Nova sunucusuna ve yapay zekâ modellerine gider; saklanmaz."
+          }
+        }
+      }
+    },
+    "Full text:": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tam metin:"
+          }
+        }
+      }
+    },
+    "Get Started": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Başla"
+          }
+        }
+      }
+    },
+    "Haptics": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Titreşim"
+          }
+        }
+      }
+    },
+    "Hide summary": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Özeti gizle"
+          }
+        }
+      }
+    },
     "Hold the phone steady for a moment.": {
       "localizations": {
         "tr": {
@@ -162,22 +382,62 @@
         }
       }
     },
-    "How does this device work?": {
+    "Home": {
       "localizations": {
         "tr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Bu cihaz nasıl çalışır?"
+            "value": "Ana ekran"
           }
         }
       }
     },
-    "I can't see it clearly. Move closer and check again.": {
+    "How Nova works": {
       "localizations": {
         "tr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Net göremiyorum. Yaklaşıp yeniden kontrol edin."
+            "value": "Nova nasıl çalışır"
+          }
+        }
+      }
+    },
+    "How does this work?": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bu nasıl çalışır?"
+          }
+        }
+      }
+    },
+    "How it works": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nasıl çalışır"
+          }
+        }
+      }
+    },
+    "I can't see it clearly. Move closer, or confirm it yourself.": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Net göremiyorum. Biraz yaklaş ya da kendin onayla."
+          }
+        }
+      }
+    },
+    "I did it, confirm": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yaptım, onaylıyorum"
           }
         }
       }
@@ -192,12 +452,12 @@
         }
       }
     },
-    "I didn't hear anything. Tap the microphone and speak.": {
+    "I didn't hear anything. Tap Pulse and speak.": {
       "localizations": {
         "tr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Bir şey duymadım. Mikrofona dokunup konuşun."
+            "value": "Bir şey duymadım. Pulse'a dokun ve konuş."
           }
         }
       }
@@ -218,6 +478,56 @@
           "stringUnit": {
             "state": "translated",
             "value": "Normal yıkama yapmak istiyorum"
+          }
+        }
+      }
+    },
+    "I've done it →": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yaptım →"
+          }
+        }
+      }
+    },
+    "I've read and agree (18+)": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Okudum, kabul ediyorum (18+)"
+          }
+        }
+      }
+    },
+    "Independent experimental prototype": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bağımsız deneysel prototip"
+          }
+        }
+      }
+    },
+    "Independent experimental prototype. Guidance is AI-generated and can be wrong.": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bağımsız deneysel prototip. Yönlendirmeler yapay zekâ ile üretilir ve hatalı olabilir."
+          }
+        }
+      }
+    },
+    "Interface language": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Arayüz dili"
           }
         }
       }
@@ -252,6 +562,26 @@
         }
       }
     },
+    "Landscape": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yatay"
+          }
+        }
+      }
+    },
+    "Language & voice": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dil ve ses"
+          }
+        }
+      }
+    },
     "LiDAR": {
       "localizations": {
         "tr": {
@@ -268,26 +598,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Dinliyorum…"
-          }
-        }
-      }
-    },
-    "Mac (Tailscale)": {
-      "localizations": {
-        "tr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Mac (Tailscale)"
-          }
-        }
-      }
-    },
-    "Mac address": {
-      "localizations": {
-        "tr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Mac adresi"
           }
         }
       }
@@ -332,12 +642,42 @@
         }
       }
     },
-    "New question": {
+    "Needs correction.": {
       "localizations": {
         "tr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Yeni soru"
+            "value": "Düzeltme gerekiyor."
+          }
+        }
+      }
+    },
+    "New task here": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Burada yeni görev"
+          }
+        }
+      }
+    },
+    "Next step": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sonraki adım"
+          }
+        }
+      }
+    },
+    "No need to hold the phone still.": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Telefonu sabit tutmana gerek yok."
           }
         }
       }
@@ -352,32 +692,32 @@
         }
       }
     },
+    "Not for gas, electrical panels, vehicles or medication.": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gaz, elektrik panosu, araç ve ilaç için kullanma."
+          }
+        }
+      }
+    },
+    "Not sure.": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Emin değilim."
+          }
+        }
+      }
+    },
     "Not yet. Check the marker and try again.": {
       "localizations": {
         "tr": {
           "stringUnit": {
             "state": "translated",
             "value": "Henüz değil. İşarete bakıp yeniden deneyin."
-          }
-        }
-      }
-    },
-    "Nova (internet)": {
-      "localizations": {
-        "tr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Nova (internet)"
-          }
-        }
-      }
-    },
-    "Nova Guide shows where to touch; you do every step yourself. Its guidance is AI-generated and can be wrong.": {
-      "localizations": {
-        "tr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Nova Guide nereye dokunacağınızı gösterir; her adımı siz yaparsınız. Yönlendirmeler yapay zekâ ile üretilir ve hatalı olabilir."
           }
         }
       }
@@ -402,12 +742,22 @@
         }
       }
     },
-    "Nova over the internet": {
+    "OK": {
       "localizations": {
         "tr": {
           "stringUnit": {
             "state": "translated",
-            "value": "İnternet üzerinden Nova"
+            "value": "Tamam"
+          }
+        }
+      }
+    },
+    "One step at a time, large and read aloud.": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Adım adım, büyük yazıyla ve sesli."
           }
         }
       }
@@ -442,42 +792,102 @@
         }
       }
     },
-    "Ready.": {
+    "Point the camera at what you need help with, then tap Pulse and say what you want to do.": {
       "localizations": {
         "tr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Hazır."
+            "value": "Kamerayı yardım istediğin şeye tut, sonra Pulse'a dokunup ne yapmak istediğini söyle."
           }
         }
       }
     },
-    "Recognizing the device…": {
+    "Point the camera; the right control gets marked.": {
       "localizations": {
         "tr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Cihaz tanınıyor…"
+            "value": "Kamerayı tut, doğru yer işaretlenir."
           }
         }
       }
     },
-    "Recording": {
+    "Portrait": {
       "localizations": {
         "tr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Kayıt"
+            "value": "Dikey"
           }
         }
       }
     },
-    "Recording mode": {
+    "Previous step": {
       "localizations": {
         "tr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Kayıt modu"
+            "value": "Önceki adım"
+          }
+        }
+      }
+    },
+    "Privacy": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gizlilik"
+          }
+        }
+      }
+    },
+    "Privacy and terms": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gizlilik ve koşullar"
+          }
+        }
+      }
+    },
+    "Record the screen": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ekranı kaydet"
+          }
+        }
+      }
+    },
+    "Recording mode (for testing)": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kayıt modu (test için)"
+          }
+        }
+      }
+    },
+    "Recording paused while Nova thinks. Tap to stop.": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nova düşünürken kayıt duraklatıldı. Durdurmak için dokun."
+          }
+        }
+      }
+    },
+    "Recording the screen. Tap to stop.": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ekran kaydediliyor. Durdurmak için dokun."
           }
         }
       }
@@ -488,6 +898,86 @@
           "stringUnit": {
             "state": "translated",
             "value": "Tekrarla"
+          }
+        }
+      }
+    },
+    "Save to Photos": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fotoğraflar'a kaydet"
+          }
+        }
+      }
+    },
+    "Saved": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kaydedildi"
+          }
+        }
+      }
+    },
+    "Say “done” and Nova checks with the camera.": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "“Yaptım” de, Nova kameradan bakar."
+          }
+        }
+      }
+    },
+    "Screen": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ekran"
+          }
+        }
+      }
+    },
+    "Screen orientation": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ekran yönü"
+          }
+        }
+      }
+    },
+    "Screen recording": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ekran kaydı"
+          }
+        }
+      }
+    },
+    "Screen recording isn't available on this iPhone right now.": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ekran kaydı bu iPhone'da şu an kullanılamıyor."
+          }
+        }
+      }
+    },
+    "See it. Understand it.": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gör. Anla."
           }
         }
       }
@@ -512,12 +1002,62 @@
         }
       }
     },
+    "Share": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Paylaş"
+          }
+        }
+      }
+    },
+    "Show": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Göster"
+          }
+        }
+      }
+    },
+    "Show closer": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Daha yakından göster"
+          }
+        }
+      }
+    },
     "Show me": {
       "localizations": {
         "tr": {
           "stringUnit": {
             "state": "translated",
             "value": "Göster bana"
+          }
+        }
+      }
+    },
+    "Show me step by step": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bana adım adım göster"
+          }
+        }
+      }
+    },
+    "Shows where to touch, guides you step by step and checks every step.": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nereye dokunacağını gösterir, adım adım eşlik eder ve her adımı kontrol eder."
           }
         }
       }
@@ -532,32 +1072,102 @@
         }
       }
     },
-    "Step %lld / %lld": {
+    "Something else": {
       "localizations": {
         "tr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Adım %1$lld / %2$lld"
+            "value": "Başka bir şey"
           }
         }
       }
     },
-    "Stop listening": {
+    "Speak instructions aloud": {
       "localizations": {
         "tr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Dinlemeyi durdur"
+            "value": "Talimatları sesli oku"
           }
         }
       }
     },
-    "Talk to Nova": {
+    "Status": {
       "localizations": {
         "tr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Nova ile konuş"
+            "value": "Durum"
+          }
+        }
+      }
+    },
+    "Steps": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Adım"
+          }
+        }
+      }
+    },
+    "Tap Pulse and say it, or pick one.": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pulse'a dokunup söyle ya da birini seç."
+          }
+        }
+      }
+    },
+    "Tap and talk": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dokun ve konuş"
+          }
+        }
+      }
+    },
+    "Task completed": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Görev tamamlandı"
+          }
+        }
+      }
+    },
+    "Task completed.": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Görev tamamlandı."
+          }
+        }
+      }
+    },
+    "Task guidance": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Görev"
+          }
+        }
+      }
+    },
+    "Terms": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Koşullar"
           }
         }
       }
@@ -602,6 +1212,16 @@
         }
       }
     },
+    "The internet address is tried first and needs your invite code, kept in this iPhone's Keychain. The Mac over Tailscale is the fallback. The phone never holds the API key.": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Önce internet adresi denenir; bunun için davet kodun gerekir, kod bu iPhone'un Anahtar Zinciri'nde saklanır. Tailscale üzerinden Mac yedek yoldur. API anahtarı hiçbir zaman telefonda olmaz."
+          }
+        }
+      }
+    },
     "The microphone couldn't start.": {
       "localizations": {
         "tr": {
@@ -642,12 +1262,12 @@
         }
       }
     },
-    "Tried first. Needs the invite code you were given; it is kept in this iPhone's Keychain.": {
+    "Time": {
       "localizations": {
         "tr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Önce bu denenir. Size verilen davet kodu gerekir; kod bu iPhone'un Keychain'inde saklanır."
+            "value": "Süre"
           }
         }
       }
@@ -682,22 +1302,82 @@
         }
       }
     },
-    "Understanding…": {
+    "Type instead": {
       "localizations": {
         "tr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Anlıyorum…"
+            "value": "Yazarak sor"
           }
         }
       }
     },
-    "Used when the internet address doesn't answer. The phone never holds the API key; the Mac does.": {
+    "Type your question": {
       "localizations": {
         "tr": {
           "stringUnit": {
             "state": "translated",
-            "value": "İnternet adresi yanıt vermezse kullanılır. API anahtarı telefonda değil, Mac'te durur."
+            "value": "Sorunu yaz"
+          }
+        }
+      }
+    },
+    "Verified": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Doğrulandı"
+          }
+        }
+      }
+    },
+    "Verified.": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Doğrulandı."
+          }
+        }
+      }
+    },
+    "Verify": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kontrol et"
+          }
+        }
+      }
+    },
+    "Verify each step": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Her adımı kontrol et"
+          }
+        }
+      }
+    },
+    "Version": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sürüm"
+          }
+        }
+      }
+    },
+    "View summary": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Özeti gör"
           }
         }
       }
@@ -712,12 +1392,102 @@
         }
       }
     },
-    "When on, your Mac saves each camera frame and answer for testing. Nothing is saved on the phone.": {
+    "When on, each frame and answer is saved on the Mac for testing; nothing is kept on the phone. Audio is never saved. Only invite codes allowed to record can use it.": {
       "localizations": {
         "tr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Açıkken Mac'iniz test için her kamera karesini ve yanıtı kaydeder. Telefona hiçbir şey kaydedilmez."
+            "value": "Açıkken her kare ve cevap test için Mac'e kaydedilir; telefonda hiçbir şey saklanmaz. Ses hiçbir zaman kaydedilmez. Sadece kayıt izni olan davet kodlarında çalışır."
+          }
+        }
+      }
+    },
+    "Working out what this is…": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ne olduğu anlaşılıyor…"
+          }
+        }
+      }
+    },
+    "You confirmed": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sen onayladın"
+          }
+        }
+      }
+    },
+    "You'll be asked for the camera and microphone. The mic opens only when you tap Pulse.": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kamera ve mikrofon izni istenecek. Mikrofon sadece Pulse'a dokununca açılır."
+          }
+        }
+      }
+    },
+    "can't be checked": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "kontrol edilemez"
+          }
+        }
+      }
+    },
+    "iPhone language": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "iPhone dili"
+          }
+        }
+      }
+    },
+    "pending": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "bekliyor"
+          }
+        }
+      }
+    },
+    "skipped": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "atlandı"
+          }
+        }
+      }
+    },
+    "verified": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "doğrulandı"
+          }
+        }
+      }
+    },
+    "you confirmed": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "sen onayladın"
           }
         }
       }

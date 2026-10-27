@@ -62,7 +62,7 @@ final class GuidePlanTests: XCTestCase {
         {"device": {"type": "washing machine", "brand": "Maytag"}, "safe": true, "safetyNote": "", "uncertainty": "",
          "frame": {"width": 1600, "height": 1200}, "served": ["muse-spark-1.3", "sam-3.1"], "timings": {"plan": 4.1},
          "steps": [
-          {"instruction": "Sıcaklığı sıcağa çevir.", "target": "temperature knob", "success": "pointer at hot",
+          {"instruction": "Sıcaklığı sıcağa çevir.", "detail": "Soldaki düğme.", "target": "temperature knob", "success": "pointer at hot",
            "point": {"x": 0.21, "y": 0.41}, "box": {"x1": 0.18, "y1": 0.36, "x2": 0.24, "y2": 0.46, "confidence": 0.91},
            "boxMethod": "point", "setTo": {"label": "hot", "meaning": "sıcak", "point": {"x": 0.26, "y": 0.3}}},
           {"instruction": "Başlat.", "target": "start button", "success": "", "point": {"x": 0.8, "y": 0.4},
@@ -74,6 +74,8 @@ final class GuidePlanTests: XCTestCase {
         XCTAssertEqual(plan.steps.count, 2)
         XCTAssertEqual(plan.steps[0].markerPoint.x, 0.21, accuracy: 1e-9)  // the box center
         XCTAssertEqual(plan.steps[0].setTo?.meaning, "sıcak")
+        XCTAssertEqual(plan.steps[0].detail, "Soldaki düğme.")
+        XCTAssertNil(plan.steps[1].detail)  // an older server sends none
         XCTAssertEqual(plan.steps[1].markerPoint, NormalizedPoint(x: 0.8, y: 0.4))  // no box: Spark's point
     }
 
@@ -229,5 +231,62 @@ final class ServerRouterTests: XCTestCase {
         } catch {
             XCTAssertEqual(calls, 1)
         }
+    }
+}
+
+final class FrameOrientationTests: XCTestCase {
+    func testLandscapeRightIsTheSensorImage() {
+        XCTAssertEqual(FrameOrientation.landscapeRight.sensorPoint(CGPoint(x: 0.2, y: 0.7)), CGPoint(x: 0.2, y: 0.7))
+        XCTAssertEqual(FrameOrientation.landscapeRight.imageOrientation, .up)
+    }
+
+    func testPortraitTurnsTheSensorImageClockwise() {
+        // The upright frame's top-left corner is the sensor image's bottom-left; its top-right is the sensor's top-left.
+        XCTAssertEqual(FrameOrientation.portrait.sensorPoint(CGPoint(x: 0, y: 0)), CGPoint(x: 0, y: 1))
+        XCTAssertEqual(FrameOrientation.portrait.sensorPoint(CGPoint(x: 1, y: 0)), CGPoint(x: 0, y: 0))
+        XCTAssertEqual(FrameOrientation.portrait.sensorPoint(CGPoint(x: 0.25, y: 0.6)), CGPoint(x: 0.6, y: 0.75))
+        XCTAssertEqual(FrameOrientation.portrait.uprightSize(CGSize(width: 1920, height: 1440)), CGSize(width: 1440, height: 1920))
+        XCTAssertEqual(FrameOrientation.portrait.imageOrientation, .right)
+    }
+
+    func testLandscapeLeftIsUpsideDown() {
+        XCTAssertEqual(FrameOrientation.landscapeLeft.sensorPoint(CGPoint(x: 0.2, y: 0.3)), CGPoint(x: 0.8, y: 0.7))
+        XCTAssertEqual(FrameOrientation.landscapeLeft.uprightSize(CGSize(width: 1920, height: 1440)), CGSize(width: 1920, height: 1440))
+    }
+}
+
+final class GuideSettingsTests: XCTestCase {
+    private func freshDefaults() -> UserDefaults {
+        let name = "NovaGuideTests-\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: name)!
+        defaults.removePersistentDomain(forName: name)
+        return defaults
+    }
+
+    func testTheSpokenLanguageFollowsTheIPhoneByDefault() {
+        XCTAssertEqual(GuideSettings(defaults: freshDefaults(), preferredLanguages: ["tr-TR"]).language.serverName, "Turkish")
+        XCTAssertEqual(GuideSettings(defaults: freshDefaults(), preferredLanguages: ["en-US", "tr-TR"]).language.serverName, "English")
+        XCTAssertEqual(GuideSettings(defaults: freshDefaults(), preferredLanguages: ["de-DE"]).language.serverName, "English")
+    }
+
+    func testGuidanceTogglesStartOn() {
+        let settings = GuideSettings(defaults: freshDefaults())
+        XCTAssertTrue(settings.speakAloud)
+        XCTAssertTrue(settings.verifyEach)
+        XCTAssertTrue(settings.autoContinue)
+        XCTAssertTrue(settings.haptics)
+        XCTAssertFalse(settings.record)
+        XCTAssertEqual(settings.orientation, .automatic)
+    }
+
+    func testConsentIsAskedUntilTheCurrentTermsAreAccepted() {
+        let defaults = freshDefaults()
+        let settings = GuideSettings(defaults: defaults)
+        XCTAssertTrue(settings.needsConsent)
+        settings.acceptTerms(on: Date(timeIntervalSince1970: 0))
+        XCTAssertFalse(settings.needsConsent)
+        XCTAssertFalse(GuideSettings(defaults: defaults).needsConsent)  // kept across launches
+        defaults.set("2026-01-01 1970-01-01T00:00:00Z", forKey: "acceptedTerms")
+        XCTAssertTrue(GuideSettings(defaults: defaults).needsConsent)  // an older version asks again
     }
 }

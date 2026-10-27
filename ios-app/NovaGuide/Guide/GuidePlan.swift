@@ -55,6 +55,8 @@ struct GuideStep: Decodable, Equatable {
     }
 
     var instruction: String
+    /// One line in the user's language that helps find the control or tell the step is done.
+    var detail: String? = nil
     var target: String
     /// What a close-up of the control shows once the step is done; used by step verification.
     var success: String

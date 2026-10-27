@@ -44,7 +44,7 @@ PLAN = {
     "device_type": "washing machine", "brand_or_model_seen": "Maytag", "safe_to_guide": True, "safety_note": "",
     "uncertainty": "",
     "steps": [
-        {"instruction": "Sıcaklık düğmesini sıcağa çevir.", "target_phrase": "temperature knob", "x": 200, "y": 400,
+        {"instruction": "Sıcaklık düğmesini sıcağa çevir.", "detail": "Soldaki düğme.", "target_phrase": "temperature knob", "x": 200, "y": 400,
          "set_to_label": "hot", "set_to_meaning": "sıcak", "success_condition": "the pointer is at 'hot'",
          "visible_result": True},
         {"instruction": "Başlat düğmesine bas.", "target_phrase": "start button", "x": 800, "y": 400,
@@ -148,10 +148,17 @@ class PlanTests(unittest.TestCase):
         self.assertEqual(first["box"]["x1"], 0.18)
         self.assertEqual(first["setTo"], {"label": "hot", "meaning": "sıcak", "point": {"x": 0.26, "y": 0.3}})
         self.assertEqual(first["success"], "the pointer is at 'hot'")
+        self.assertEqual(first["detail"], "Soldaki düğme.")
+        self.assertEqual(second["detail"], "")
         self.assertIsNone(second["setTo"])
         self.assertTrue(first["verifiable"])
         self.assertFalse(second["verifiable"])
         self.assertEqual(result["served"], ["muse-spark-1.3", "sam-3.1"])
+
+    def test_plan_prompt_starts_the_device_only_when_the_task_runs_it(self):
+        prompt = guide.PLAN_PROMPT.format(question="q", language="Turkish", max_steps=6)
+        self.assertIn("only when their task is to run it", prompt)
+        self.assertIn("detail", guide.PLAN_SCHEMA["json_schema"]["schema"]["properties"]["steps"]["items"]["required"])
 
     def test_only_pinned_standard_models_are_requested(self):
         opener = RoutingOpener()

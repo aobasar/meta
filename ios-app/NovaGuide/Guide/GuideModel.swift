@@ -1,4 +1,5 @@
 import Foundation
+import UIKit
 
 /// The guide's state: ask, think, then walk through the steps. Nova only shows; the user does every step
 /// (HACKATHON.md, design rule 3).
@@ -20,7 +21,9 @@ final class GuideModel: ObservableObject {
     /// What Nova knows about one step in this session (physical state memory).
     struct StepRecord: Equatable {
         enum Result: Equatable {
-            case pending, verified, failed, uncertain, unchecked, skipped
+            /// `confirmed`: Nova couldn't tell, and the user confirmed it themselves.
+            /// `skipped`: Nova saw it wasn't done, and the user moved on anyway.
+            case pending, verified, failed, uncertain, unchecked, confirmed, skipped
         }
 
         var expected: String
@@ -28,7 +31,7 @@ final class GuideModel: ObservableObject {
         var result: Result = .pending
     }
 
-    /// The step card's answer to "Done".
+    /// The step card's answer to "I've done it".
     enum Feedback: Equatable {
         case checking
         case correct
@@ -36,6 +39,13 @@ final class GuideModel: ObservableObject {
         case unsure(String)
         case error(String)
     }
+
+    /// Pulse, the one round button: what it shows and what a tap does.
+    enum Pulse: Equatable {
+        case ready, listening, thinking, guiding
+    }
+
+    static let autoContinueSeconds = 5.0
 
     @Published var phase: Phase = .asking
     @Published var question = ""
@@ -45,6 +55,11 @@ final class GuideModel: ObservableObject {
     @Published private(set) var connection: Connection = .unknown
     @Published private(set) var records: [StepRecord] = []
     @Published private(set) var feedback: Feedback?
+    /// The device Nova recognized last; kept for "New task here", cleared by "Something else".
+    @Published private(set) var knownDevice: String?
+    /// When the task's first question was asked and when its last step was done.
+    @Published private(set) var startedAt: Date?
+    @Published private(set) var finishedAt: Date?
 
     enum Listening: Equatable {
         case idle, listening, transcribing, answering
@@ -75,6 +90,25 @@ final class GuideModel: ObservableObject {
     var currentStep: GuideStep? {
         guard let plan, plan.steps.indices.contains(stepIndex) else { return nil }
         return plan.steps[stepIndex]
+    }
+
+    var isLastStep: Bool { plan.map { stepIndex + 1 == $0.steps.count } ?? false }
+
+    /// True while Nova waits for a model: screen recording pauses so the video holds only the action.
+    var isWaiting: Bool {
+        phase == .thinking || feedback == .checking || listening == .transcribing || listening == .answering
+    }
+
+    var pulse: Pulse {
+        if listening == .listening { return .listening }
+        if phase == .thinking || listening == .transcribing || listening == .answering { return .thinking }
+        return phase == .guiding ? .guiding : .ready
+    }
+
+    /// The step card's arrows: forward only to a step the user already reached.
+    var canGoForward: Bool {
+        guard let plan, stepIndex + 1 < plan.steps.count, records.indices.contains(stepIndex) else { return false }
+        return records[stepIndex].result != .pending
     }
 
     /// Usage ids sent with every request: this app launch, and the current task (a new one per plan).
@@ -117,6 +151,8 @@ final class GuideModel: ObservableObject {
         ar.clear()
         plan = nil
         taskID = UUID().uuidString  // a new plan is a new task
+        startedAt = startedAt ?? Date()
+        finishedAt = nil
         phase = .thinking
         let settings = self.settings
         task = Task {
@@ -140,6 +176,7 @@ final class GuideModel: ObservableObject {
 
     private func show(_ plan: GuidePlan, capture: CapturedFrame) {
         self.plan = plan
+        if !plan.device.type.isEmpty { knownDevice = plan.deviceLabel }
         guard plan.safe else {
             let note = plan.safetyNote.isEmpty ? String(localized: "Nova can't guide this safely.") : plan.safetyNote
             phase = .refused(note)
@@ -160,10 +197,9 @@ final class GuideModel: ObservableObject {
 
     private func cycleStatus() async {
         let lines = [
-            String(localized: "Recognizing the device…"),
+            String(localized: "Working out what this is…"),
             String(localized: "Planning the steps…"),
             String(localized: "Finding the controls…"),
-            String(localized: "Almost there…"),
         ]
         for line in lines {
             statusLine = line
@@ -172,17 +208,36 @@ final class GuideModel: ObservableObject {
         }
     }
 
-    func cancel() {
-        task?.cancel()
-        phase = .asking
+    // MARK: Steps
+
+    /// The step card's main button; its meaning follows the last check.
+    func primary() {
+        switch feedback {
+        case .checking: return
+        case .correct: next()
+        case .notDone, .unsure, .error: done()  // check again, closer
+        case nil: done()
+        }
+    }
+
+    /// The step card's second button, shown after a check that didn't pass.
+    func secondary() {
+        switch feedback {
+        case .unsure: mark(.confirmed)
+        case .notDone, .error: mark(.skipped)
+        default: break
+        }
     }
 
     /// The user says the step is done: check it on a close-up of the control, unless a close-up can't show it.
     func done() {
         guard let step = currentStep, feedback != .checking else { return }
+        guard settings.verifyEach else {
+            mark(.confirmed)
+            return
+        }
         guard step.isVerifiable else {
-            records[stepIndex].result = .unchecked
-            next()
+            mark(.unchecked)
             return
         }
         switch ar.closeUp(step: stepIndex) {
@@ -194,6 +249,7 @@ final class GuideModel: ObservableObject {
             say(.unsure(String(localized: "Hold the phone steady, then check again.")))
         case .jpeg(let jpeg):
             feedback = .checking
+            reply = nil
             let index = stepIndex, settings = self.settings
             checkTask = Task {
                 do {
@@ -218,8 +274,9 @@ final class GuideModel: ObservableObject {
         case .done:
             records[index].result = .verified
             say(.correct)
+            guard settings.autoContinue else { return }
             checkTask = Task {
-                try? await Task.sleep(for: .seconds(1.2))
+                try? await Task.sleep(for: .seconds(Self.autoContinueSeconds))
                 if !Task.isCancelled, index == stepIndex, feedback == .correct { next() }
             }
         case .notDone:
@@ -231,22 +288,38 @@ final class GuideModel: ObservableObject {
             records[index].result = .uncertain
             say(.unsure(check.reason == "too_small"
                 ? String(localized: "Move the phone closer to the control, then check again.")
-                : String(localized: "I can't see it clearly. Move closer and check again.")))
+                : String(localized: "I can't see it clearly. Move closer, or confirm it yourself.")))
         }
     }
 
-    /// The user's own call: they did the step even though Nova couldn't confirm it.
-    func skip() {
+    /// Records the user's own call for this step and moves on.
+    private func mark(_ result: StepRecord.Result) {
         guard currentStep != nil else { return }
-        records[stepIndex].result = .skipped
+        records[stepIndex].result = result
         next()
+    }
+
+    /// The voice command "skip": the user did it, whatever the check said.
+    func skip() {
+        if case .notDone = feedback {
+            mark(.skipped)
+        } else {
+            mark(.confirmed)
+        }
     }
 
     private func say(_ feedback: Feedback) {
         self.feedback = feedback
         switch feedback {
-        case .correct: speak(String(localized: "Correct."))
-        case .notDone(let text), .unsure(let text): speak(text)
+        case .correct:
+            haptic(.success)
+            speak(String(localized: "Correct."))
+        case .notDone(let text):
+            haptic(.error)
+            speak(text)
+        case .unsure(let text):
+            haptic(.warning)
+            speak(text)
         case .checking, .error: break
         }
     }
@@ -256,27 +329,37 @@ final class GuideModel: ObservableObject {
         if stepIndex + 1 < plan.steps.count {
             go(to: stepIndex + 1)
         } else {
+            checkTask?.cancel()
             phase = .finished
             feedback = nil
+            finishedAt = Date()
             ar.currentStep = nil
-            speak(String(localized: "Ready."))
+            speak(String(localized: "Task completed."))
         }
     }
 
+    /// Back one step; from the first step, back to the question with the same thing in view.
     func back() {
         if phase == .finished {
             phase = .guiding
             go(to: stepIndex)
         } else if stepIndex > 0 {
             go(to: stepIndex - 1)
+        } else {
+            newTask(keepDevice: true)
         }
+    }
+
+    func forward() {
+        if canGoForward { go(to: stepIndex + 1) }
     }
 
     func repeatStep() {
         if let step = currentStep { speak(step.instruction) }
     }
 
-    func newQuestion() {
+    /// Home, "New task here" and "Something else": back to "What do you want to do?".
+    func newTask(keepDevice: Bool) {
         task?.cancel()
         checkTask?.cancel()
         feedback = nil
@@ -286,12 +369,18 @@ final class GuideModel: ObservableObject {
         ar.clear()
         plan = nil
         stepIndex = 0
+        question = ""
+        startedAt = nil
+        finishedAt = nil
+        if !keepDevice { knownDevice = nil }
         phase = .asking
     }
 
+    func newQuestion() { newTask(keepDevice: true) }
+
     // MARK: Voice
 
-    /// The microphone button: start listening, or stop and use what was said.
+    /// Pulse: start listening, or stop and use what was said.
     func microphoneTapped() {
         if recorder.isRecording {
             recorder.finish()
@@ -316,7 +405,7 @@ final class GuideModel: ObservableObject {
     private func heardRecording(_ wav: Data?) {
         guard let wav else {
             listening = .idle
-            show(message: String(localized: "I didn't hear anything. Tap the microphone and speak."))
+            show(message: String(localized: "I didn't hear anything. Tap Pulse and speak."))
             return
         }
         listening = .transcribing
@@ -350,7 +439,7 @@ final class GuideModel: ObservableObject {
             return
         case .guiding:
             switch command {
-            case .done: done()
+            case .done: primary()
             case .repeatStep: repeatStep()
             case .back: back()
             case .skip: skip()
@@ -414,7 +503,8 @@ final class GuideModel: ObservableObject {
         case .failed: "checked: not done"
         case .uncertain: "checked: unclear"
         case .unchecked: "done, not checked"
-        case .skipped: "the user said done without a check"
+        case .confirmed: "the user confirmed it was done"
+        case .skipped: "the user said done although the check said not done"
         }
     }
 
@@ -441,6 +531,53 @@ final class GuideModel: ObservableObject {
     }
 
     private func speak(_ text: String) {
+        guard settings.speakAloud else { return }
         speaker.speak(text, voice: settings.language.voice)
     }
+
+    private func haptic(_ type: UINotificationFeedbackGenerator.FeedbackType) {
+        guard settings.haptics else { return }
+        UINotificationFeedbackGenerator().notificationOccurred(type)
+    }
+
+    #if DEBUG
+    /// Simulator screenshots only (launch argument `-NovaDemo <screen>`): a fixed plan without the server.
+    func loadDemo(_ screen: String, plan: GuidePlan, correction: String) {
+        self.plan = plan
+        knownDevice = plan.deviceLabel
+        records = plan.steps.map { StepRecord(expected: $0.success) }
+        startedAt = Date().addingTimeInterval(-192)
+        switch screen {
+        case "thinking":
+            self.plan = nil
+            statusLine = String(localized: "Planning the steps…")
+            phase = .thinking
+        case "guiding", "verified", "correction":
+            phase = .guiding
+            stepIndex = 1
+            records[0].result = .verified
+            if screen == "verified" {
+                records[1].result = .verified
+                feedback = .correct
+            } else if screen == "correction" {
+                records[1].result = .failed
+                feedback = .notDone(correction)
+            }
+        case "finished":
+            records = records.enumerated().map { index, record in
+                var record = record
+                record.result = [.verified, .verified, .confirmed, .unchecked][min(index, 3)]
+                return record
+            }
+            stepIndex = plan.steps.count - 1
+            finishedAt = Date()
+            phase = .finished
+        default:
+            knownDevice = nil
+            self.plan = nil
+            records = []
+            phase = .asking
+        }
+    }
+    #endif
 }

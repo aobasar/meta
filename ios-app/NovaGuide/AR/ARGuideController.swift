@@ -6,8 +6,9 @@ import UIKit
 /// One camera frame as it was when the question was asked: the JPEG sent to the Mac plus what is needed to turn the
 /// answer's 2D points into world positions later, after the phone has moved.
 struct CapturedFrame {
-    var jpeg: Data
-    var imageSize: CGSize  // the captured image's resolution; intrinsics are in these pixels
+    var jpeg: Data  // upright for the interface orientation at capture time
+    var imageSize: CGSize  // the sensor image's resolution; intrinsics are in these pixels
+    var orientation: FrameOrientation = .landscapeRight
     var intrinsics: simd_float3x3
     var cameraTransform: simd_float4x4
     var depth: DepthSample?
@@ -17,7 +18,8 @@ struct CapturedFrame {
         return GuideClient.CameraInfo(
             imageWidth: Int(imageSize.width), imageHeight: Int(imageSize.height),
             intrinsics: [i[0], i[1], i[2]].flatMap { [$0.x, $0.y, $0.z] },
-            transform: [t[0], t[1], t[2], t[3]].flatMap { [$0.x, $0.y, $0.z, $0.w] })
+            transform: [t[0], t[1], t[2], t[3]].flatMap { [$0.x, $0.y, $0.z, $0.w] },
+            orientation: orientation.rawValue)
     }
 }
 
@@ -58,6 +60,15 @@ final class ARGuideController: NSObject, ObservableObject, ARSessionDelegate {
 
     var hasLiDAR: Bool { ARWorldTrackingConfiguration.supportsFrameSemantics(.sceneDepth) }
 
+    /// The interface orientation, as the turn that makes the sensor image upright.
+    var frameOrientation: FrameOrientation {
+        switch arView.window?.windowScene?.interfaceOrientation {
+        case .portrait, .portraitUpsideDown: .portrait
+        case .landscapeLeft: .landscapeLeft
+        default: .landscapeRight
+        }
+    }
+
     func start() {
         let configuration = ARWorldTrackingConfiguration()
         configuration.planeDetection = [.horizontal, .vertical]
@@ -91,8 +102,10 @@ final class ARGuideController: NSObject, ObservableObject, ARSessionDelegate {
         guard let frame = arView.session.currentFrame else { return nil }
         let pixelBuffer = frame.capturedImage
         let size = CGSize(width: CVPixelBufferGetWidth(pixelBuffer), height: CVPixelBufferGetHeight(pixelBuffer))
-        // With the interface locked to landscape right, the sensor image is already upright.
-        var image = CIImage(cvPixelBuffer: pixelBuffer)
+        // Turned to the interface orientation, so Spark reads the panel's labels upright.
+        let orientation = frameOrientation
+        var image = CIImage(cvPixelBuffer: pixelBuffer).oriented(orientation.imageOrientation)
+        image = image.transformed(by: CGAffineTransform(translationX: -image.extent.minX, y: -image.extent.minY))
         let scale = min(1, Self.maxImageSide / max(size.width, size.height))
         if scale < 1 { image = image.transformed(by: CGAffineTransform(scaleX: scale, y: scale)) }
         guard let space = CGColorSpace(name: CGColorSpace.sRGB),
@@ -100,7 +113,7 @@ final class ARGuideController: NSObject, ObservableObject, ARSessionDelegate {
                 of: image, colorSpace: space,
                 options: [CIImageRepresentationOption(rawValue: kCGImageDestinationLossyCompressionQuality as String): 0.8])
         else { return nil }
-        return CapturedFrame(jpeg: jpeg, imageSize: size, intrinsics: frame.camera.intrinsics,
+        return CapturedFrame(jpeg: jpeg, imageSize: size, orientation: orientation, intrinsics: frame.camera.intrinsics,
                              cameraTransform: frame.camera.transform, depth: Self.copyDepth(frame))
     }
 
@@ -134,6 +147,8 @@ final class ARGuideController: NSObject, ObservableObject, ARSessionDelegate {
             let flipped = CGRect(x: rect.minX, y: size.height - rect.maxY, width: rect.width, height: rect.height)
             var image = CIImage(cvPixelBuffer: pixelBuffer).cropped(to: flipped)
             image = image.transformed(by: CGAffineTransform(translationX: -flipped.minX, y: -flipped.minY))
+            image = image.oriented(frameOrientation.imageOrientation)
+            image = image.transformed(by: CGAffineTransform(translationX: -image.extent.minX, y: -image.extent.minY))
             let scale = min(1, 1024 / max(rect.width, rect.height))
             if scale < 1 { image = image.transformed(by: CGAffineTransform(scaleX: scale, y: scale)) }
             guard let space = CGColorSpace(name: CGColorSpace.sRGB),
@@ -169,7 +184,8 @@ final class ARGuideController: NSObject, ObservableObject, ARSessionDelegate {
             let (control, distance, precise) = locate(center, capture)
             var radius: Float = 0.025
             if let box = step.box, step.boxMethod == "point" || step.boxMethod == "fallback" {
-                let pixels = max(box.width * capture.imageSize.width, box.height * capture.imageSize.height) / 2
+                let upright = capture.orientation.uprightSize(capture.imageSize)
+                let pixels = max(box.width * upright.width, box.height * upright.height) / 2
                 radius = min(max(CameraGeometry.meters(pixels: pixels, depth: distance, intrinsics: capture.intrinsics), 0.012), 0.08)
             }
             let label = step.setTo?.point.map { locate($0, capture).position }
@@ -184,9 +200,11 @@ final class ARGuideController: NSObject, ObservableObject, ARSessionDelegate {
     }
 
     /// LiDAR depth at the point first, then a raycast from the capture-time camera, then a fixed-distance guess.
+    /// The point is in the upright frame that was sent; depth and intrinsics are in the sensor image.
     private func locate(_ point: NormalizedPoint, _ capture: CapturedFrame) -> (position: SIMD3<Float>, depth: Float, precise: Bool) {
-        let pixel = CGPoint(x: point.x * capture.imageSize.width, y: point.y * capture.imageSize.height)
-        if let depth = capture.depth?.depth(atNormalized: CGPoint(x: point.x, y: point.y)) {
+        let sensor = capture.orientation.sensorPoint(CGPoint(x: point.x, y: point.y))
+        let pixel = CGPoint(x: sensor.x * capture.imageSize.width, y: sensor.y * capture.imageSize.height)
+        if let depth = capture.depth?.depth(atNormalized: sensor) {
             let position = CameraGeometry.worldPoint(pixel: pixel, depth: depth, intrinsics: capture.intrinsics,
                                                      cameraTransform: capture.cameraTransform)
             return (position, depth, true)
@@ -208,6 +226,9 @@ final class ARGuideController: NSObject, ObservableObject, ARSessionDelegate {
     @objc private func tick() { updateMarker() }
 
     private func updateMarker() {
+        #if DEBUG
+        if demoMarker { return }
+        #endif
         guard let index = currentStep, anchors.indices.contains(index), arView.bounds.width > 0 else {
             if marker != nil { marker = nil }
             return
@@ -239,6 +260,16 @@ final class ARGuideController: NSObject, ObservableObject, ARSessionDelegate {
         }
         if marker != state { marker = state }
     }
+
+    #if DEBUG
+    private var demoMarker = false
+
+    /// Simulator screenshots only: a fixed marker, since ARKit doesn't run in the simulator.
+    func showDemoMarker(_ state: MarkerState?) {
+        demoMarker = true
+        marker = state
+    }
+    #endif
 
     // MARK: ARSessionDelegate
 

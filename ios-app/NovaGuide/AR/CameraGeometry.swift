@@ -1,4 +1,5 @@
 import CoreGraphics
+import ImageIO
 import simd
 
 /// Pure camera math, kept apart from ARKit so it can be unit-tested.
@@ -32,6 +33,34 @@ enum CameraGeometry {
     /// The physical size (meters) that `pixels` span at `depth`.
     static func meters(pixels: Double, depth: Float, intrinsics: simd_float3x3) -> Float {
         Float(pixels) / intrinsics[0][0] * depth
+    }
+}
+
+/// How the sensor image (always landscape right) is turned so the frame sent to Spark is upright on screen.
+/// Spark's points come back in the upright frame; anchoring needs them in the sensor image again.
+enum FrameOrientation: String, Equatable {
+    case landscapeRight, portrait, landscapeLeft
+
+    /// The Core Image orientation that turns the sensor image upright.
+    var imageOrientation: CGImagePropertyOrientation {
+        switch self {
+        case .landscapeRight: .up
+        case .portrait: .right
+        case .landscapeLeft: .down
+        }
+    }
+
+    func uprightSize(_ sensor: CGSize) -> CGSize {
+        self == .portrait ? CGSize(width: sensor.height, height: sensor.width) : sensor
+    }
+
+    /// A normalized point (0-1, top-left) in the upright frame, in the sensor image.
+    func sensorPoint(_ point: CGPoint) -> CGPoint {
+        switch self {
+        case .landscapeRight: point
+        case .portrait: CGPoint(x: point.y, y: 1 - point.x)
+        case .landscapeLeft: CGPoint(x: 1 - point.x, y: 1 - point.y)
+        }
     }
 }
 

@@ -5,7 +5,7 @@ import SwiftUI
 struct MarkerOverlay: View {
     var marker: MarkerState
     var setTo: GuideStep.SetTo?
-    var tint: Color = .yellow
+    var tint: Color = .novaYellow
 
     var body: some View {
         GeometryReader { geometry in
@@ -15,7 +15,8 @@ struct MarkerOverlay: View {
                     if let label = marker.label {
                         DialArrow(from: marker.center, to: label, startInset: ringRadius)
                         if let setTo {
-                            LabelTag(label: setTo.label, meaning: setTo.meaning).position(x: label.x, y: label.y - 34)
+                            LabelTag(label: setTo.label, meaning: setTo.meaning)
+                                .position(x: min(max(label.x, 90), geometry.size.width - 90), y: max(label.y - 34, 70))  // kept on screen
                         }
                     }
                     PulsingRing(radius: ringRadius, precise: marker.precise, tint: tint).position(marker.center)
@@ -68,7 +69,7 @@ private struct BouncingArrow: View {
     var body: some View {
         Image(systemName: "arrowshape.down.fill")
             .font(.system(size: 40, weight: .bold))
-            .foregroundStyle(.yellow)
+            .foregroundStyle(Color.novaYellow)
             .shadow(color: .black.opacity(0.6), radius: 4)
             .offset(y: up ? -10 : 4)
             .onAppear {
@@ -92,10 +93,10 @@ private struct DialArrow: View {
                 path.move(to: start)
                 path.addLine(to: to)
             }
-            .stroke(Color.purple, style: StrokeStyle(lineWidth: 4, lineCap: .round, dash: [10, 8]))
+            .stroke(Color.novaPurple, style: StrokeStyle(lineWidth: 4, lineCap: .round, dash: [10, 8]))
             Image(systemName: "arrowtriangle.right.fill")
                 .font(.system(size: 22))
-                .foregroundStyle(.purple)
+                .foregroundStyle(Color.novaPurple)
                 .rotationEffect(.radians(angle))
                 .position(to)
         }
@@ -117,7 +118,7 @@ private struct LabelTag: View {
         .font(.headline)
         .padding(.horizontal, 12)
         .padding(.vertical, 6)
-        .background(Color.purple, in: Capsule())
+        .background(Color.novaPurple, in: Capsule())
         .foregroundStyle(.white)
         .fixedSize()
     }
@@ -136,7 +137,7 @@ private struct EdgeHint: View {
         VStack(spacing: 6) {
             Image(systemName: "arrow.up.circle.fill")
                 .font(.system(size: 44))
-                .foregroundStyle(.yellow)
+                .foregroundStyle(Color.novaYellow)
                 .rotationEffect(.radians(atan2(direction.dy, direction.dx) + .pi / 2))
             Chip(text: hint, systemImage: "iphone.gen3")
         }
