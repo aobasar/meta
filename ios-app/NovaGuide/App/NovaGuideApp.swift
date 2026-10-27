@@ -13,6 +13,7 @@ struct NovaGuideApp: App {
         let ar = ARGuideController()
         let model = GuideModel(settings: settings, ar: ar)
         #if DEBUG
+        settings.turnOnRecordingForTesting()
         DemoMode.prepare(settings: settings, model: model)
         #endif
         _settings = StateObject(wrappedValue: settings)

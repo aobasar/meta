@@ -92,5 +92,13 @@ final class GuideSettings: ObservableObject {
     #if DEBUG
     /// Simulator screenshots of the onboarding screens.
     func forgetTerms() { acceptedTerms = "" }
+
+    /// The maintainer's test builds (2026-10-27): recording mode starts on once, so the Mac keeps every frame and
+    /// answer for plan tests; it can be turned off in Settings. Release builds never do this.
+    func turnOnRecordingForTesting() {
+        guard defaults.object(forKey: "recordOnForTesting") == nil else { return }
+        defaults.set(true, forKey: "recordOnForTesting")
+        record = true
+    }
     #endif
 }
