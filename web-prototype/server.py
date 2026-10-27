@@ -1010,12 +1010,17 @@ def main() -> None:
     data_dir = Path(os.environ.get("NOVA_DATA_DIR", DEFAULT_DATA_DIR)).expanduser()
     server = NovaServer(args.port, env_file, data_dir=data_dir)
     print(f"Nova prototype: http://127.0.0.1:{args.port}  (key file: {env_file})", flush=True)
+    import guide  # imports this module, so it loads after it
+
+    guide_server = guide.start(args.port, env_file, data_dir)  # Tailscale only, when NOVA_GUIDE_HOST is set
     try:
         server.serve_forever()
     except KeyboardInterrupt:
         pass
     finally:
         server.server_close()
+        if guide_server:
+            guide_server.server_close()
 
 
 if __name__ == "__main__":

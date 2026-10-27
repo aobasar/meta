@@ -1,0 +1,5 @@
+// Shared build settings. Personal values (signing team, the Mac's Tailscale name) live in the git-ignored
+// Local.xcconfig; copy Local.example.xcconfig to start one.
+DEVELOPMENT_TEAM =
+NOVA_SERVER_URL =
+#include? "Local.xcconfig"

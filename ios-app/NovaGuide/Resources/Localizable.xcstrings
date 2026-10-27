@@ -1,0 +1,486 @@
+{
+  "sourceLanguage": "en",
+  "version": "1.0",
+  "strings": {
+    "AI-generated guidance. Check before you press.": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yapay zekâ yönlendirmesidir. Basmadan önce kontrol edin."
+          }
+        }
+      }
+    },
+    "Almost there…": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Neredeyse hazır…"
+          }
+        }
+      }
+    },
+    "Back": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Geri"
+          }
+        }
+      }
+    },
+    "Camera tracking is not available.": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kamera takibi kullanılamıyor."
+          }
+        }
+      }
+    },
+    "Cancel": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vazgeç"
+          }
+        }
+      }
+    },
+    "Close": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kapat"
+          }
+        }
+      }
+    },
+    "Depth sensor": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Derinlik sensörü"
+          }
+        }
+      }
+    },
+    "Done": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yaptım"
+          }
+        }
+      }
+    },
+    "Finding the controls…": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Düğmeler bulunuyor…"
+          }
+        }
+      }
+    },
+    "Finish": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bitir"
+          }
+        }
+      }
+    },
+    "Hold the phone steady for a moment.": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Telefonu bir an sabit tutun."
+          }
+        }
+      }
+    },
+    "How does this device work?": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bu cihaz nasıl çalışır?"
+          }
+        }
+      }
+    },
+    "I speak": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Konuştuğum dil"
+          }
+        }
+      }
+    },
+    "I want a normal wash": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Normal yıkama yapmak istiyorum"
+          }
+        }
+      }
+    },
+    "LiDAR": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "LiDAR"
+          }
+        }
+      }
+    },
+    "Mac address": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mac adresi"
+          }
+        }
+      }
+    },
+    "Mac connected": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mac bağlı"
+          }
+        }
+      }
+    },
+    "Mac not reachable": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mac'e ulaşılamıyor"
+          }
+        }
+      }
+    },
+    "Move the phone more slowly.": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Telefonu daha yavaş hareket ettirin."
+          }
+        }
+      }
+    },
+    "New question": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yeni soru"
+          }
+        }
+      }
+    },
+    "None (less precise)": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yok (daha az hassas)"
+          }
+        }
+      }
+    },
+    "Nova Guide shows where to touch; you do every step yourself. Its guidance is AI-generated and can be wrong.": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nova Guide nereye dokunacağınızı gösterir; her adımı siz yaparsınız. Yönlendirmeler yapay zekâ ile üretilir ve hatalı olabilir."
+          }
+        }
+      }
+    },
+    "Nova can't guide this safely.": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nova bu konuda güvenle yol gösteremez."
+          }
+        }
+      }
+    },
+    "Nova couldn't find the controls for this.": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nova bunun için gereken düğmeleri bulamadı."
+          }
+        }
+      }
+    },
+    "Nova on your Mac": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mac'inizdeki Nova"
+          }
+        }
+      }
+    },
+    "Planning the steps…": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Adımlar planlanıyor…"
+          }
+        }
+      }
+    },
+    "Point the camera at the device in better light.": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kamerayı daha aydınlık bir ortamda cihaza tutun."
+          }
+        }
+      }
+    },
+    "Ready.": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hazır."
+          }
+        }
+      }
+    },
+    "Recognizing the device…": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cihaz tanınıyor…"
+          }
+        }
+      }
+    },
+    "Recording": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kayıt"
+          }
+        }
+      }
+    },
+    "Recording mode": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kayıt modu"
+          }
+        }
+      }
+    },
+    "Repeat": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tekrarla"
+          }
+        }
+      }
+    },
+    "Set the Mac's address in Settings.": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ayarlar'dan Mac'in adresini girin."
+          }
+        }
+      }
+    },
+    "Settings": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ayarlar"
+          }
+        }
+      }
+    },
+    "Show me": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Göster bana"
+          }
+        }
+      }
+    },
+    "Step %lld / %lld": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Adım %1$lld / %2$lld"
+          }
+        }
+      }
+    },
+    "The Mac answered with HTTP %lld.": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mac HTTP %lld ile yanıt verdi."
+          }
+        }
+      }
+    },
+    "The Mac has no API key": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mac'te API anahtarı yok"
+          }
+        }
+      }
+    },
+    "The Mac sent an answer the app couldn't read.": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mac'in gönderdiği yanıt okunamadı."
+          }
+        }
+      }
+    },
+    "The camera isn't ready yet. Point it at the device and try again.": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kamera henüz hazır değil. Cihaza tutup yeniden deneyin."
+          }
+        }
+      }
+    },
+    "The phone talks only to your Mac over Tailscale. The Mac holds the API key.": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Telefon yalnızca Tailscale üzerinden Mac'inizle konuşur. API anahtarı Mac'te durur."
+          }
+        }
+      }
+    },
+    "Tilt the phone down": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Telefonu aşağı eğin"
+          }
+        }
+      }
+    },
+    "Tilt the phone up": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Telefonu yukarı eğin"
+          }
+        }
+      }
+    },
+    "Try again": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yeniden dene"
+          }
+        }
+      }
+    },
+    "Turn the phone left": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Telefonu sola çevirin"
+          }
+        }
+      }
+    },
+    "Turn the phone right": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Telefonu sağa çevirin"
+          }
+        }
+      }
+    },
+    "What do you want to do?": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ne yapmak istiyorsunuz?"
+          }
+        }
+      }
+    },
+    "When on, your Mac saves each camera frame and answer for testing. Nothing is saved on the phone.": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Açıkken Mac'iniz test için her kamera karesini ve yanıtı kaydeder. Telefona hiçbir şey kaydedilmez."
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,5 @@
+// Copy to Local.xcconfig (git-ignored) and fill in.
+// Your Apple developer team ID.
+DEVELOPMENT_TEAM =
+// The Nova server on your Mac over Tailscale. "/$()/" keeps xcconfig from reading "//" as a comment.
+NOVA_SERVER_URL = http:/$()/your-mac.your-tailnet.ts.net:9005

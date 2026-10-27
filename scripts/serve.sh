@@ -17,5 +17,7 @@ if lsof -nP -iTCP:"$PORT" -sTCP:LISTEN >/dev/null 2>&1; then
 fi
 
 # Loopback only: binding to the LAN would let other devices spend the API key.
+# Exception: with NOVA_GUIDE_HOST in .env.local, the server also listens on this
+# Mac's Tailscale address for the iPhone app's /api/guide/* endpoints only.
 echo "Nova prototype: http://127.0.0.1:$PORT (this Mac only)"
 exec python3 "$ROOT/web-prototype/server.py" --port "$PORT"

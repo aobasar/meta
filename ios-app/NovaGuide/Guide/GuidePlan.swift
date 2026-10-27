@@ -1,0 +1,80 @@
+import Foundation
+
+/// The plan the Nova server returns for one frame and one question (web-prototype/guide.py).
+/// Points and boxes are normalized to the frame that was sent: 0-1, origin top-left.
+struct GuidePlan: Decodable, Equatable {
+    struct Device: Decodable, Equatable {
+        var type: String
+        var brand: String
+    }
+
+    struct FrameSize: Decodable, Equatable {
+        var width: Int
+        var height: Int
+    }
+
+    var device: Device
+    var safe: Bool
+    var safetyNote: String
+    var uncertainty: String
+    var frame: FrameSize
+    var steps: [GuideStep]
+    var served: [String]
+    var recording: String?
+
+    /// "Maytag · washing machine", or just the type when no brand was read.
+    var deviceLabel: String {
+        device.brand.isEmpty ? device.type : "\(device.brand) · \(device.type)"
+    }
+}
+
+struct NormalizedPoint: Decodable, Equatable {
+    var x: Double
+    var y: Double
+}
+
+struct NormalizedBox: Decodable, Equatable {
+    var x1: Double
+    var y1: Double
+    var x2: Double
+    var y2: Double
+    var confidence: Double?
+
+    var center: NormalizedPoint { NormalizedPoint(x: (x1 + x2) / 2, y: (y1 + y2) / 2) }
+    var width: Double { x2 - x1 }
+    var height: Double { y2 - y1 }
+}
+
+struct GuideStep: Decodable, Equatable {
+    struct SetTo: Decodable, Equatable {
+        /// The label printed on the device, as read from the photo.
+        var label: String
+        /// What the label means, in the user's language.
+        var meaning: String
+        var point: NormalizedPoint?
+    }
+
+    var instruction: String
+    var target: String
+    /// What a close-up of the control shows once the step is done; used by step verification.
+    var success: String
+    var point: NormalizedPoint
+    var box: NormalizedBox?
+    var boxMethod: String
+    var setTo: SetTo?
+
+    /// Where the marker goes: the SAM box's center when SAM found a usable box, otherwise Spark's point.
+    var markerPoint: NormalizedPoint {
+        if let box, boxMethod == "point" || boxMethod == "fallback" { return box.center }
+        return point
+    }
+}
+
+struct ServerError: Decodable {
+    struct Detail: Decodable {
+        var kind: String?
+        var message: String
+    }
+
+    var error: Detail
+}
