@@ -44,6 +44,8 @@
 	<string>Nova Guide uses the camera to see the device in front of you and show you which control to touch.</string>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>Nova Guide connects to the Nova server on your own Mac.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Nova Guide listens only after you tap the microphone, so you can ask and answer by voice.</string>
 	<key>NovaServerURL</key>
 	<string>$(NOVA_SERVER_URL)</string>
 	<key>UILaunchScreen</key>

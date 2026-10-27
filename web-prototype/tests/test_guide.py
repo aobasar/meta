@@ -59,8 +59,12 @@ GROUND = [{"object_name": "temperature knob", "x": 210, "y": 410}, {"object_name
 class RoutingOpener:
     """Answers Spark plan, Spark ground, and SAM calls; records every request body."""
 
-    def __init__(self, plan=PLAN, served="muse-spark-1.3", sam_point=None, sam_text=None, check=None):
+    def __init__(self, plan=PLAN, served="muse-spark-1.3", sam_point=None, sam_text=None, check=None,
+                 reply=None, transcript="Extra rinse ne demek?"):
         self.plan, self.served = plan, served
+        self.reply = reply or {"kind": "answer", "answer": "Fazladan bir durulama yapar."}
+        self.transcript = transcript
+        self.audio = []
         self.check = check or {"status": "not_done", "observed": "pointer at 'warm'", "correction": "Biraz daha sağa çevirin."}
         self.sam_point = sam_point or "1<|box;x1=180;y1=180;x2=240;y2=230;c=0.91|>"
         self.sam_text = sam_text or "1<|box;x1=780;y1=180;x2=820;y2=220;c=0.8|>"
@@ -68,6 +72,10 @@ class RoutingOpener:
         self.lock = threading.Lock()
 
     def __call__(self, request, timeout=None):
+        if request.full_url.endswith("/asr/transcribe"):
+            with self.lock:
+                self.audio.append(request.data)
+            return FakeResponse(json.dumps({"transcript": self.transcript}).encode())
         body = json.loads(request.data)
         with self.lock:
             self.bodies.append(body)
@@ -75,6 +83,8 @@ class RoutingOpener:
             prompt = body["input"][0]["content"][0]["text"]
             text = self.sam_point if prompt.startswith("<0f>") else self.sam_text
             reply = {"model": guide.SAM_MODEL, "output_text": text}
+        elif body.get("response_format", {}).get("json_schema", {}).get("name") == "guide_reply":
+            reply = {"model": self.served, "choices": [{"message": {"content": json.dumps(self.reply)}}]}
         elif body.get("response_format", {}).get("json_schema", {}).get("name") == "step_check":
             reply = {"model": self.served, "choices": [{"message": {"content": json.dumps(self.check)}}]}
         elif "response_format" in body:
@@ -185,6 +195,59 @@ class VerifyTests(unittest.TestCase):
             guide.verify(tiny_jpeg(520, 520), "i", "s", "Turkish", FAKE_KEY, opener)
 
 
+def wav_bytes(samples=1600):
+    return (b"RIFF" + (36 + samples * 2).to_bytes(4, "little") + b"WAVEfmt " + (16).to_bytes(4, "little")
+            + b"\x01\x00\x01\x00" + (16000).to_bytes(4, "little") + (32000).to_bytes(4, "little") + b"\x02\x00\x10\x00"
+            + b"data" + (samples * 2).to_bytes(4, "little") + b"\x00\x00" * samples)
+
+
+CONTEXT = {"device": "Maytag · washing machine", "current": 2, "steps": [
+    {"instruction": "Sıcaklığı sıcağa çevir.", "success": "pointer at hot", "result": "verified"},
+    {"instruction": "Extra rinse'i aç.", "success": "pointer at on", "result": "pending"}]}
+
+
+class AskTests(unittest.TestCase):
+    def test_the_prompt_carries_the_steps_progress_and_question(self):
+        opener = RoutingOpener()
+        result = guide.ask(tiny_jpeg(), "Extra rinse ne demek?", "Turkish", guide.ask_context({"context": CONTEXT}),
+                           FAKE_KEY, opener)
+        self.assertEqual(result["kind"], "answer")
+        prompt = opener.bodies[0]["messages"][0]["content"][0]["text"]
+        self.assertIn("on step 2 of 2", prompt)
+        self.assertIn("so far: verified", prompt)
+        self.assertIn('"Extra rinse ne demek?"', prompt)
+        self.assertIn("in Turkish", prompt)
+
+    def test_a_new_task_is_flagged(self):
+        opener = RoutingOpener(reply={"kind": "new_task", "answer": "Kurutmayı planlıyorum."})
+        result = guide.ask(tiny_jpeg(), "Şimdi kurutmak istiyorum", "Turkish", guide.ask_context({"context": CONTEXT}),
+                           FAKE_KEY, opener)
+        self.assertEqual(result["kind"], "new_task")
+
+    def test_context_is_validated_and_trimmed(self):
+        with self.assertRaises(server.BadRequest):
+            guide.ask_context({})
+        with self.assertRaises(server.BadRequest):
+            guide.ask_context({"context": {"steps": [{"instruction": 5}]}})
+        trimmed = guide.ask_context({"context": {"device": "x", "current": 99, "steps": [{"instruction": "a"}] * 9}})
+        self.assertEqual(len(trimmed["steps"]), guide.MAX_STEPS)
+        self.assertEqual(trimmed["current"], guide.MAX_STEPS)
+
+
+class TranscribeTests(unittest.TestCase):
+    def test_biases_to_the_users_language_and_english(self):
+        opener = RoutingOpener()
+        self.assertEqual(guide.transcribe(wav_bytes(), "Turkish", FAKE_KEY, opener), "Extra rinse ne demek?")
+        self.assertIn(b'"languageBias": ["Turkish", "English"]', opener.audio[0])
+
+    def test_no_speech_is_an_empty_transcript_not_an_error(self):
+        self.assertEqual(guide.transcribe(wav_bytes(), "English", FAKE_KEY, RoutingOpener(transcript="")), "")
+
+    def test_other_audio_is_rejected(self):
+        with self.assertRaises(server.BadRequest):
+            guide.transcribe(b"ID3....", "Turkish", FAKE_KEY, RoutingOpener())
+
+
 class HttpTests(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
@@ -256,6 +319,21 @@ class HttpTests(unittest.TestCase):
         self.assertEqual(answer["status"], "not_done")
         self.assertTrue(answer["recording"].endswith("-verify"))
         self.assertEqual(self.request("/api/guide/verify", {**body, "success": ""})[0], 400)
+
+    def test_transcribe_end_to_end_keeps_no_audio(self):
+        request = urllib.request.Request(
+            f"http://127.0.0.1:{self.port}/api/guide/transcribe?language=Turkish", data=wav_bytes(), method="POST",
+            headers={"Host": f"mac.example.ts.net:{self.port}", guide.CLIENT_HEADER: guide.CLIENT_NAME,
+                     "Content-Type": "audio/wav"})
+        with urllib.request.urlopen(request, timeout=10) as response:
+            self.assertEqual(json.loads(response.read()), {"transcript": "Extra rinse ne demek?"})
+        self.assertFalse(self.recordings.exists())
+
+    def test_ask_end_to_end_with_recording(self):
+        status, answer = self.request("/api/guide/ask", self.frame_body(context=CONTEXT, record=True))
+        self.assertEqual(status, 200)
+        self.assertEqual(answer["answer"], "Fazladan bir durulama yapar.")
+        self.assertTrue(answer["recording"].endswith("-ask"))
 
     def test_bad_input_is_rejected(self):
         self.assertEqual(self.request("/api/guide/plan", self.frame_body(question=""))[0], 400)

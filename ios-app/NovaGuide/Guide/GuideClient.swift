@@ -72,13 +72,65 @@ struct GuideClient {
         }
     }
 
-    private func send(path: String, body: Data?, timeout: TimeInterval) async throws -> (Data, HTTPURLResponse) {
+    /// The user's words from a WAV recording; empty when Meta heard no speech. The audio is not stored on the Mac.
+    func transcribe(wav: Data, language: String) async throws -> String {
+        struct Transcript: Decodable { var transcript: String }
+        let path = "api/guide/transcribe?language=" + (language.addingPercentEncoding(withAllowedCharacters: .alphanumerics) ?? "")
+        let (data, _) = try await send(path: path, body: wav, contentType: "audio/wav", timeout: 30)
+        guard let result = try? JSONDecoder().decode(Transcript.self, from: data) else { throw Failure.unreadable }
+        return result.transcript
+    }
+
+    /// Where the user is in the task, sent with a question asked during it.
+    struct TaskContext: Encodable {
+        struct Step: Encodable {
+            var instruction: String
+            var success: String
+            var result: String
+        }
+
+        var device: String
+        var current: Int  // 1-based
+        var steps: [Step]
+    }
+
+    struct Reply: Decodable, Equatable {
+        enum Kind: String, Decodable {
+            case answer
+            case newTask = "new_task"
+        }
+
+        var kind: Kind
+        var answer: String
+    }
+
+    private struct AskRequest: Encodable {
+        var frame: String
+        var question: String
+        var language: String
+        var context: TaskContext
+        var record: Bool
+    }
+
+    func ask(jpeg: Data, question: String, language: String, context: TaskContext, record: Bool) async throws -> Reply {
+        let request = AskRequest(frame: jpeg.base64EncodedString(), question: question, language: language,
+                                 context: context, record: record)
+        let (data, _) = try await send(path: "api/guide/ask", body: try JSONEncoder().encode(request), timeout: 30)
+        guard let reply = try? JSONDecoder().decode(Reply.self, from: data) else { throw Failure.unreadable }
+        return reply
+    }
+
+    private func send(path: String, body: Data?, contentType: String = "application/json",
+                      timeout: TimeInterval) async throws -> (Data, HTTPURLResponse) {
         guard let baseURL else { throw Failure.noServer }
-        var request = URLRequest(url: baseURL.appending(path: path), timeoutInterval: timeout)
+        guard let url = URL(string: path, relativeTo: baseURL.hasDirectoryPath ? baseURL : baseURL.appendingPathComponent("")) else {
+            throw Failure.noServer
+        }
+        var request = URLRequest(url: url, timeoutInterval: timeout)
         request.setValue("guide-ios", forHTTPHeaderField: "X-Nova-Client")
         if let body {
             request.httpMethod = "POST"
-            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            request.setValue(contentType, forHTTPHeaderField: "Content-Type")
             request.httpBody = body
         }
         let (data, response) = try await session.data(for: request)

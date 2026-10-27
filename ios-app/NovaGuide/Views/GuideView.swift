@@ -31,8 +31,16 @@ struct GuideView: View {
                 if let issue = ar.trackingIssue, model.phase != .thinking {
                     Chip(text: issue, systemImage: "exclamationmark.triangle.fill", tint: .orange).padding(.top, 8)
                 }
+                if let heard = model.heard {
+                    Chip(text: "“\(heard)”", systemImage: "quote.bubble.fill").padding(.top, 8)
+                }
                 Spacer()
-                BottomPanel()
+                HStack(alignment: .bottom, spacing: 12) {
+                    BottomPanel()
+                    if model.phase != .thinking {
+                        MicrophoneButton(recorder: model.recorder)
+                    }
+                }
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 10)
@@ -135,5 +143,56 @@ private struct ThinkingSweep: View {
                 }
         }
         .background(Color.black.opacity(0.15))
+    }
+}
+
+// MARK: Microphone
+
+/// The large red microphone: tap to talk, tap again (or pause) to finish. It is the only way the microphone opens.
+private struct MicrophoneButton: View {
+    @EnvironmentObject private var model: GuideModel
+    @ObservedObject var recorder: VoiceRecorder
+
+    var body: some View {
+        VStack(spacing: 6) {
+            if let status {
+                Text(status)
+                    .font(.subheadline.weight(.semibold))
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 5)
+                    .background(.ultraThinMaterial, in: Capsule())
+            }
+            Button { model.microphoneTapped() } label: {
+                ZStack {
+                    Circle()
+                        .fill(Color.red.opacity(0.35))
+                        .frame(width: 84, height: 84)
+                        .scaleEffect(recorder.isRecording ? 1 + CGFloat(recorder.level) * 0.5 : 1)
+                        .animation(.easeOut(duration: 0.12), value: recorder.level)
+                    Circle()
+                        .fill(Color.red)
+                        .frame(width: 72, height: 72)
+                        .shadow(color: .black.opacity(0.4), radius: 6)
+                    if model.listening == .transcribing || model.listening == .answering {
+                        ProgressView().tint(.white).controlSize(.large)
+                    } else {
+                        Image(systemName: recorder.isRecording ? "stop.fill" : "mic.fill")
+                            .font(.system(size: 30, weight: .bold))
+                            .foregroundStyle(.white)
+                    }
+                }
+            }
+            .disabled(model.listening == .transcribing || model.listening == .answering)
+            .accessibilityLabel(Text(recorder.isRecording ? "Stop listening" : "Talk to Nova"))
+        }
+    }
+
+    private var status: String? {
+        switch model.listening {
+        case .listening: String(localized: "Listening…")
+        case .transcribing: String(localized: "Understanding…")
+        case .answering: String(localized: "Thinking…")
+        case .idle: nil
+        }
     }
 }

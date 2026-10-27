@@ -46,15 +46,28 @@ final class GuideModel: ObservableObject {
     @Published private(set) var records: [StepRecord] = []
     @Published private(set) var feedback: Feedback?
 
+    enum Listening: Equatable {
+        case idle, listening, transcribing, answering
+    }
+
+    @Published private(set) var listening: Listening = .idle
+    /// What Nova heard last, shown briefly so a misheard sentence is visible.
+    @Published private(set) var heard: String?
+    /// Nova's answer to a question asked during the task.
+    @Published private(set) var reply: String?
+
     let settings: GuideSettings
     let ar: ARGuideController
     private let speaker = Speaker()
     private var task: Task<Void, Never>?
     private var checkTask: Task<Void, Never>?
+    private var voiceTask: Task<Void, Never>?
+    let recorder = VoiceRecorder()
 
     init(settings: GuideSettings, ar: ARGuideController) {
         self.settings = settings
         self.ar = ar
+        recorder.onFinish = { [weak self] wav in self?.heardRecording(wav) }
     }
 
     var currentStep: GuideStep? {
@@ -239,6 +252,7 @@ final class GuideModel: ObservableObject {
         task?.cancel()
         checkTask?.cancel()
         feedback = nil
+        reply = nil
         records = []
         speaker.stop()
         ar.clear()
@@ -247,9 +261,149 @@ final class GuideModel: ObservableObject {
         phase = .asking
     }
 
+    // MARK: Voice
+
+    /// The microphone button: start listening, or stop and use what was said.
+    func microphoneTapped() {
+        if recorder.isRecording {
+            recorder.finish()
+            return
+        }
+        guard listening == .idle, phase != .thinking else { return }
+        speaker.stop()
+        voiceTask = Task {
+            guard await VoiceRecorder.requestPermission() else {
+                show(message: String(localized: "Allow the microphone in Settings to talk to Nova."))
+                return
+            }
+            do {
+                try recorder.start()
+                listening = .listening
+            } catch {
+                show(message: String(localized: "The microphone couldn't start."))
+            }
+        }
+    }
+
+    private func heardRecording(_ wav: Data?) {
+        guard let wav else {
+            listening = .idle
+            show(message: String(localized: "I didn't hear anything. Tap the microphone and speak."))
+            return
+        }
+        listening = .transcribing
+        let settings = self.settings
+        voiceTask = Task {
+            do {
+                let text = try await settings.client.transcribe(wav: wav, language: settings.language.serverName)
+                listening = .idle
+                handle(spoken: text.trimmingCharacters(in: .whitespacesAndNewlines))
+            } catch {
+                listening = .idle
+                show(message: error.localizedDescription)
+            }
+        }
+    }
+
+    private func handle(spoken text: String) {
+        guard !text.isEmpty else {
+            show(message: String(localized: "I didn't catch that. Please say it again."))
+            return
+        }
+        heard = text
+        Task {
+            try? await Task.sleep(for: .seconds(5))
+            if heard == text { heard = nil }
+        }
+        let command = VoiceCommand.match(text)
+        switch phase {
+        case .thinking:
+            return
+        case .guiding:
+            switch command {
+            case .done: done()
+            case .repeatStep: repeatStep()
+            case .back: back()
+            case .skip: skip()
+            case .newQuestion: newQuestion()
+            case nil: askDuringTask(text)
+            }
+        case .asking, .finished, .refused, .failed:
+            if command == .newQuestion || (phase == .finished && command == .back) {
+                command == .back ? back() : newQuestion()
+                return
+            }
+            if phase != .asking { newQuestion() }
+            question = text
+            ask()
+        }
+    }
+
+    /// A question in the middle of the task: answer it and keep the user's place, or start the new task they asked for.
+    private func askDuringTask(_ text: String) {
+        guard let plan, let capture = ar.capture() else {
+            show(message: String(localized: "The camera isn't ready yet. Point it at the device and try again."))
+            return
+        }
+        let context = GuideClient.TaskContext(
+            device: plan.deviceLabel, current: stepIndex + 1,
+            steps: zip(plan.steps, records).map { step, record in
+                GuideClient.TaskContext.Step(instruction: step.instruction, success: step.success,
+                                             result: Self.describe(record.result))
+            })
+        listening = .answering
+        let settings = self.settings
+        voiceTask = Task {
+            do {
+                let answer = try await settings.client.ask(
+                    jpeg: capture.jpeg, question: text, language: settings.language.serverName, context: context,
+                    record: settings.record)
+                listening = .idle
+                switch answer.kind {
+                case .answer:
+                    reply = answer.answer
+                    speak(answer.answer)
+                case .newTask:
+                    newQuestion()
+                    question = text
+                    ask()
+                    speak(answer.answer)  // after ask(), which silences the voice
+                }
+            } catch {
+                listening = .idle
+                show(message: error.localizedDescription)
+            }
+        }
+    }
+
+    private static func describe(_ result: StepRecord.Result) -> String {
+        switch result {
+        case .pending: "not done yet"
+        case .verified: "verified done"
+        case .failed: "checked: not done"
+        case .uncertain: "checked: unclear"
+        case .unchecked: "done, not checked"
+        case .skipped: "the user said done without a check"
+        }
+    }
+
+    /// A short spoken message: on the step card while guiding, otherwise as the error card.
+    private func show(message: String) {
+        if phase == .guiding {
+            reply = message
+            speak(message)
+        } else if phase == .asking {
+            phase = .failed(message)
+            speak(message)
+        } else {
+            speak(message)
+        }
+    }
+
     private func go(to index: Int) {
         checkTask?.cancel()
         feedback = nil
+        reply = nil
         stepIndex = index
         ar.currentStep = index
         repeatStep()

@@ -12,6 +12,16 @@
         }
       }
     },
+    "Allow the microphone in Settings to talk to Nova.": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nova ile konuşmak için Ayarlar'dan mikrofona izin verin."
+          }
+        }
+      }
+    },
     "Almost there…": {
       "localizations": {
         "tr": {
@@ -172,6 +182,26 @@
         }
       }
     },
+    "I didn't catch that. Please say it again.": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Anlayamadım. Lütfen tekrar söyleyin."
+          }
+        }
+      }
+    },
+    "I didn't hear anything. Tap the microphone and speak.": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bir şey duymadım. Mikrofona dokunup konuşun."
+          }
+        }
+      }
+    },
     "I speak": {
       "localizations": {
         "tr": {
@@ -198,6 +228,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "LiDAR"
+          }
+        }
+      }
+    },
+    "Listening…": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dinliyorum…"
           }
         }
       }
@@ -452,6 +492,26 @@
         }
       }
     },
+    "Stop listening": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dinlemeyi durdur"
+          }
+        }
+      }
+    },
+    "Talk to Nova": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nova ile konuş"
+          }
+        }
+      }
+    },
     "The Mac answered with HTTP %lld.": {
       "localizations": {
         "tr": {
@@ -492,12 +552,32 @@
         }
       }
     },
+    "The microphone couldn't start.": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mikrofon başlatılamadı."
+          }
+        }
+      }
+    },
     "The phone talks only to your Mac over Tailscale. The Mac holds the API key.": {
       "localizations": {
         "tr": {
           "stringUnit": {
             "state": "translated",
             "value": "Telefon yalnızca Tailscale üzerinden Mac'inizle konuşur. API anahtarı Mac'te durur."
+          }
+        }
+      }
+    },
+    "Thinking…": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Düşünüyorum…"
           }
         }
       }
@@ -548,6 +628,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Telefonu sağa çevirin"
+          }
+        }
+      }
+    },
+    "Understanding…": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Anlıyorum…"
           }
         }
       }

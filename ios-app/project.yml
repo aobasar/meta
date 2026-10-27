@@ -42,6 +42,7 @@ targets:
         UISupportedInterfaceOrientations: [UIInterfaceOrientationLandscapeRight]
         UIRequiredDeviceCapabilities: [arkit]
         NSCameraUsageDescription: "Nova Guide uses the camera to see the device in front of you and show you which control to touch."
+        NSMicrophoneUsageDescription: "Nova Guide listens only after you tap the microphone, so you can ask and answer by voice."
         NSLocalNetworkUsageDescription: "Nova Guide connects to the Nova server on your own Mac."
         # The Mac is reached over Tailscale (WireGuard already encrypts the traffic). Plain HTTP is allowed for
         # Tailscale MagicDNS names only (docs/goster-bana.md, Decisions).

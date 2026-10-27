@@ -127,6 +127,17 @@ private struct StepCard: View {
                 Text(step.instruction)
                     .font(.title2.weight(.semibold))
                     .fixedSize(horizontal: false, vertical: true)
+                if let reply = model.reply {
+                    HStack(alignment: .top, spacing: 10) {
+                        Image(systemName: "bubble.left.fill").foregroundStyle(.cyan)
+                        Text(reply).fixedSize(horizontal: false, vertical: true)
+                    }
+                    .font(.title3)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(Color.cyan.opacity(0.15), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                }
                 if let feedback = model.feedback {
                     FeedbackLine(feedback: feedback)
                 }

@@ -131,3 +131,41 @@ final class StepCheckTests: XCTestCase {
         XCTAssertFalse(try JSONDecoder().decode(GuideStep.self, from: Data(pressOnly.utf8)).isVerifiable)
     }
 }
+
+final class VoiceCommandTests: XCTestCase {
+    func testTurkishAndEnglishCommands() {
+        XCTAssertEqual(VoiceCommand.match("Yaptım."), .done)
+        XCTAssertEqual(VoiceCommand.match("tamam yaptım"), .done)
+        XCTAssertEqual(VoiceCommand.match("Tekrarla"), .repeatStep)
+        XCTAssertEqual(VoiceCommand.match("bir daha söyle"), .repeatStep)
+        XCTAssertEqual(VoiceCommand.match("Geri dön"), .back)
+        XCTAssertEqual(VoiceCommand.match("Geç"), .skip)
+        XCTAssertEqual(VoiceCommand.match("Yeni soru"), .newQuestion)
+        XCTAssertEqual(VoiceCommand.match("OK, done"), .done)
+        XCTAssertEqual(VoiceCommand.match("Go back"), .back)
+    }
+
+    func testQuestionsAreNotCommands() {
+        XCTAssertNil(VoiceCommand.match("Extra rinse ne demek?"))
+        XCTAssertNil(VoiceCommand.match("tamam ama sıcaklık düğmesi hangisi"))  // long: a question
+        XCTAssertNil(VoiceCommand.match("geçen sefer ne yaptım"))
+        XCTAssertNil(VoiceCommand.match(""))
+    }
+}
+
+final class WavTests: XCTestCase {
+    func testHeaderAndPayload() {
+        let wav = VoiceRecorder.wav(samples: [0, 1, -1], sampleRate: 16_000)
+        XCTAssertEqual(wav.count, 44 + 6)
+        XCTAssertEqual(String(decoding: wav[0..<4], as: UTF8.self), "RIFF")
+        XCTAssertEqual(String(decoding: wav[8..<16], as: UTF8.self), "WAVEfmt ")
+        XCTAssertEqual(wav[24..<28].withUnsafeBytes { $0.loadUnaligned(as: UInt32.self) }, 16_000)
+        XCTAssertEqual(wav[40..<44].withUnsafeBytes { $0.loadUnaligned(as: UInt32.self) }, 6)
+        XCTAssertEqual(Array(wav[46..<50]), [1, 0, 0xFF, 0xFF])
+    }
+
+    func testRmsOfSilenceAndFullScale() {
+        XCTAssertEqual(VoiceRecorder.rms([0, 0, 0]), 0)
+        XCTAssertEqual(VoiceRecorder.rms([Int16.max, Int16.max]), 1, accuracy: 1e-4)
+    }
+}
