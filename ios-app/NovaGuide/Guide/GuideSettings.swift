@@ -14,6 +14,15 @@ struct UserLanguage: Identifiable, Hashable {
 
     static func named(_ name: String) -> UserLanguage { all.first { $0.serverName == name } ?? all[0] }
 
+    /// The voice for a language Spark names (the language printed on a device); English when the iPhone has none.
+    static func voice(forLanguageNamed name: String?) -> String {
+        let voices = ["English": "en-US", "Turkish": "tr-TR", "German": "de-DE", "French": "fr-FR", "Spanish": "es-ES",
+                      "Italian": "it-IT", "Portuguese": "pt-PT", "Dutch": "nl-NL", "Polish": "pl-PL", "Swedish": "sv-SE",
+                      "Greek": "el-GR", "Russian": "ru-RU", "Arabic": "ar-SA", "Japanese": "ja-JP", "Korean": "ko-KR",
+                      "Chinese": "zh-CN"]
+        return name.flatMap { voices[$0] } ?? "en-US"
+    }
+
     /// The spoken language that matches the iPhone's language, so the voice and the screen agree by default.
     static func matching(preferred languages: [String]) -> UserLanguage {
         languages.first?.hasPrefix("tr") == true ? all[0] : all[1]
@@ -50,12 +59,30 @@ enum LensChoice: String, CaseIterable, Identifiable {
     }
 }
 
+/// Settings › Camera › Torch.
+enum TorchChoice: String, CaseIterable, Identifiable {
+    case automatic, on, off
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .automatic: String(localized: "Automatic")
+        case .on: String(localized: "On")
+        case .off: String(localized: "Off")
+        }
+    }
+}
+
 /// User settings, kept in UserDefaults on the phone.
 final class GuideSettings: ObservableObject {
     /// The version of the terms the consent screen shows; a new version asks again.
     static let termsVersion = "2026-10-27"
+    /// Settings › I speak › Automatic: Nova answers in the language the user just spoke (the default).
+    static let automaticLanguage = "Automatic"
 
     private let defaults: UserDefaults
+    private let preferredLanguages: [String]
 
     /// The Mac over Tailscale; defaults to NOVA_SERVER_URL from the build (ios-app/Config/Local.xcconfig).
     @Published var serverURL: String { didSet { defaults.set(serverURL, forKey: "serverURL") } }
@@ -77,7 +104,8 @@ final class GuideSettings: ObservableObject {
     @Published var lens: LensChoice { didSet { defaults.set(lens.rawValue, forKey: "lens") } }
     /// The camera's highest-resolution format, for small labels (close-ups are cut from the full frame).
     @Published var highDetail: Bool { didSet { defaults.set(highDetail, forKey: "highDetail") } }
-    @Published var torch: Bool { didSet { defaults.set(torch, forKey: "torch") } }
+    /// Automatic by default: on in the dark, off when the task ends.
+    @Published var torch: TorchChoice { didSet { defaults.set(torch.rawValue, forKey: "torchMode") } }
     /// Record every task on screen (video only); the last recording is shared from Settings.
     @Published var screenRecording: Bool { didSet { defaults.set(screenRecording, forKey: "screenRecording") } }
     /// The terms version the user accepted, with the date; empty until the consent screen is accepted.
@@ -85,12 +113,13 @@ final class GuideSettings: ObservableObject {
 
     init(defaults: UserDefaults = .standard, bundle: Bundle = .main, preferredLanguages: [String] = Locale.preferredLanguages) {
         self.defaults = defaults
+        self.preferredLanguages = preferredLanguages
         let built = (bundle.object(forInfoDictionaryKey: "NovaServerURL") as? String) ?? ""
         serverURL = defaults.string(forKey: "serverURL") ?? built
         let builtPublic = (bundle.object(forInfoDictionaryKey: "NovaPublicURL") as? String) ?? ""
         publicURL = defaults.string(forKey: "publicURL") ?? builtPublic
         inviteCode = Keychain.read("invite")
-        languageName = defaults.string(forKey: "language") ?? UserLanguage.matching(preferred: preferredLanguages).serverName
+        languageName = defaults.string(forKey: "language") ?? Self.automaticLanguage
         record = defaults.bool(forKey: "record")
         speakAloud = defaults.object(forKey: "speakAloud") as? Bool ?? true
         verifyEach = defaults.object(forKey: "verifyEach") as? Bool ?? true
@@ -99,12 +128,17 @@ final class GuideSettings: ObservableObject {
         orientation = OrientationChoice(rawValue: defaults.string(forKey: "orientation") ?? "") ?? .automatic
         lens = LensChoice(rawValue: defaults.string(forKey: "lens") ?? "") ?? .widest
         highDetail = defaults.bool(forKey: "highDetail")
-        torch = defaults.bool(forKey: "torch")
+        torch = TorchChoice(rawValue: defaults.string(forKey: "torchMode") ?? "") ?? .automatic
         screenRecording = defaults.bool(forKey: "screenRecording")
         acceptedTerms = defaults.string(forKey: "acceptedTerms") ?? ""
     }
 
-    var language: UserLanguage { UserLanguage.named(languageName) }
+    var isAutomaticLanguage: Bool { languageName == Self.automaticLanguage }
+
+    /// The chosen language; with Automatic, the iPhone's language until the user speaks.
+    var language: UserLanguage {
+        isAutomaticLanguage ? UserLanguage.matching(preferred: preferredLanguages) : UserLanguage.named(languageName)
+    }
 
     /// Internet first, then Tailscale.
     var routes: [Route] { Route.candidates(publicURL: publicURL, inviteCode: inviteCode, tailscaleURL: serverURL) }

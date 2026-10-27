@@ -159,7 +159,7 @@ private struct MessageCard: View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(alignment: .top, spacing: 10) {
                 Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(Color.novaOrange)
-                Text(note).fixedSize(horizontal: false, vertical: true)
+                Text(GuideText.display(note)).fixedSize(horizontal: false, vertical: true)
             }
             .font(.body.weight(.semibold))
             Button(String(localized: "Try again")) { model.newQuestion() }
@@ -225,11 +225,11 @@ private struct StepCard: View {
                 }
             }
             .accessibilityHidden(true)
-            Text(step.instruction)
+            Text(GuideText.display(step.instruction))
                 .font(.system(size: land ? 17 : 22, weight: .bold))
                 .fixedSize(horizontal: false, vertical: true)
             if let detail = step.detail, !detail.isEmpty, !land || (resultBox == nil && model.reply == nil) {
-                Text(detail)
+                Text(GuideText.display(detail))
                     .font(.system(size: land ? 13 : 14))
                     .foregroundStyle(Color.novaText2)
                     .fixedSize(horizontal: false, vertical: true)
@@ -334,7 +334,7 @@ private struct Bubble: View {
     var body: some View {
         HStack(alignment: .top, spacing: 8) {
             Image(systemName: icon).foregroundStyle(color).font(.subheadline.weight(.bold)).padding(.top, 1)
-            (Text(title.map { $0 + (text.isEmpty ? "" : " ") } ?? "").bold() + Text(text))
+            (Text(title.map { $0 + (text.isEmpty ? "" : " ") } ?? "").bold() + Text(GuideText.display(text)))
                 .font(.subheadline)
                 .fixedSize(horizontal: false, vertical: true)
             Spacer(minLength: 0)
@@ -378,7 +378,7 @@ struct CompletionView: View {
                             ForEach(Array(zip(plan.steps, model.records).enumerated()), id: \.offset) { _, pair in
                                 HStack(spacing: 10) {
                                     Circle().fill(StepCardColors.color(pair.1.result)).frame(width: 10, height: 10)
-                                    Text(pair.0.instruction).frame(maxWidth: .infinity, alignment: .leading)
+                                    Text(GuideText.display(pair.0.instruction)).frame(maxWidth: .infinity, alignment: .leading)
                                     Text(StepCardColors.label(pair.1.result)).font(.caption).foregroundStyle(Color.novaText2)
                                 }
                                 .font(.footnote)

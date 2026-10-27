@@ -73,6 +73,9 @@ final class GuideModel: ObservableObject {
     /// Nova's answer to a question asked during the task.
     @Published private(set) var reply: String?
 
+    /// With Settings › I speak › Automatic: the language of what the user said last (the iPhone's at first).
+    @Published private(set) var spokenLanguage: UserLanguage
+
     let settings: GuideSettings
     let ar: ARGuideController
     let router: ServerRouter
@@ -85,8 +88,18 @@ final class GuideModel: ObservableObject {
     init(settings: GuideSettings, ar: ARGuideController) {
         self.settings = settings
         self.ar = ar
+        spokenLanguage = settings.language
         router = ServerRouter()
         recorder.onFinish = { [weak self] wav in self?.heardRecording(wav) }
+    }
+
+    /// The language Nova speaks and answers in now.
+    var language: UserLanguage { settings.isAutomaticLanguage ? spokenLanguage : settings.language }
+
+    /// Automatic language: a Turkish sentence switches Nova to Turkish, an English one to English.
+    private func heardLanguage(_ name: String?) {
+        guard settings.isAutomaticLanguage, let name, let heard = UserLanguage.all.first(where: { $0.serverName == name }) else { return }
+        spokenLanguage = heard
     }
 
     var currentStep: GuideStep? {
@@ -161,12 +174,13 @@ final class GuideModel: ObservableObject {
             let status = Task { await self.cycleStatus() }
             defer { status.cancel() }
             do {
-                let language = settings.language.serverName, record = settings.record
+                let language = self.language.serverName, auto = settings.isAutomaticLanguage, record = settings.record
                 let plan = try await send {
-                    try await $0.plan(jpeg: capture.jpeg, question: text, language: language, record: record,
-                                      camera: capture.cameraInfo)
+                    try await $0.plan(jpeg: capture.jpeg, question: text, language: language, autoLanguage: auto,
+                                      record: record, camera: capture.cameraInfo)
                 }
                 connection = Self.connection(await router.state)
+                heardLanguage(plan.language)
                 show(plan, capture: capture)
             } catch is CancellationError {
                 phase = .asking
@@ -255,7 +269,7 @@ final class GuideModel: ObservableObject {
             let index = stepIndex, settings = self.settings
             checkTask = Task {
                 do {
-                    let language = settings.language.serverName, record = settings.record
+                    let language = self.language.serverName, record = settings.record
                     let check = try await send {
                         try await $0.verify(jpeg: jpeg, step: step, language: language, record: record)
                     }
@@ -336,6 +350,7 @@ final class GuideModel: ObservableObject {
             feedback = nil
             finishedAt = Date()
             ar.currentStep = nil
+            ar.taskEnded()
             speak(String(localized: "Task completed."))
         }
     }
@@ -369,6 +384,7 @@ final class GuideModel: ObservableObject {
         records = []
         speaker.stop()
         ar.clear()
+        ar.taskEnded()
         plan = nil
         stepIndex = 0
         question = ""
@@ -420,7 +436,7 @@ final class GuideModel: ObservableObject {
         let settings = self.settings
         voiceTask = Task {
             do {
-                let language = settings.language.serverName
+                let language = settings.isAutomaticLanguage ? "Turkish" : settings.language.serverName
                 let text = try await send { try await $0.transcribe(wav: wav, language: language) }
                 listening = .idle
                 handle(spoken: text.trimmingCharacters(in: .whitespacesAndNewlines))
@@ -441,7 +457,9 @@ final class GuideModel: ObservableObject {
             try? await Task.sleep(for: .seconds(5))
             if heard == text { heard = nil }
         }
-        let command = VoiceCommand.match(text)
+        let matched = VoiceCommand.matchWithLanguage(text)
+        let command = matched?.command
+        heardLanguage(matched?.language)
         switch phase {
         case .thinking:
             return
@@ -481,12 +499,13 @@ final class GuideModel: ObservableObject {
         let settings = self.settings
         voiceTask = Task {
             do {
-                let language = settings.language.serverName, record = settings.record
+                let language = self.language.serverName, auto = settings.isAutomaticLanguage, record = settings.record
                 let answer = try await send {
-                    try await $0.ask(jpeg: capture.jpeg, question: text, language: language, context: context,
-                                     record: record)
+                    try await $0.ask(jpeg: capture.jpeg, question: text, language: language, autoLanguage: auto,
+                                     context: context, record: record)
                 }
                 listening = .idle
+                heardLanguage(answer.language)
                 switch answer.kind {
                 case .answer:
                     reply = answer.answer
@@ -540,7 +559,7 @@ final class GuideModel: ObservableObject {
 
     private func speak(_ text: String) {
         guard settings.speakAloud else { return }
-        speaker.speak(text, voice: settings.language.voice)
+        speaker.speak(text, voice: language.voice, labelVoice: UserLanguage.voice(forLanguageNamed: plan?.labelLanguage))
     }
 
     private func haptic(_ type: UINotificationFeedbackGenerator.FeedbackType) {

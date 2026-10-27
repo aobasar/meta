@@ -279,7 +279,8 @@ final class GuideSettingsTests: XCTestCase {
         XCTAssertEqual(settings.orientation, .automatic)
         XCTAssertEqual(settings.lens, .widest)  // more of the panel in view
         XCTAssertFalse(settings.highDetail)
-        XCTAssertFalse(settings.torch)
+        XCTAssertEqual(settings.torch, .automatic)
+        XCTAssertTrue(settings.isAutomaticLanguage)
         XCTAssertFalse(settings.screenRecording)
     }
 
@@ -292,5 +293,65 @@ final class GuideSettingsTests: XCTestCase {
         XCTAssertFalse(GuideSettings(defaults: defaults).needsConsent)  // kept across launches
         defaults.set("2026-01-01 1970-01-01T00:00:00Z", forKey: "acceptedTerms")
         XCTAssertTrue(GuideSettings(defaults: defaults).needsConsent)  // an older version asks again
+    }
+}
+
+final class GuideTextTests: XCTestCase {
+    func testMarkedDeviceWordsAreSplitOut() {
+        XCTAssertEqual(GuideText.segments("Sıcaklık düğmesini «warm» konumuna getirin."), [
+            .init(text: "Sıcaklık düğmesini ", isLabel: false),
+            .init(text: "warm", isLabel: true),
+            .init(text: " konumuna getirin.", isLabel: false),
+        ])
+        XCTAssertEqual(GuideText.segments("«Start/Pause»"), [.init(text: "Start/Pause", isLabel: true)])
+    }
+
+    func testTheScreenShowsQuotesAndUnmarkedTextIsUntouched() {
+        XCTAssertEqual(GuideText.display("«Clock» tuşuna basın."), "“Clock” tuşuna basın.")
+        XCTAssertEqual(GuideText.display("No labels here."), "No labels here.")
+        XCTAssertEqual(GuideText.display("Broken «label"), "Broken «label")  // unbalanced: left as it is
+    }
+
+    func testLabelVoices() {
+        XCTAssertEqual(UserLanguage.voice(forLanguageNamed: "English"), "en-US")
+        XCTAssertEqual(UserLanguage.voice(forLanguageNamed: "German"), "de-DE")
+        XCTAssertEqual(UserLanguage.voice(forLanguageNamed: nil), "en-US")
+        XCTAssertEqual(UserLanguage.voice(forLanguageNamed: "Klingon"), "en-US")
+    }
+}
+
+final class AutoLanguageTests: XCTestCase {
+    func testCommandsTellTheirLanguage() {
+        XCTAssertEqual(VoiceCommand.matchWithLanguage("yaptım")?.language, "Turkish")
+        XCTAssertEqual(VoiceCommand.matchWithLanguage("Done.")?.language, "English")
+        XCTAssertEqual(VoiceCommand.matchWithLanguage("say again")?.command, .repeatStep)
+        XCTAssertNil(VoiceCommand.matchWithLanguage("What does extra rinse mean?"))
+    }
+}
+
+final class AutoTorchTests: XCTestCase {
+    func testTheTorchComesOnAfterTwoSecondsOfDark() {
+        var torch = AutoTorch()
+        XCTAssertFalse(torch.update(lumens: 60, at: 0))
+        XCTAssertFalse(torch.update(lumens: 60, at: 1.5))
+        XCTAssertTrue(torch.update(lumens: 60, at: 2.1))
+    }
+
+    func testAShortShadowDoesNotLightIt() {
+        var torch = AutoTorch()
+        _ = torch.update(lumens: 60, at: 0)
+        _ = torch.update(lumens: 900, at: 1)  // light again: the wait starts over
+        XCTAssertFalse(torch.update(lumens: 60, at: 2.5))
+    }
+
+    func testItStaysOnUnlessTheRoomGetsFarBrighter() {
+        var torch = AutoTorch()
+        _ = torch.update(lumens: 60, at: 0)
+        _ = torch.update(lumens: 60, at: 2.5)
+        XCTAssertTrue(torch.update(lumens: 1500, at: 10))  // its own light
+        XCTAssertTrue(torch.update(lumens: 3000, at: 11))
+        XCTAssertFalse(torch.update(lumens: 3000, at: 13.5))  // a bright lamp came on
+        torch.reset()
+        XCTAssertFalse(torch.isOn)
     }
 }

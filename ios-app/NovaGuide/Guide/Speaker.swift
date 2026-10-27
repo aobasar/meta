@@ -9,14 +9,22 @@ final class Speaker {
         try? AVAudioSession.sharedInstance().setCategory(.playback, mode: .spokenAudio, options: [.duckOthers])
     }
 
-    func speak(_ text: String, voice: String) {
+    /// Reads `text` in `voice`; words marked as printed on the device («warm») are read in `labelVoice`, so a Turkish
+    /// voice doesn't mispronounce an English label. Each switch is a separate utterance, with a very short pause.
+    func speak(_ text: String, voice: String, labelVoice: String? = nil) {
         synthesizer.stopSpeaking(at: .immediate)
         guard !text.isEmpty else { return }
         try? AVAudioSession.sharedInstance().setActive(true)
-        let utterance = AVSpeechUtterance(string: text)
-        utterance.voice = AVSpeechSynthesisVoice(language: voice)
-        utterance.rate = AVSpeechUtteranceDefaultSpeechRate * 0.92  // a little slower for older listeners
-        synthesizer.speak(utterance)
+        let labelVoice = labelVoice ?? voice
+        let parts = labelVoice == voice
+            ? [(GuideText.display(text), voice)]
+            : GuideText.segments(text).map { ($0.text, $0.isLabel ? labelVoice : voice) }
+        for (part, language) in parts where !part.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            let utterance = AVSpeechUtterance(string: part)
+            utterance.voice = AVSpeechSynthesisVoice(language: language) ?? AVSpeechSynthesisVoice(language: "en-US")
+            utterance.rate = AVSpeechUtteranceDefaultSpeechRate * 0.92  // a little slower for older listeners
+            synthesizer.speak(utterance)
+        }
     }
 
     func stop() {

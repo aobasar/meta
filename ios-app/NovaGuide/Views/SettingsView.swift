@@ -17,8 +17,9 @@ struct SettingsView: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section(String(localized: "Language & voice")) {
+                Section {
                     Picker(String(localized: "I speak"), selection: $settings.languageName) {
+                        Text("Automatic").tag(GuideSettings.automaticLanguage)
                         ForEach(UserLanguage.all) { language in
                             Text(language.title).tag(language.serverName)
                         }
@@ -31,6 +32,10 @@ struct SettingsView: View {
                     }
                     .foregroundStyle(.primary)
                     Toggle(String(localized: "Speak instructions aloud"), isOn: $settings.speakAloud)
+                } header: {
+                    Text("Language & voice")
+                } footer: {
+                    Text("Automatic: speak Turkish or English and Nova answers in the same language. Words printed on the device are read in their own language.")
                 }
                 Section(String(localized: "Screen")) {
                     Picker(String(localized: "Screen orientation"), selection: $settings.orientation) {
@@ -48,12 +53,16 @@ struct SettingsView: View {
                         }
                     }
                     Toggle(String(localized: "High detail (small labels)"), isOn: $settings.highDetail)
-                    Toggle(String(localized: "Torch"), isOn: $settings.torch)
+                    Picker(String(localized: "Torch"), selection: $settings.torch) {
+                        ForEach(TorchChoice.allCases) { choice in
+                            Text(choice.title).tag(choice)
+                        }
+                    }
                     LabeledContent(String(localized: "In use"), value: ar.activeCamera)
                 } header: {
                     Text("Camera")
                 } footer: {
-                    Text("The default is the widest camera this iPhone can use with the markers: more of the panel is in view, and wide panels fit in one frame. High detail is for small labels.")
+                    Text("The default is the widest camera this iPhone can use with the markers: more of the panel is in view, and wide panels fit in one frame. High detail is for small labels. Automatic torch: on in the dark, off when the task ends.")
                 }
                 Section(String(localized: "Task guidance")) {
                     Toggle(String(localized: "Verify each step"), isOn: $settings.verifyEach)

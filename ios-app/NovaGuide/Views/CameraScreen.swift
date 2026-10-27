@@ -168,6 +168,7 @@ struct ARViewContainer: UIViewRepresentable {
 /// Home (with the recognized device) on the left, Settings on the right; recording and sharing live in Settings.
 private struct TopBar: View {
     @EnvironmentObject private var model: GuideModel
+    @EnvironmentObject private var ar: ARGuideController
     @Binding var showSettings: Bool
 
     var body: some View {
@@ -187,6 +188,12 @@ private struct TopBar: View {
             .frame(height: 32)
             .background(Color.novaCard.opacity(0.85), in: Capsule())
             Spacer(minLength: 6)
+            if ar.torchOn {
+                // The torch is lit (automatically in the dark, or from Settings): one tap turns it off for this task.
+                RoundIconButton(action: { ar.turnTorchOffForTask() }, accessibility: Text("Turn the torch off")) {
+                    Image(systemName: "flashlight.on.fill").font(.system(size: 17, weight: .semibold)).foregroundStyle(Color.novaYellow)
+                }
+            }
             RoundIconButton(action: { showSettings = true }, accessibility: Text("Settings")) {
                 Image(systemName: "gearshape").font(.system(size: 18, weight: .medium)).foregroundStyle(.white)
                     .overlay(alignment: .topTrailing) {

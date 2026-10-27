@@ -48,7 +48,7 @@ struct MarkerState: Equatable {
 struct CameraOptions: Equatable {
     var lens: LensChoice = .widest
     var highDetail = false
-    var torch = false
+    var torch: TorchChoice = .automatic
 }
 
 /// Owns the AR session. ARKit is used only for tracking and geometry (depth, raycasts); every recognition task
@@ -66,6 +66,11 @@ final class ARGuideController: NSObject, ObservableObject, ARSessionDelegate {
     @Published private(set) var activeCamera = ""
     private(set) var options = CameraOptions()
     private var running = false
+    /// Whether the torch is lit now, for the top bar's torch button.
+    @Published private(set) var torchOn = false
+    private var autoTorch = AutoTorch()
+    /// The user turned the torch off from the top bar; it stays off until the task ends.
+    private var torchSuppressed = false
     private(set) var anchors: [StepAnchor] = []
     private var displayLink: CADisplayLink?
     private let ciContext = CIContext()
@@ -161,13 +166,28 @@ final class ARGuideController: NSObject, ObservableObject, ARSessionDelegate {
     /// The torch belongs to the back camera module; ARKit hands out the device it runs, and the wide camera has the
     /// torch when the ultra wide one doesn't.
     private func applyTorch() {
+        let wanted = running && !torchSuppressed && (options.torch == .on || (options.torch == .automatic && autoTorch.isOn))
+        if torchOn != wanted { DispatchQueue.main.async { self.torchOn = wanted } }
         let candidates = [ARWorldTrackingConfiguration.configurableCaptureDeviceForPrimaryCamera,
                           AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .back)]
         guard let device = candidates.compactMap({ $0 }).first(where: { $0.hasTorch && $0.isTorchAvailable }) else { return }
-        let mode: AVCaptureDevice.TorchMode = options.torch && running ? .on : .off
+        let mode: AVCaptureDevice.TorchMode = wanted ? .on : .off
         guard device.torchMode != mode, (try? device.lockForConfiguration()) != nil else { return }
         device.torchMode = mode
         device.unlockForConfiguration()
+    }
+
+    /// The top bar's torch button: off for the rest of this task.
+    func turnTorchOffForTask() {
+        torchSuppressed = true
+        applyTorch()
+    }
+
+    /// A task ended (completed, Home, new task): the automatic torch goes off and may come on again in the dark.
+    func taskEnded() {
+        autoTorch.reset()
+        torchSuppressed = false
+        applyTorch()
     }
 
     // MARK: Capture
@@ -347,6 +367,12 @@ final class ARGuideController: NSObject, ObservableObject, ARSessionDelegate {
     #endif
 
     // MARK: ARSessionDelegate
+
+    func session(_ session: ARSession, didUpdate frame: ARFrame) {
+        guard options.torch == .automatic, let lumens = frame.lightEstimate?.ambientIntensity else { return }
+        let was = autoTorch.isOn
+        if autoTorch.update(lumens: Double(lumens), at: frame.timestamp) != was { applyTorch() }
+    }
 
     func session(_ session: ARSession, cameraDidChangeTrackingState camera: ARCamera) {
         let issue: String?

@@ -72,6 +72,16 @@
         }
       }
     },
+    "Automatic: speak Turkish or English and Nova answers in the same language. Words printed on the device are read in their own language.": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Otomatik: Türkçe ya da İngilizce konuş, Nova aynı dilde cevap verir. Cihazın üstünde yazan kelimeler kendi dillerinde okunur."
+          }
+        }
+      }
+    },
     "Back to the question": {
       "localizations": {
         "tr": {
@@ -792,6 +802,26 @@
         }
       }
     },
+    "Off": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kapalı"
+          }
+        }
+      }
+    },
+    "On": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Açık"
+          }
+        }
+      }
+    },
     "One step at a time, large and read aloud.": {
       "localizations": {
         "tr": {
@@ -1242,12 +1272,12 @@
         }
       }
     },
-    "The default is the widest camera this iPhone can use with the markers: more of the panel is in view, and wide panels fit in one frame. High detail is for small labels.": {
+    "The default is the widest camera this iPhone can use with the markers: more of the panel is in view, and wide panels fit in one frame. High detail is for small labels. Automatic torch: on in the dark, off when the task ends.": {
       "localizations": {
         "tr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Varsayılan, telefonun işaretlerle birlikte kullanılabilen en geniş kamerası: daha çok alan görünür, geniş paneller tek karede kalır. Yüksek detay küçük etiketler içindir."
+            "value": "Varsayılan, telefonun işaretlerle birlikte kullanılabilen en geniş kamerası: daha çok alan görünür, geniş paneller tek karede kalır. Yüksek detay küçük etiketler içindir. Otomatik fener: karanlıkta yanar, görev bitince söner."
           }
         }
       }
@@ -1348,6 +1378,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Telefonu sağa çevirin"
+          }
+        }
+      }
+    },
+    "Turn the torch off": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Feneri kapat"
           }
         }
       }

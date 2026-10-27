@@ -5,14 +5,24 @@ import Foundation
 enum VoiceCommand: CaseIterable {
     case newQuestion, back, repeatStep, skip, done
 
-    /// Phrases per command, Turkish and English. Checked in `allCases` order, so "yeni soru" wins over anything shorter.
-    private var phrases: [String] {
+    /// Phrases per command and language. Checked in `allCases` order, so "yeni soru" wins over anything shorter.
+    private var turkish: [String] {
         switch self {
-        case .newQuestion: ["yeni soru", "baştan başla", "baştan", "new question", "start over"]
-        case .back: ["geri dön", "geri", "önceki", "go back", "back", "previous"]
-        case .repeatStep: ["tekrarla", "tekrar söyle", "bir daha", "tekrar", "repeat", "say again", "again"]
-        case .skip: ["geç", "atla", "sonraki", "skip", "next"]
-        case .done: ["yaptım", "tamam", "bitti", "oldu", "hazır", "done", "ok", "okay", "finished", "did it"]
+        case .newQuestion: ["yeni soru", "baştan başla", "baştan"]
+        case .back: ["geri dön", "geri", "önceki"]
+        case .repeatStep: ["tekrarla", "tekrar söyle", "bir daha", "tekrar"]
+        case .skip: ["geç", "atla", "sonraki"]
+        case .done: ["yaptım", "tamam", "bitti", "oldu", "hazır"]
+        }
+    }
+
+    private var english: [String] {
+        switch self {
+        case .newQuestion: ["new question", "start over"]
+        case .back: ["go back", "back", "previous"]
+        case .repeatStep: ["repeat", "say again", "again"]
+        case .skip: ["skip", "next"]
+        case .done: ["done", "ok", "okay", "finished", "did it"]
         }
     }
 
@@ -23,11 +33,19 @@ enum VoiceCommand: CaseIterable {
         "what", "why", "how", "which", "where", "when",
     ]
 
-    static func match(_ transcript: String) -> VoiceCommand? {
+    static func match(_ transcript: String) -> VoiceCommand? { matchWithLanguage(transcript)?.command }
+
+    /// The command and the language it was said in ("Turkish" or "English"), for automatic language.
+    static func matchWithLanguage(_ transcript: String) -> (command: VoiceCommand, language: String)? {
         let words = normalize(transcript)
         guard !words.isEmpty, words.count <= maxWords, questionWords.isDisjoint(with: words) else { return nil }
         let text = " " + words.joined(separator: " ") + " "
-        return allCases.first { command in command.phrases.contains { text.contains(" \(normalize($0).joined(separator: " ")) ") } }
+        func said(_ phrases: [String]) -> Bool { phrases.contains { text.contains(" \(normalize($0).joined(separator: " ")) ") } }
+        for command in allCases {
+            if said(command.turkish) { return (command, "Turkish") }
+            if said(command.english) { return (command, "English") }
+        }
+        return nil
     }
 
     static func normalize(_ text: String) -> [String] {

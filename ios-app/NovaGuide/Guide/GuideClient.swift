@@ -30,6 +30,8 @@ struct GuideClient {
         var frame: String
         var question: String
         var language: String
+        /// Answer in the language the question is written in; `language` is the fallback.
+        var autoLanguage: Bool
         var record: Bool
         var camera: CameraInfo?
     }
@@ -56,9 +58,10 @@ struct GuideClient {
         return status.keyLoaded
     }
 
-    func plan(jpeg: Data, question: String, language: String, record: Bool, camera: CameraInfo?) async throws -> GuidePlan {
+    func plan(jpeg: Data, question: String, language: String, autoLanguage: Bool = false, record: Bool,
+              camera: CameraInfo?) async throws -> GuidePlan {
         let request = PlanRequest(frame: jpeg.base64EncodedString(), question: question, language: language,
-                                  record: record, camera: record ? camera : nil)
+                                  autoLanguage: autoLanguage, record: record, camera: record ? camera : nil)
         let (data, _) = try await send(path: "api/guide/plan", body: try JSONEncoder().encode(request), timeout: 90)
         do {
             return try JSONDecoder().decode(GuidePlan.self, from: data)
@@ -116,19 +119,23 @@ struct GuideClient {
 
         var kind: Kind
         var answer: String
+        /// The language Spark answered in (an older server sends none).
+        var language: String?
     }
 
     private struct AskRequest: Encodable {
         var frame: String
         var question: String
         var language: String
+        var autoLanguage: Bool
         var context: TaskContext
         var record: Bool
     }
 
-    func ask(jpeg: Data, question: String, language: String, context: TaskContext, record: Bool) async throws -> Reply {
+    func ask(jpeg: Data, question: String, language: String, autoLanguage: Bool = false, context: TaskContext,
+             record: Bool) async throws -> Reply {
         let request = AskRequest(frame: jpeg.base64EncodedString(), question: question, language: language,
-                                 context: context, record: record)
+                                 autoLanguage: autoLanguage, context: context, record: record)
         let (data, _) = try await send(path: "api/guide/ask", body: try JSONEncoder().encode(request), timeout: 30)
         guard let reply = try? JSONDecoder().decode(Reply.self, from: data) else { throw Failure.unreadable }
         return reply

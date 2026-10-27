@@ -64,6 +64,39 @@ enum FrameOrientation: String, Equatable {
     }
 }
 
+/// Settings › Torch › Automatic, from ARKit's light estimate (lumens; about 1000 is a well-lit room). The torch goes
+/// on after 2 s of dark and stays on for the task: once it is on it lights the frame itself, so the estimate can't
+/// tell that the room got brighter, unless the frame gets far brighter than the torch alone makes it.
+struct AutoTorch {
+    static let darkLumens = 120.0
+    static let brightLumens = 2500.0
+    static let holdSeconds = 2.0
+
+    private(set) var isOn = false
+    private var since: Double?
+
+    /// The new state for one frame's estimate at `time` (seconds).
+    mutating func update(lumens: Double, at time: Double) -> Bool {
+        let crossing = isOn ? lumens > Self.brightLumens : lumens < Self.darkLumens
+        guard crossing else {
+            since = nil
+            return isOn
+        }
+        if let since, time - since >= Self.holdSeconds {
+            isOn.toggle()
+            self.since = nil
+        } else if since == nil {
+            since = time
+        }
+        return isOn
+    }
+
+    mutating func reset() {
+        isOn = false
+        since = nil
+    }
+}
+
 /// A copy of one frame's LiDAR depth map (meters), so depth can be read after the frame is gone.
 struct DepthSample {
     var width: Int

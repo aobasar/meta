@@ -17,6 +17,9 @@ struct GuidePlan: Decodable, Equatable {
     var safe: Bool
     var safetyNote: String
     var uncertainty: String
+    /// The language Spark wrote the plan in, and the language printed on the device (an older server sends neither).
+    var language: String? = nil
+    var labelLanguage: String? = nil
     var frame: FrameSize
     var steps: [GuideStep]
     var served: [String]

@@ -42,7 +42,7 @@ class FakeResponse(io.BytesIO):
 
 PLAN = {
     "device_type": "washing machine", "brand_or_model_seen": "Maytag", "safe_to_guide": True, "safety_note": "",
-    "uncertainty": "",
+    "uncertainty": "", "question_language": "Turkish", "label_language": "English",
     "steps": [
         {"instruction": "Sıcaklık düğmesini sıcağa çevir.", "detail": "Soldaki düğme.", "target_phrase": "temperature knob", "x": 200, "y": 400,
          "set_to_label": "hot", "set_to_meaning": "sıcak", "success_condition": "the pointer is at 'hot'",
@@ -62,7 +62,7 @@ class RoutingOpener:
     def __init__(self, plan=PLAN, served="muse-spark-1.3", sam_point=None, sam_text=None, check=None,
                  reply=None, transcript="Extra rinse ne demek?"):
         self.plan, self.served = plan, served
-        self.reply = reply or {"kind": "answer", "answer": "Fazladan bir durulama yapar."}
+        self.reply = reply or {"kind": "answer", "answer": "Fazladan bir durulama yapar.", "language": "Turkish"}
         self.transcript = transcript
         self.audio = []
         self.check = check or {"status": "not_done", "observed": "pointer at 'warm'", "correction": "Biraz daha sağa çevirin."}
@@ -149,6 +149,7 @@ class PlanTests(unittest.TestCase):
         self.assertEqual(first["setTo"], {"label": "hot", "meaning": "sıcak", "point": {"x": 0.26, "y": 0.3}})
         self.assertEqual(first["success"], "the pointer is at 'hot'")
         self.assertEqual(first["detail"], "Soldaki düğme.")
+        self.assertEqual((result["language"], result["labelLanguage"]), ("Turkish", "English"))
         self.assertEqual(second["detail"], "")
         self.assertIsNone(second["setTo"])
         self.assertTrue(first["verifiable"])
@@ -156,9 +157,26 @@ class PlanTests(unittest.TestCase):
         self.assertEqual(result["served"], ["muse-spark-1.3", "sam-3.1"])
 
     def test_plan_prompt_starts_the_device_only_when_the_task_runs_it(self):
-        prompt = guide.PLAN_PROMPT.format(question="q", language="Turkish", max_steps=6)
+        prompt = guide.PLAN_PROMPT.format(question="q", language_rule="", lang="Turkish", max_steps=6, marking="")
         self.assertIn("only when their task is to run it", prompt)
         self.assertIn("detail", guide.PLAN_SCHEMA["json_schema"]["schema"]["properties"]["steps"]["items"]["required"])
+
+    def test_automatic_language_follows_the_question(self):
+        opener = RoutingOpener(plan={**PLAN, "question_language": "English"})
+        result = guide.plan(tiny_jpeg(), "I want a normal wash", "Turkish", FAKE_KEY, opener, auto_language=True)
+        prompt = opener.bodies[0]["messages"][0]["content"][0]["text"]
+        self.assertIn("instruction: one short sentence in the language of their question", prompt)
+        self.assertIn("if you cannot tell, Turkish", prompt)
+        self.assertIn("wrap it in « »", prompt)
+        self.assertEqual(result["language"], "English")
+
+    def test_a_fixed_language_stays_and_an_unknown_answer_falls_back(self):
+        opener = RoutingOpener(plan={**PLAN, "question_language": "Klingon"})
+        result = guide.plan(tiny_jpeg(), "q", "Turkish", FAKE_KEY, opener)
+        prompt = opener.bodies[0]["messages"][0]["content"][0]["text"]
+        self.assertIn("They read and speak Turkish.", prompt)
+        self.assertIn("instruction: one short sentence in Turkish", prompt)
+        self.assertEqual(result["language"], "Turkish")
 
     def test_only_pinned_standard_models_are_requested(self):
         opener = RoutingOpener()
@@ -225,6 +243,15 @@ class AskTests(unittest.TestCase):
         self.assertIn("so far: verified", prompt)
         self.assertIn('"Extra rinse ne demek?"', prompt)
         self.assertIn("in Turkish", prompt)
+        self.assertEqual(result["language"], "Turkish")
+
+    def test_an_automatic_answer_reports_its_language(self):
+        opener = RoutingOpener(reply={"kind": "answer", "answer": "It adds a rinse.", "language": "English"})
+        result = guide.ask(tiny_jpeg(), "What does extra rinse mean?", "Turkish", guide.ask_context({"context": CONTEXT}),
+                           FAKE_KEY, opener, auto_language=True)
+        prompt = opener.bodies[0]["messages"][0]["content"][0]["text"]
+        self.assertIn("answer in the language of their question", prompt)
+        self.assertEqual(result["language"], "English")
 
     def test_a_new_task_is_flagged(self):
         opener = RoutingOpener(reply={"kind": "new_task", "answer": "Kurutmayı planlıyorum."})
