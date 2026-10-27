@@ -29,7 +29,7 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: com.aobasar.nova.guide
         PRODUCT_NAME: NovaGuide
         INFOPLIST_KEY_CFBundleDisplayName: Nova Guide
-        ASSETCATALOG_COMPILER_APPICON_NAME: ""
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
     info:
       path: NovaGuide/Info.plist
       properties:
