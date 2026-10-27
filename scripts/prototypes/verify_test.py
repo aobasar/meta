@@ -54,9 +54,12 @@ def check(case: dict, key: str, effort: str) -> dict:
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--effort", default="low")
+    parser.add_argument("--cases", default="verify_cases.json", help="case file in test-photos/")
     args = parser.parse_args()
-    cases = json.loads((st.PHOTOS / "verify_cases.json").read_text())
+    cases = json.loads((st.PHOTOS / args.cases).read_text())
     key = st.api_key()
+    for name in dict.fromkeys(case["image"] for case in cases):
+        st.prepared_photo(name)  # once per photo, before the parallel checks share it
     with ThreadPoolExecutor(max_workers=5) as pool:
         results = list(pool.map(lambda case: check(case, key, args.effort), cases))
 
@@ -64,12 +67,12 @@ def main():
     wrong = sum(r["status"] not in (r["expected"], "unsure") for r in results)
     for r in results:
         mark = "OK " if r["status"] == r["expected"] else ("?? " if r["status"] == "unsure" else "XX ")
-        print(f"{mark} {r['image']:<22} expected {r['expected']:<8} got {r['status']:<8} {r['seconds']:>5}s | "
+        print(f"{mark} {r['image']:<22} {r.get('check', ''):<16} expected {r['expected']:<8} got {r['status']:<8} {r['seconds']:>5}s | "
               f"{r['observed']}" + (f" | fix: {r['correction']}" if r["correction"] else ""))
     print(f"\ncorrect {correct}/{len(results)}, wrong {wrong}, unsure {len(results) - correct - wrong}; "
           f"effort {args.effort}; served {sorted({r['served'] for r in results})}")
     st.OUT.mkdir(parents=True, exist_ok=True)
-    (st.OUT / f"verify_results_{args.effort}.json").write_text(json.dumps(results, ensure_ascii=False, indent=1))
+    (st.OUT / f"verify_results_{args.effort}_{args.cases}").write_text(json.dumps(results, ensure_ascii=False, indent=1))
 
 
 if __name__ == "__main__":
