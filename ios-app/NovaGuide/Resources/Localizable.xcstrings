@@ -52,12 +52,42 @@
         }
       }
     },
+    "Check again": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yeniden kontrol et"
+          }
+        }
+      }
+    },
+    "Checking…": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kontrol ediliyor…"
+          }
+        }
+      }
+    },
     "Close": {
       "localizations": {
         "tr": {
           "stringUnit": {
             "state": "translated",
             "value": "Kapat"
+          }
+        }
+      }
+    },
+    "Correct.": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Doğru."
           }
         }
       }
@@ -112,12 +142,32 @@
         }
       }
     },
+    "Hold the phone steady, then check again.": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Telefonu sabit tutun, sonra yeniden kontrol edin."
+          }
+        }
+      }
+    },
     "How does this device work?": {
       "localizations": {
         "tr": {
           "stringUnit": {
             "state": "translated",
             "value": "Bu cihaz nasıl çalışır?"
+          }
+        }
+      }
+    },
+    "I can't see it clearly. Move closer and check again.": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Net göremiyorum. Yaklaşıp yeniden kontrol edin."
           }
         }
       }
@@ -182,6 +232,16 @@
         }
       }
     },
+    "Move the phone closer to the control, then check again.": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Telefonu düğmeye yaklaştırın, sonra yeniden kontrol edin."
+          }
+        }
+      }
+    },
     "Move the phone more slowly.": {
       "localizations": {
         "tr": {
@@ -208,6 +268,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Yok (daha az hassas)"
+          }
+        }
+      }
+    },
+    "Not yet. Check the marker and try again.": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Henüz değil. İşarete bakıp yeniden deneyin."
           }
         }
       }
@@ -258,6 +328,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Adımlar planlanıyor…"
+          }
+        }
+      }
+    },
+    "Point the camera at the control, then check again.": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kamerayı düğmeye tutun, sonra yeniden kontrol edin."
           }
         }
       }
@@ -348,6 +428,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Göster bana"
+          }
+        }
+      }
+    },
+    "Skip, I did it": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Geç, yaptım"
           }
         }
       }

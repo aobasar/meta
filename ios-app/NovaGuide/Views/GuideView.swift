@@ -9,11 +9,19 @@ struct GuideView: View {
     @Environment(\.scenePhase) private var scenePhase
     @State private var showSettings = false
 
+    private var ringTint: Color {
+        switch model.feedback {
+        case .correct: .green
+        case .notDone: .red
+        default: .yellow
+        }
+    }
+
     var body: some View {
         ZStack {
             ARViewContainer(arView: ar.arView).ignoresSafeArea()
             if model.phase == .guiding, let marker = ar.marker {
-                MarkerOverlay(marker: marker, setTo: model.currentStep?.setTo).ignoresSafeArea()
+                MarkerOverlay(marker: marker, setTo: model.currentStep?.setTo, tint: ringTint).ignoresSafeArea()
             }
             if model.phase == .thinking {
                 ThinkingSweep().ignoresSafeArea().allowsHitTesting(false)

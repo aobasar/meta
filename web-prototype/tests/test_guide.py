@@ -45,9 +45,11 @@ PLAN = {
     "uncertainty": "",
     "steps": [
         {"instruction": "Sıcaklık düğmesini sıcağa çevir.", "target_phrase": "temperature knob", "x": 200, "y": 400,
-         "set_to_label": "hot", "set_to_meaning": "sıcak", "success_condition": "the pointer is at 'hot'"},
+         "set_to_label": "hot", "set_to_meaning": "sıcak", "success_condition": "the pointer is at 'hot'",
+         "visible_result": True},
         {"instruction": "Başlat düğmesine bas.", "target_phrase": "start button", "x": 800, "y": 400,
-         "set_to_label": "", "set_to_meaning": "", "success_condition": "no visible change"},
+         "set_to_label": "", "set_to_meaning": "", "success_condition": "no visible change",
+         "visible_result": False},
     ],
 }
 GROUND = [{"object_name": "temperature knob", "x": 210, "y": 410}, {"object_name": "hot", "x": 260, "y": 300},
@@ -57,8 +59,9 @@ GROUND = [{"object_name": "temperature knob", "x": 210, "y": 410}, {"object_name
 class RoutingOpener:
     """Answers Spark plan, Spark ground, and SAM calls; records every request body."""
 
-    def __init__(self, plan=PLAN, served="muse-spark-1.3", sam_point=None, sam_text=None):
+    def __init__(self, plan=PLAN, served="muse-spark-1.3", sam_point=None, sam_text=None, check=None):
         self.plan, self.served = plan, served
+        self.check = check or {"status": "not_done", "observed": "pointer at 'warm'", "correction": "Biraz daha sağa çevirin."}
         self.sam_point = sam_point or "1<|box;x1=180;y1=180;x2=240;y2=230;c=0.91|>"
         self.sam_text = sam_text or "1<|box;x1=780;y1=180;x2=820;y2=220;c=0.8|>"
         self.bodies = []
@@ -72,6 +75,8 @@ class RoutingOpener:
             prompt = body["input"][0]["content"][0]["text"]
             text = self.sam_point if prompt.startswith("<0f>") else self.sam_text
             reply = {"model": guide.SAM_MODEL, "output_text": text}
+        elif body.get("response_format", {}).get("json_schema", {}).get("name") == "step_check":
+            reply = {"model": self.served, "choices": [{"message": {"content": json.dumps(self.check)}}]}
         elif "response_format" in body:
             reply = {"model": self.served, "choices": [{"message": {"content": json.dumps(self.plan)}}]}
         else:
@@ -133,6 +138,8 @@ class PlanTests(unittest.TestCase):
         self.assertEqual(first["setTo"], {"label": "hot", "meaning": "sıcak", "point": {"x": 0.26, "y": 0.3}})
         self.assertEqual(first["success"], "the pointer is at 'hot'")
         self.assertIsNone(second["setTo"])
+        self.assertTrue(first["verifiable"])
+        self.assertFalse(second["verifiable"])
         self.assertEqual(result["served"], ["muse-spark-1.3", "sam-3.1"])
 
     def test_only_pinned_standard_models_are_requested(self):
@@ -150,6 +157,32 @@ class PlanTests(unittest.TestCase):
         self.assertFalse(result["safe"])
         self.assertEqual(result["steps"], [])
         self.assertEqual(len(opener.bodies), 1)
+
+
+class VerifyTests(unittest.TestCase):
+    def test_not_done_returns_the_correction_in_the_users_language(self):
+        opener = RoutingOpener()
+        result = guide.verify(tiny_jpeg(520, 520), "Sıcağa çevir.", "pointer at 'hot'", "Turkish", FAKE_KEY, opener)
+        self.assertEqual(result["status"], "not_done")
+        self.assertEqual(result["correction"], "Biraz daha sağa çevirin.")
+        prompt = opener.bodies[0]["messages"][0]["content"][0]["text"]
+        self.assertIn("in Turkish", prompt)
+        self.assertIn("pointer at 'hot'", prompt)
+
+    def test_a_done_answer_drops_any_correction(self):
+        opener = RoutingOpener(check={"status": "done", "observed": "hot", "correction": "x"})
+        self.assertEqual(guide.verify(tiny_jpeg(520, 520), "i", "s", "Turkish", FAKE_KEY, opener)["correction"], "")
+
+    def test_a_tiny_crop_is_unsure_without_calling_meta(self):
+        opener = RoutingOpener()
+        result = guide.verify(tiny_jpeg(100, 100), "i", "s", "Turkish", FAKE_KEY, opener)
+        self.assertEqual((result["status"], result["reason"]), ("unsure", "too_small"))
+        self.assertEqual(opener.bodies, [])
+
+    def test_an_unknown_status_is_an_upstream_error(self):
+        opener = RoutingOpener(check={"status": "maybe", "observed": "", "correction": ""})
+        with self.assertRaises(server.UpstreamError):
+            guide.verify(tiny_jpeg(520, 520), "i", "s", "Turkish", FAKE_KEY, opener)
 
 
 class HttpTests(unittest.TestCase):
@@ -214,6 +247,15 @@ class HttpTests(unittest.TestCase):
         saved = json.loads((folder / "request.json").read_text())
         self.assertNotIn("frame", saved)
         self.assertEqual(saved["camera"], {"intrinsics": [1, 0, 0]})
+
+    def test_verify_end_to_end_with_recording(self):
+        body = {"frame": base64.b64encode(tiny_jpeg(520, 520)).decode(), "instruction": "Sıcağa çevir.",
+                "success": "pointer at 'hot'", "language": "Turkish", "record": True}
+        status, answer = self.request("/api/guide/verify", body)
+        self.assertEqual(status, 200)
+        self.assertEqual(answer["status"], "not_done")
+        self.assertTrue(answer["recording"].endswith("-verify"))
+        self.assertEqual(self.request("/api/guide/verify", {**body, "success": ""})[0], 400)
 
     def test_bad_input_is_rejected(self):
         self.assertEqual(self.request("/api/guide/plan", self.frame_body(question=""))[0], 400)

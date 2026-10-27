@@ -58,3 +58,29 @@ struct DepthSample {
         return window[window.count / 2]
     }
 }
+
+/// The close-up sent for step verification: the control with room around it for the printed labels, and the dial's
+/// target label when there is one. Prototype crops of about 3 knob diameters scored 20 of 21 (docs/goster-bana.md).
+enum CropGeometry {
+    static let minSide: CGFloat = 200  // pixels of the captured image; smaller can't show a pointer reliably
+    static let paddingRadii: CGFloat = 3.2  // half the crop's side, in control radii
+
+    enum Result: Equatable {
+        case crop(CGRect)
+        case offScreen
+        case tooSmall
+    }
+
+    /// A square crop in image pixels (origin top-left), clamped to the image.
+    static func crop(control: CGPoint, radius: CGFloat, label: CGPoint?, imageSize: CGSize) -> Result {
+        let bounds = CGRect(origin: .zero, size: imageSize)
+        guard bounds.contains(control) else { return .offScreen }
+        var half = radius * paddingRadii
+        if let label {
+            half = max(half, hypot(label.x - control.x, label.y - control.y) + radius * 1.2)
+        }
+        let rect = CGRect(x: control.x - half, y: control.y - half, width: half * 2, height: half * 2).intersection(bounds)
+        guard rect.width >= minSide, rect.height >= minSide else { return .tooSmall }
+        return .crop(rect.integral)
+    }
+}

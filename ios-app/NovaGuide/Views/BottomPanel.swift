@@ -114,10 +114,11 @@ private struct StepCard: View {
     var body: some View {
         Card {
             VStack(alignment: .leading, spacing: 10) {
-                HStack {
+                HStack(spacing: 10) {
                     Text("Step \(index + 1) / \(total)")
                         .font(.subheadline.weight(.bold))
                         .foregroundStyle(.yellow)
+                    ProgressDots(records: model.records, current: index)
                     Spacer()
                     Text("AI-generated guidance. Check before you press.")
                         .font(.footnote)
@@ -126,6 +127,9 @@ private struct StepCard: View {
                 Text(step.instruction)
                     .font(.title2.weight(.semibold))
                     .fixedSize(horizontal: false, vertical: true)
+                if let feedback = model.feedback {
+                    FeedbackLine(feedback: feedback)
+                }
                 HStack(spacing: 10) {
                     Button { model.back() } label: { Label(String(localized: "Back"), systemImage: "chevron.left") }
                         .buttonStyle(.bordered)
@@ -135,17 +139,111 @@ private struct StepCard: View {
                     Button { model.newQuestion() } label: { Label(String(localized: "New question"), systemImage: "arrow.counterclockwise") }
                         .buttonStyle(.bordered)
                     Spacer()
-                    Button { model.next() } label: {
-                        Text(index + 1 == total ? String(localized: "Finish") : String(localized: "Done"))
-                            .font(.title3.weight(.bold))
-                            .frame(minWidth: 120)
+                    if needsDecision {
+                        Button(String(localized: "Skip, I did it")) { model.skip() }
+                            .buttonStyle(.bordered)
+                    }
+                    Button { model.done() } label: {
+                        Group {
+                            if model.feedback == .checking {
+                                ProgressView().tint(.black)
+                            } else {
+                                Text(primaryTitle)
+                            }
+                        }
+                        .font(.title3.weight(.bold))
+                        .frame(minWidth: 120)
                     }
                     .buttonStyle(.borderedProminent)
                     .tint(.yellow)
                     .foregroundStyle(.black)
                     .controlSize(.large)
+                    .disabled(model.feedback == .checking || model.feedback == .correct)
                 }
             }
+        }
+    }
+
+    private var needsDecision: Bool {
+        switch model.feedback {
+        case .notDone, .unsure, .error: true
+        default: false
+        }
+    }
+
+    private var primaryTitle: String {
+        if needsDecision { return String(localized: "Check again") }
+        return index + 1 == total && !step.isVerifiable ? String(localized: "Finish") : String(localized: "Done")
+    }
+}
+
+private struct FeedbackLine: View {
+    var feedback: GuideModel.Feedback
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: icon).foregroundStyle(color)
+            Text(text).fixedSize(horizontal: false, vertical: true)
+        }
+        .font(.title3.weight(.semibold))
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(color.opacity(0.18), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+    }
+
+    private var text: String {
+        switch feedback {
+        case .checking: String(localized: "Checking…")
+        case .correct: String(localized: "Correct.")
+        case .notDone(let text), .unsure(let text), .error(let text): text
+        }
+    }
+
+    private var icon: String {
+        switch feedback {
+        case .checking: "camera.viewfinder"
+        case .correct: "checkmark.circle.fill"
+        case .notDone: "arrow.uturn.backward.circle.fill"
+        case .unsure: "questionmark.circle.fill"
+        case .error: "exclamationmark.triangle.fill"
+        }
+    }
+
+    private var color: Color {
+        switch feedback {
+        case .checking: .white
+        case .correct: .green
+        case .notDone: .red
+        case .unsure, .error: .orange
+        }
+    }
+}
+
+/// One dot per step: green verified, red failed, orange uncertain, grey not checked or skipped by the user.
+private struct ProgressDots: View {
+    var records: [GuideModel.StepRecord]
+    var current: Int
+
+    var body: some View {
+        HStack(spacing: 5) {
+            ForEach(records.indices, id: \.self) { index in
+                Circle()
+                    .fill(color(records[index].result))
+                    .frame(width: 9, height: 9)
+                    .overlay(Circle().stroke(Color.yellow, lineWidth: index == current ? 2 : 0).padding(-3))
+            }
+        }
+        .accessibilityHidden(true)
+    }
+
+    private func color(_ result: GuideModel.StepRecord.Result) -> Color {
+        switch result {
+        case .verified: .green
+        case .failed: .red
+        case .uncertain: .orange
+        case .unchecked, .skipped: .gray
+        case .pending: .white.opacity(0.35)
         }
     }
 }

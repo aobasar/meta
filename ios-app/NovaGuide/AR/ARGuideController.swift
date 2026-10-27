@@ -104,6 +104,47 @@ final class ARGuideController: NSObject, ObservableObject, ARSessionDelegate {
                              cameraTransform: frame.camera.transform, depth: Self.copyDepth(frame))
     }
 
+    enum CloseUp {
+        case jpeg(Data)
+        case offScreen
+        case tooSmall
+        case notReady
+    }
+
+    /// A full-resolution close-up of a step's control in the current frame, for step verification.
+    func closeUp(step index: Int) -> CloseUp {
+        guard anchors.indices.contains(index), let frame = arView.session.currentFrame,
+              case .normal = frame.camera.trackingState else { return .notReady }
+        let anchor = anchors[index]
+        let pixelBuffer = frame.capturedImage
+        let size = CGSize(width: CVPixelBufferGetWidth(pixelBuffer), height: CVPixelBufferGetHeight(pixelBuffer))
+        let camera = frame.camera
+        guard (simd_inverse(camera.transform) * SIMD4<Float>(anchor.control, 1)).z < 0 else { return .offScreen }
+        // With the viewport set to the captured image's size, projectPoint returns that image's pixels.
+        let center = camera.projectPoint(anchor.control, orientation: .landscapeRight, viewportSize: size)
+        let right = SIMD3<Float>(camera.transform.columns.0.x, camera.transform.columns.0.y, camera.transform.columns.0.z)
+        let edge = camera.projectPoint(anchor.control + right * anchor.radius, orientation: .landscapeRight, viewportSize: size)
+        let radius = max(hypot(edge.x - center.x, edge.y - center.y), 8)
+        let label = anchor.label.map { camera.projectPoint($0, orientation: .landscapeRight, viewportSize: size) }
+        switch CropGeometry.crop(control: center, radius: radius, label: label, imageSize: size) {
+        case .offScreen: return .offScreen
+        case .tooSmall: return .tooSmall
+        case .crop(let rect):
+            // Core Image's origin is bottom-left.
+            let flipped = CGRect(x: rect.minX, y: size.height - rect.maxY, width: rect.width, height: rect.height)
+            var image = CIImage(cvPixelBuffer: pixelBuffer).cropped(to: flipped)
+            image = image.transformed(by: CGAffineTransform(translationX: -flipped.minX, y: -flipped.minY))
+            let scale = min(1, 1024 / max(rect.width, rect.height))
+            if scale < 1 { image = image.transformed(by: CGAffineTransform(scaleX: scale, y: scale)) }
+            guard let space = CGColorSpace(name: CGColorSpace.sRGB),
+                  let jpeg = ciContext.jpegRepresentation(
+                    of: image, colorSpace: space,
+                    options: [CIImageRepresentationOption(rawValue: kCGImageDestinationLossyCompressionQuality as String): 0.9])
+            else { return .notReady }
+            return .jpeg(jpeg)
+        }
+    }
+
     private static func copyDepth(_ frame: ARFrame) -> DepthSample? {
         guard let map = frame.sceneDepth?.depthMap, CVPixelBufferGetPixelFormatType(map) == kCVPixelFormatType_DepthFloat32 else { return nil }
         CVPixelBufferLockBaseAddress(map, .readOnly)

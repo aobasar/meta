@@ -83,3 +83,51 @@ final class GuidePlanTests: XCTestCase {
         XCTAssertEqual(step.markerPoint, NormalizedPoint(x: 0.1, y: 0.1))
     }
 }
+
+final class CropGeometryTests: XCTestCase {
+    let image = CGSize(width: 1920, height: 1440)
+
+    func testCropIsAboutThreeKnobDiametersAroundTheControl() {
+        guard case .crop(let rect) = CropGeometry.crop(control: CGPoint(x: 960, y: 720), radius: 80, label: nil, imageSize: image) else {
+            return XCTFail("expected a crop")
+        }
+        XCTAssertEqual(rect, CGRect(x: 704, y: 464, width: 512, height: 512))
+    }
+
+    func testCropReachesTheDialsTargetLabel() {
+        guard case .crop(let rect) = CropGeometry.crop(control: CGPoint(x: 960, y: 720), radius: 80,
+                                                       label: CGPoint(x: 960, y: 400), imageSize: image) else {
+            return XCTFail("expected a crop")
+        }
+        XCTAssertTrue(rect.contains(CGPoint(x: 960, y: 400)))
+    }
+
+    func testCropIsClampedToTheImage() {
+        guard case .crop(let rect) = CropGeometry.crop(control: CGPoint(x: 100, y: 100), radius: 80, label: nil, imageSize: image) else {
+            return XCTFail("expected a crop")
+        }
+        XCTAssertEqual(rect.minX, 0)
+        XCTAssertEqual(rect.minY, 0)
+    }
+
+    func testAFarAwayControlIsTooSmallAndAnOffScreenOneIsReported() {
+        XCTAssertEqual(CropGeometry.crop(control: CGPoint(x: 960, y: 720), radius: 20, label: nil, imageSize: image), .tooSmall)
+        XCTAssertEqual(CropGeometry.crop(control: CGPoint(x: -5, y: 720), radius: 80, label: nil, imageSize: image), .offScreen)
+    }
+}
+
+final class StepCheckTests: XCTestCase {
+    func testDecodesAVerifyAnswer() throws {
+        let json = #"{"status": "not_done", "observed": "warm", "correction": "Biraz sağa.", "seconds": 3.1, "served": ["muse-spark-1.3"]}"#
+        let check = try JSONDecoder().decode(StepCheck.self, from: Data(json.utf8))
+        XCTAssertEqual(check.status, .notDone)
+        XCTAssertEqual(check.correction, "Biraz sağa.")
+    }
+
+    func testStepsAreVerifiableUnlessTheServerSaysNot() throws {
+        let json = #"{"instruction": "", "target": "", "success": "", "point": {"x": 0, "y": 0}, "box": null, "boxMethod": "none", "setTo": null}"#
+        XCTAssertTrue(try JSONDecoder().decode(GuideStep.self, from: Data(json.utf8)).isVerifiable)
+        let pressOnly = json.replacingOccurrences(of: #""setTo": null"#, with: #""setTo": null, "verifiable": false"#)
+        XCTAssertFalse(try JSONDecoder().decode(GuideStep.self, from: Data(pressOnly.utf8)).isVerifiable)
+    }
+}

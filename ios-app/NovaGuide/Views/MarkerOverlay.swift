@@ -5,6 +5,7 @@ import SwiftUI
 struct MarkerOverlay: View {
     var marker: MarkerState
     var setTo: GuideStep.SetTo?
+    var tint: Color = .yellow
 
     var body: some View {
         GeometryReader { geometry in
@@ -17,7 +18,7 @@ struct MarkerOverlay: View {
                             LabelTag(label: setTo.label, meaning: setTo.meaning).position(x: label.x, y: label.y - 34)
                         }
                     }
-                    PulsingRing(radius: ringRadius, precise: marker.precise).position(marker.center)
+                    PulsingRing(radius: ringRadius, precise: marker.precise, tint: tint).position(marker.center)
                     BouncingArrow().position(x: marker.center.x, y: marker.center.y - ringRadius - 34)
                 }
             } else {
@@ -46,14 +47,15 @@ private struct Spotlight: View {
 private struct PulsingRing: View {
     var radius: CGFloat
     var precise: Bool
+    var tint: Color
     @State private var pulse = false
 
     var body: some View {
         Circle()
-            .stroke(Color.yellow, style: StrokeStyle(lineWidth: 5, dash: precise ? [] : [10, 8]))
+            .stroke(tint, style: StrokeStyle(lineWidth: 5, dash: precise ? [] : [10, 8]))
             .frame(width: radius * 2, height: radius * 2)
             .scaleEffect(pulse ? 1.12 : 0.94)
-            .shadow(color: .yellow.opacity(0.7), radius: 8)
+            .shadow(color: tint.opacity(0.7), radius: 8)
             .onAppear {
                 withAnimation(.easeInOut(duration: 0.8).repeatForever(autoreverses: true)) { pulse = true }
             }

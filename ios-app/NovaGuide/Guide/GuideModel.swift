@@ -17,17 +17,40 @@ final class GuideModel: ObservableObject {
         case unknown, connected, noKey, unreachable
     }
 
+    /// What Nova knows about one step in this session (physical state memory).
+    struct StepRecord: Equatable {
+        enum Result: Equatable {
+            case pending, verified, failed, uncertain, unchecked, skipped
+        }
+
+        var expected: String
+        var observed: String?
+        var result: Result = .pending
+    }
+
+    /// The step card's answer to "Done".
+    enum Feedback: Equatable {
+        case checking
+        case correct
+        case notDone(String)
+        case unsure(String)
+        case error(String)
+    }
+
     @Published var phase: Phase = .asking
     @Published var question = ""
     @Published private(set) var plan: GuidePlan?
     @Published private(set) var stepIndex = 0
     @Published private(set) var statusLine = ""
     @Published private(set) var connection: Connection = .unknown
+    @Published private(set) var records: [StepRecord] = []
+    @Published private(set) var feedback: Feedback?
 
     let settings: GuideSettings
     let ar: ARGuideController
     private let speaker = Speaker()
     private var task: Task<Void, Never>?
+    private var checkTask: Task<Void, Never>?
 
     init(settings: GuideSettings, ar: ARGuideController) {
         self.settings = settings
@@ -91,6 +114,7 @@ final class GuideModel: ObservableObject {
             return
         }
         ar.place(plan, from: capture)
+        records = plan.steps.map { StepRecord(expected: $0.success) }
         phase = .guiding
         go(to: 0)
     }
@@ -114,12 +138,85 @@ final class GuideModel: ObservableObject {
         phase = .asking
     }
 
+    /// The user says the step is done: check it on a close-up of the control, unless a close-up can't show it.
+    func done() {
+        guard let step = currentStep, feedback != .checking else { return }
+        guard step.isVerifiable else {
+            records[stepIndex].result = .unchecked
+            next()
+            return
+        }
+        switch ar.closeUp(step: stepIndex) {
+        case .offScreen:
+            say(.unsure(String(localized: "Point the camera at the control, then check again.")))
+        case .tooSmall:
+            say(.unsure(String(localized: "Move the phone closer to the control, then check again.")))
+        case .notReady:
+            say(.unsure(String(localized: "Hold the phone steady, then check again.")))
+        case .jpeg(let jpeg):
+            feedback = .checking
+            let index = stepIndex, settings = self.settings
+            checkTask = Task {
+                do {
+                    let check = try await settings.client.verify(
+                        jpeg: jpeg, step: step, language: settings.language.serverName, record: settings.record)
+                    guard !Task.isCancelled, index == stepIndex else { return }
+                    apply(check, to: index)
+                } catch is CancellationError {
+                } catch {
+                    guard index == stepIndex else { return }
+                    feedback = .error(error.localizedDescription)
+                }
+            }
+        }
+    }
+
+    private func apply(_ check: StepCheck, to index: Int) {
+        records[index].observed = check.observed
+        switch check.status {
+        case .done:
+            records[index].result = .verified
+            say(.correct)
+            checkTask = Task {
+                try? await Task.sleep(for: .seconds(1.2))
+                if !Task.isCancelled, index == stepIndex, feedback == .correct { next() }
+            }
+        case .notDone:
+            records[index].result = .failed
+            let correction = check.correction.isEmpty
+                ? String(localized: "Not yet. Check the marker and try again.") : check.correction
+            say(.notDone(correction))
+        case .unsure:
+            records[index].result = .uncertain
+            say(.unsure(check.reason == "too_small"
+                ? String(localized: "Move the phone closer to the control, then check again.")
+                : String(localized: "I can't see it clearly. Move closer and check again.")))
+        }
+    }
+
+    /// The user's own call: they did the step even though Nova couldn't confirm it.
+    func skip() {
+        guard currentStep != nil else { return }
+        records[stepIndex].result = .skipped
+        next()
+    }
+
+    private func say(_ feedback: Feedback) {
+        self.feedback = feedback
+        switch feedback {
+        case .correct: speak(String(localized: "Correct."))
+        case .notDone(let text), .unsure(let text): speak(text)
+        case .checking, .error: break
+        }
+    }
+
     func next() {
         guard let plan else { return }
         if stepIndex + 1 < plan.steps.count {
             go(to: stepIndex + 1)
         } else {
             phase = .finished
+            feedback = nil
             ar.currentStep = nil
             speak(String(localized: "Ready."))
         }
@@ -140,6 +237,9 @@ final class GuideModel: ObservableObject {
 
     func newQuestion() {
         task?.cancel()
+        checkTask?.cancel()
+        feedback = nil
+        records = []
         speaker.stop()
         ar.clear()
         plan = nil
@@ -148,6 +248,8 @@ final class GuideModel: ObservableObject {
     }
 
     private func go(to index: Int) {
+        checkTask?.cancel()
+        feedback = nil
         stepIndex = index
         ar.currentStep = index
         repeatStep()

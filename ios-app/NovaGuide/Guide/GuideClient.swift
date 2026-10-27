@@ -53,6 +53,25 @@ struct GuideClient {
         }
     }
 
+    private struct VerifyRequest: Encodable {
+        var frame: String
+        var instruction: String
+        var success: String
+        var language: String
+        var record: Bool
+    }
+
+    func verify(jpeg: Data, step: GuideStep, language: String, record: Bool) async throws -> StepCheck {
+        let request = VerifyRequest(frame: jpeg.base64EncodedString(), instruction: step.instruction,
+                                    success: step.success, language: language, record: record)
+        let (data, _) = try await send(path: "api/guide/verify", body: try JSONEncoder().encode(request), timeout: 30)
+        do {
+            return try JSONDecoder().decode(StepCheck.self, from: data)
+        } catch {
+            throw Failure.unreadable
+        }
+    }
+
     private func send(path: String, body: Data?, timeout: TimeInterval) async throws -> (Data, HTTPURLResponse) {
         guard let baseURL else { throw Failure.noServer }
         var request = URLRequest(url: baseURL.appending(path: path), timeoutInterval: timeout)

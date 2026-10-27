@@ -3,52 +3,28 @@
 Reads test-photos/verify_cases.json:
   [{"image": "<file in test-photos/>", "instruction": "...", "success": "<what is visible when it is done>",
     "expected": "done" | "not_done"}]
-For each photo, asks Spark for done / not_done / unsure plus what it observed and a correction, then prints a
+For each photo, asks Spark for done / not_done / unsure plus what it observed and a correction, with the same
+prompt the iPhone app uses (web-prototype/guide.py, VERIFY_PROMPT), then prints a
 table and the share of correct answers ("unsure" counts as safe but not correct). Photos are resized and stripped
 of metadata first (see sam_test.prepared_photo). Standard model IDs only (HACKATHON.md rule 1).
 Usage: python3 verify_test.py [--effort low|medium]
 """
 import argparse
 import json
+import sys
+import urllib.request
 from concurrent.futures import ThreadPoolExecutor
 
 import sam_test as st
 
-VERIFY_SCHEMA = {
-    "type": "json_schema",
-    "json_schema": {
-        "name": "step_check",
-        "schema": {
-            "type": "object",
-            "properties": {
-                "status": {"type": "string", "enum": ["done", "not_done", "unsure"]},
-                "observed": {"type": "string"},
-                "correction": {"type": "string"},
-            },
-            "required": ["status", "observed", "correction"],
-            "additionalProperties": False,
-        },
-    },
-}
-
-VERIFY_PROMPT = """You check one step of a task on the device in this photo.
-Step the person was asked to do: "{instruction}"
-It is done when: {success}
-Look closely at the relevant control or display and report:
-- status: "done" if the photo clearly shows the success condition, "not_done" if it clearly does not,
-  "unsure" if the control or display is not visible or readable enough to tell.
-- observed: what you actually see on that control or display (for example the label the knob points to, or the
-  digits on the display), in English.
-- correction: if not_done, one short sentence telling the person what to change, in Turkish; otherwise "".
-Do not guess. Prefer "unsure" over a wrong answer."""
+sys.path.insert(0, str(st.REPO / "web-prototype"))
+import guide  # noqa: E402  the app's own verify prompt, so this test measures what the app sends
 
 
-def check(case: dict, key: str, effort: str) -> dict:
-    image = st.data_url(st.prepared_photo(case["image"]))
-    text, seconds, model = st.spark(
-        [{"type": "text", "text": VERIFY_PROMPT.format(instruction=case["instruction"], success=case["success"])},
-         {"type": "image_url", "image_url": {"url": image}}], key, effort, VERIFY_SCHEMA)
-    return {**case, **json.loads(text), "seconds": seconds, "served": model}
+def check(case: dict, key: str) -> dict:
+    image = st.prepared_photo(case["image"]).read_bytes()
+    result = guide.verify(image, case["instruction"], case["success"], "Turkish", key, urllib.request.urlopen)
+    return {**case, **result, "served": ",".join(result["served"]) or "-"}
 
 
 def main():
@@ -58,10 +34,11 @@ def main():
     args = parser.parse_args()
     cases = json.loads((st.PHOTOS / args.cases).read_text())
     key = st.api_key()
+    guide.REASONING_EFFORT = args.effort
     for name in dict.fromkeys(case["image"] for case in cases):
         st.prepared_photo(name)  # once per photo, before the parallel checks share it
     with ThreadPoolExecutor(max_workers=5) as pool:
-        results = list(pool.map(lambda case: check(case, key, args.effort), cases))
+        results = list(pool.map(lambda case: check(case, key), cases))
 
     correct = sum(r["status"] == r["expected"] for r in results)
     wrong = sum(r["status"] not in (r["expected"], "unsure") for r in results)

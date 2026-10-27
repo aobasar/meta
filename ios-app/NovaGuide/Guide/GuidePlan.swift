@@ -62,12 +62,32 @@ struct GuideStep: Decodable, Equatable {
     var box: NormalizedBox?
     var boxMethod: String
     var setTo: SetTo?
+    /// False when a close-up can't show the result (a momentary press); such steps are not checked.
+    var verifiable: Bool? = nil
+
+    var isVerifiable: Bool { verifiable ?? true }
 
     /// Where the marker goes: the SAM box's center when SAM found a usable box, otherwise Spark's point.
     var markerPoint: NormalizedPoint {
         if let box, boxMethod == "point" || boxMethod == "fallback" { return box.center }
         return point
     }
+}
+
+/// Muse Spark's check of one step on a close-up of its control.
+struct StepCheck: Decodable, Equatable {
+    enum Status: String, Decodable {
+        case done
+        case notDone = "not_done"
+        case unsure
+    }
+
+    var status: Status
+    var observed: String
+    var correction: String
+    /// "too_small" when the server judged the close-up too small to read.
+    var reason: String?
+    var recording: String?
 }
 
 struct ServerError: Decodable {
