@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import argparse
 import base64
+import contextvars
 import hashlib
 import ipaddress
 import json
@@ -238,6 +239,93 @@ def decode_frame(value) -> bytes:
 
 
 # ---------------------------------------------------------------------------
+# Usage log: every model call of a request, for cost analysis (no frames, audio or text, only counts)
+
+# The model calls of the request being handled; worker threads of one request share the same list.
+CALLS: contextvars.ContextVar[list | None] = contextvars.ContextVar("guide_calls", default=None)
+ID_PATTERN = re.compile(r"^[A-Za-z0-9-]{1,64}$")
+
+
+def note_call(entry: dict) -> None:
+    calls = CALLS.get()
+    if calls is not None:
+        calls.append(entry)
+
+
+class UsageLog:
+    """One JSON line per request in usage/YYYY-MM-DD.jsonl: endpoint, route, session, task, and its model calls."""
+
+    def __init__(self, folder: Path):
+        self.folder = folder
+        self.lock = threading.Lock()
+
+    def append(self, record: dict) -> None:
+        with self.lock:
+            self.folder.mkdir(parents=True, exist_ok=True)
+            with (self.folder / f"{date.today().isoformat()}.jsonl").open("a") as file:
+                file.write(json.dumps(record, ensure_ascii=False) + "\n")
+
+    def records(self, days: int) -> list[dict]:
+        files = sorted(self.folder.glob("*.jsonl"))[-days:] if self.folder.is_dir() else []
+        return [json.loads(line) for file in files for line in file.read_text().splitlines() if line.strip()]
+
+
+def tokens(usage) -> tuple[int, int]:
+    """(input, output) tokens from a usage block in either the chat or the responses style."""
+    if not isinstance(usage, dict):
+        return 0, 0
+    return (int(usage.get("prompt_tokens") or usage.get("input_tokens") or 0),
+            int(usage.get("completion_tokens") or usage.get("output_tokens") or 0))
+
+
+def call_cost(call: dict, prices: dict) -> float | None:
+    """Dollars for one model call from web-prototype/data/model-prices.json; None when its price is unknown."""
+    price = prices.get(call.get("model"))
+    if not price:
+        return None
+    tokens_in, tokens_out = tokens(call.get("usage"))
+    return (tokens_in * price.get("input_per_million", 0) / 1e6 + tokens_out * price.get("output_per_million", 0) / 1e6
+            + price.get("per_call", 0) + call.get("audio_seconds", 0) / 60 * price.get("per_minute", 0)
+            + (call.get("usage") or {}).get("images_processed", 0) * price.get("per_image", 0))
+
+
+def summarize(records: list[dict], prices: dict | None = None) -> dict:
+    """Totals per task and per session, and the averages a price per task can be based on."""
+    prices = prices or {}
+    tasks: dict[str, dict] = {}
+    sessions: dict[str, dict] = {}
+    for record in records:
+        for key, groups in ((record.get("task"), tasks), (record.get("session"), sessions)):
+            group = groups.setdefault(key or "(none)", {"requests": {}, "calls": {}, "tokens_in": 0, "tokens_out": 0,
+                                                        "audio_seconds": 0.0, "cost": 0.0, "unpriced": 0})
+            group["requests"][record["endpoint"]] = group["requests"].get(record["endpoint"], 0) + 1
+            for call in record.get("calls", []):
+                group["calls"][call["model"]] = group["calls"].get(call["model"], 0) + 1
+                tokens_in, tokens_out = tokens(call.get("usage"))
+                group["tokens_in"] += tokens_in
+                group["tokens_out"] += tokens_out
+                group["audio_seconds"] += call.get("audio_seconds", 0)
+                cost = call_cost(call, prices)
+                if cost is None:
+                    group["unpriced"] += 1
+                else:
+                    group["cost"] += cost
+    real_tasks = {key: value for key, value in tasks.items() if key != "(none)"}
+    count = len(real_tasks) or 1
+    average = {
+        "calls": {model: round(sum(t["calls"].get(model, 0) for t in real_tasks.values()) / count, 2)
+                  for model in sorted({m for t in real_tasks.values() for m in t["calls"]})},
+        "tokens_in": round(sum(t["tokens_in"] for t in real_tasks.values()) / count),
+        "tokens_out": round(sum(t["tokens_out"] for t in real_tasks.values()) / count),
+        "audio_seconds": round(sum(t["audio_seconds"] for t in real_tasks.values()) / count, 1),
+        "cost": round(sum(t["cost"] for t in real_tasks.values()) / count, 4),
+    }
+    return {"requests": len(records), "tasks": len(real_tasks), "sessions": len([k for k in sessions if k != "(none)"]),
+            "per_task": tasks, "per_session": sessions, "average_task": average,
+            "unpriced_calls": sum(t["unpriced"] for t in tasks.values())}
+
+
+# ---------------------------------------------------------------------------
 # Meta calls
 
 
@@ -248,8 +336,11 @@ def post(path: str, payload: dict, api_key: str, opener) -> dict:
         method="POST",
         headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
     )
+    started = time.monotonic()
     data = nova.call_meta(request, api_key, opener)
     served = str(data.get("model") or "")
+    note_call({"model": payload["model"], "served": served, "seconds": round(time.monotonic() - started, 2),
+               "usage": data.get("usage")})
     if "contributor" in served.lower():
         raise UpstreamError(0, f"Meta served a Contributor model ({served}); the result was discarded.")
     return data
@@ -429,10 +520,14 @@ def plan(frame: bytes, question: str, language: str, api_key: str, opener) -> di
         points.append(to_px(grounded.get(target) or fallback, width, height))
 
     started = time.monotonic()
+    calls = CALLS.get()
+
+    def locate_in_worker(pair):
+        CALLS.set(calls)  # pool threads don't inherit the request's context
+        return locate(pair[0], *pair[1], width, height, image_url, api_key, opener, served)
+
     with ThreadPoolExecutor(max_workers=min(len(raw_steps), 4)) as pool:
-        located = list(pool.map(
-            lambda pair: locate(pair[0], *pair[1], width, height, image_url, api_key, opener, served),
-            zip(targets, points)))
+        located = list(pool.map(locate_in_worker, zip(targets, points)))
     timings["locate"] = round(time.monotonic() - started, 2)
 
     for step, target, label, (px, py), (box, method) in zip(raw_steps, targets, labels, points, located):
@@ -521,12 +616,19 @@ def transcribe(wav: bytes, language: str, api_key: str, opener) -> str:
     """The user's words; empty when there was no speech. Biased to their language and English (device labels)."""
     if wav[:4] != b"RIFF" or wav[8:12] != b"WAVE":
         raise BadRequest("The audio is not a WAV file.")
+    started = time.monotonic()
+    entry = {"model": nova.TRANSCRIBE_MODEL, "audio_seconds": round(max(len(wav) - 44, 0) / 32000, 2)}  # 16 kHz mono 16-bit
     try:
-        return nova.transcribe(wav, list(dict.fromkeys([language, "English"])), api_key, opener)["transcript"]
+        result = nova.transcribe(wav, list(dict.fromkeys([language, "English"])), api_key, opener)
+        if result.get("audioDurationMs"):
+            entry["audio_seconds"] = round(result["audioDurationMs"] / 1000, 2)
+        return result["transcript"]
     except UpstreamError as exc:
         if exc.code == "empty_transcript":
             return ""
         raise
+    finally:
+        note_call({**entry, "seconds": round(time.monotonic() - started, 2)})
 
 
 # ---------------------------------------------------------------------------
@@ -659,6 +761,7 @@ class GuideServer(ThreadingHTTPServer):
         self.recordings = recordings
         self.opener = opener
         self.invites = invites  # set: the internet listener, where every request needs an invite code
+        self.usage = UsageLog(recordings.parent / "usage")
         bound = self.server_address[1]
         self.allowed_hosts = {f"{name}:{bound}" for name in [*host_names, address]}
         if invites:
@@ -670,6 +773,7 @@ class GuideHandler(BaseHTTPRequestHandler):
     server: GuideServer
     server_version = "NovaGuide/0.1"
     invite: dict | None = None
+    status_sent = 0
 
     # The Host check blocks DNS rebinding; the client header blocks web pages (they can't set it without a preflight).
     def _allowed(self) -> bool:
@@ -714,6 +818,29 @@ class GuideHandler(BaseHTTPRequestHandler):
     def do_POST(self) -> None:
         if not self._allowed():
             return
+        calls: list = []
+        token = CALLS.set(calls)
+        started = time.monotonic()
+        try:
+            self._dispatch()
+        finally:
+            CALLS.reset(token)
+            self._log_usage(calls, round(time.monotonic() - started, 2))
+
+    def _log_usage(self, calls: list, seconds: float) -> None:
+        ids = {name: self.headers.get(f"X-Nova-{name.title()}", "") for name in ("session", "task")}
+        self.server.usage.append({
+            "time": datetime.now().isoformat(timespec="seconds"),
+            "endpoint": self.path.split("?", 1)[0].removeprefix("/api/guide/"),
+            "status": self.status_sent,
+            "route": "internet" if self.server.invites is not None else "tailscale",
+            "invite": self.invite["id"] if self.invite else None,
+            **{name: value if ID_PATTERN.match(value) else None for name, value in ids.items()},
+            "seconds": seconds,
+            "calls": calls,
+        })
+
+    def _dispatch(self) -> None:
         try:
             path = self.path.split("?", 1)[0]
             if path == "/api/guide/plan":
@@ -823,6 +950,7 @@ class GuideHandler(BaseHTTPRequestHandler):
         return {"transcript": transcribe(wav, language, api_key, self.server.opener)}
 
     def _json(self, status: int, payload: dict) -> None:
+        self.status_sent = status
         data = json.dumps(payload, ensure_ascii=False).encode()
         self.send_response(status)
         self.send_header("Content-Type", "application/json; charset=utf-8")
@@ -902,6 +1030,8 @@ def main() -> None:
     revoke = commands.add_parser("revoke", help="stop a code from working")
     revoke.add_argument("id")
     commands.add_parser("list", help="list codes (never the codes themselves) and today's usage")
+    usage = commands.add_parser("usage", help="model calls per task and per session, for cost analysis")
+    usage.add_argument("--days", type=int, default=7)
     args = parser.parse_args()
     data_dir = Path(os.environ.get("NOVA_DATA_DIR", nova.DEFAULT_DATA_DIR)).expanduser()
     invites = Invites(data_dir)
@@ -910,6 +1040,20 @@ def main() -> None:
         print(f"Invite code for {created['name']} (id {created['id']}): {code}")
         print("Shown once: it is stored only as a hash. Limits per day: "
               + ", ".join(f"{kind} {count}" for kind, count in PER_CODE_LIMITS.items()))
+    elif args.command == "usage":
+        prices_file = data_dir / "model-prices.json"
+        prices = json.loads(prices_file.read_text()) if prices_file.is_file() else {}
+        summary = summarize(UsageLog(data_dir / "usage").records(args.days), prices)
+        average = summary["average_task"]
+        print(f"Last {args.days} days: {summary['requests']} requests, {summary['tasks']} tasks, "
+              f"{summary['sessions']} app sessions")
+        print("Average task: " + ", ".join(f"{model} {count}" for model, count in average["calls"].items())
+              + f"; tokens in {average['tokens_in']}, out {average['tokens_out']}; audio {average['audio_seconds']} s")
+        if prices and not summary["unpriced_calls"]:
+            print(f"Average cost per task: ${average['cost']:.4f}")
+        else:
+            print(f"Cost: {summary['unpriced_calls']} calls have no price. Put prices in {prices_file} as "
+                  '{"<model>": {"input_per_million": .., "output_per_million": .., "per_image": .., "per_minute": ..}}')
     elif args.command == "revoke":
         print("Revoked." if invites.revoke(args.id) else "No code with that id.")
     else:

@@ -35,6 +35,9 @@ struct GuideClient {
     var baseURL: URL?
     /// Sent on the internet route only; the Tailscale route needs none.
     var inviteCode: String? = nil
+    /// Usage ids: one per app launch and one per task (plan), so the Mac can total model calls for cost analysis.
+    var sessionID: String? = nil
+    var taskID: String? = nil
     var session: URLSession = .shared
 
     /// True for failures where the server never answered, so another route may work.
@@ -137,6 +140,8 @@ struct GuideClient {
         }
         var request = URLRequest(url: url, timeoutInterval: timeout)
         request.setValue("guide-ios", forHTTPHeaderField: "X-Nova-Client")
+        if let sessionID { request.setValue(sessionID, forHTTPHeaderField: "X-Nova-Session") }
+        if let taskID { request.setValue(taskID, forHTTPHeaderField: "X-Nova-Task") }
         if let inviteCode, !inviteCode.isEmpty {
             request.setValue("Bearer \(inviteCode)", forHTTPHeaderField: "Authorization")
         }

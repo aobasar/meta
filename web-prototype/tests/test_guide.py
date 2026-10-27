@@ -88,7 +88,8 @@ class RoutingOpener:
         elif body.get("response_format", {}).get("json_schema", {}).get("name") == "step_check":
             reply = {"model": self.served, "choices": [{"message": {"content": json.dumps(self.check)}}]}
         elif "response_format" in body:
-            reply = {"model": self.served, "choices": [{"message": {"content": json.dumps(self.plan)}}]}
+            reply = {"model": self.served, "choices": [{"message": {"content": json.dumps(self.plan)}}],
+                     "usage": {"prompt_tokens": 1000, "completion_tokens": 100}}
         else:
             reply = {"model": self.served, "choices": [{"message": {"content": json.dumps(GROUND)}}]}
         return FakeResponse(json.dumps(reply).encode())
@@ -437,6 +438,53 @@ class InternetListenerTests(unittest.TestCase):
         self.assertEqual(self.request("/api/guide/plan", self.frame_body(), code=self.code)[0], 200)
         status, body = self.request("/api/guide/plan", self.frame_body(), code=self.code)
         self.assertEqual((status, body["error"]["kind"]), (429, "limit"))
+
+
+class UsageTests(unittest.TestCase):
+    def test_a_plan_request_logs_every_model_call_with_session_and_task(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            env = Path(tmp) / ".env.local"
+            env.write_text(f"MODEL_API_KEY={FAKE_KEY}\n")
+            httpd = guide.GuideServer("127.0.0.1", 0, ["mac.example.ts.net"], env, Path(tmp) / "recordings", RoutingOpener())
+            threading.Thread(target=httpd.serve_forever, daemon=True).start()
+            port = httpd.server_address[1]
+            try:
+                body = {"frame": base64.b64encode(tiny_jpeg()).decode(), "question": "Nasıl?", "language": "Turkish"}
+                request = urllib.request.Request(
+                    f"http://127.0.0.1:{port}/api/guide/plan", data=json.dumps(body).encode(), method="POST",
+                    headers={"Host": f"mac.example.ts.net:{port}", guide.CLIENT_HEADER: guide.CLIENT_NAME,
+                             "Content-Type": "application/json", "X-Nova-Session": "s-1", "X-Nova-Task": "t-1"})
+                urllib.request.urlopen(request, timeout=10).read()
+            finally:
+                httpd.shutdown()
+                httpd.server_close()
+            records = guide.UsageLog(Path(tmp) / "usage").records(1)
+            self.assertEqual(len(records), 1)
+            record = records[0]
+            self.assertEqual((record["endpoint"], record["status"], record["session"], record["task"]), ("plan", 200, "s-1", "t-1"))
+            models = [call["model"] for call in record["calls"]]
+            self.assertEqual(models.count("muse-spark-1.3"), 2)  # plan and ground
+            self.assertGreaterEqual(models.count("sam-3.1"), 2)  # one per step, more on fallback
+            self.assertNotIn("frame", json.dumps(record))  # counts only, no content
+
+    def test_summary_averages_per_task_and_prices_calls(self):
+        records = [
+            {"endpoint": "plan", "task": "a", "session": "s", "calls": [
+                {"model": "muse-spark-1.3", "usage": {"prompt_tokens": 2000, "completion_tokens": 200}},
+                {"model": "sam-3.1"}]},
+            {"endpoint": "transcribe", "task": "a", "session": "s", "calls": [
+                {"model": "muse-voice-transcribe-1.0", "audio_seconds": 30}]},
+            {"endpoint": "plan", "task": "b", "session": "s", "calls": [
+                {"model": "muse-spark-1.3", "usage": {"input_tokens": 1000, "output_tokens": 0}}]},
+        ]
+        prices = {"muse-spark-1.3": {"input_per_million": 1.0, "output_per_million": 5.0}, "sam-3.1": {"per_call": 0.01},
+                  "muse-voice-transcribe-1.0": {"per_minute": 0.02}}
+        summary = guide.summarize(records, prices)
+        self.assertEqual((summary["tasks"], summary["sessions"], summary["unpriced_calls"]), (2, 1, 0))
+        self.assertEqual(summary["average_task"]["calls"]["muse-spark-1.3"], 1)
+        # task a: 0.002 + 0.001 + 0.01 + 0.01 = 0.023; task b: 0.001 -> average 0.012
+        self.assertAlmostEqual(summary["average_task"]["cost"], 0.012, places=4)
+        self.assertEqual(guide.summarize(records)["unpriced_calls"], 4)
 
 
 class StartTests(unittest.TestCase):

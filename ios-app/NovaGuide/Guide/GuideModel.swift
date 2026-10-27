@@ -77,10 +77,20 @@ final class GuideModel: ObservableObject {
         return plan.steps[stepIndex]
     }
 
+    /// Usage ids sent with every request: this app launch, and the current task (a new one per plan).
+    private let sessionID = UUID().uuidString
+    private var taskID = UUID().uuidString
+
     /// A request on the current route (internet first, then Tailscale), with the routes from Settings.
     private func send<T>(_ request: @escaping (GuideClient) async throws -> T) async throws -> T {
         await router.update(settings.routes)
-        return try await router.perform(request)
+        let session = sessionID, task = taskID
+        return try await router.perform { client in
+            var client = client
+            client.sessionID = session
+            client.taskID = task
+            return try await request(client)
+        }
     }
 
     func checkConnection() async {
@@ -106,6 +116,7 @@ final class GuideModel: ObservableObject {
         speaker.stop()
         ar.clear()
         plan = nil
+        taskID = UUID().uuidString  // a new plan is a new task
         phase = .thinking
         let settings = self.settings
         task = Task {
