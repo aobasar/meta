@@ -33,14 +33,25 @@ struct NovaGuideApp: App {
     }
 }
 
-/// Onboarding until the current terms are accepted, then the camera.
+/// Onboarding until the current terms are accepted, then the camera; Home brings the welcome screen back, and its
+/// Get Started goes straight to the camera.
 struct RootView: View {
     @EnvironmentObject private var settings: GuideSettings
+    @EnvironmentObject private var model: GuideModel
+    @State private var showHow = false
 
     var body: some View {
         Group {
             if settings.needsConsent {
                 OnboardingView()
+            } else if model.showWelcome {
+                WelcomeView(onStart: { model.showWelcome = false }, onHow: { showHow = true })
+                    .fullScreenCover(isPresented: $showHow) {
+                        HowView(buttonTitle: String(localized: "Continue")) {
+                            showHow = false
+                            model.showWelcome = false
+                        }
+                    }
             } else {
                 CameraScreen()
             }

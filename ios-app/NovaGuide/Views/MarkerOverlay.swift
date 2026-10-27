@@ -6,6 +6,9 @@ struct MarkerOverlay: View {
     var marker: MarkerState
     var setTo: GuideStep.SetTo?
     var tint: Color = .novaYellow
+    /// Each step: the arrow bounces for 1.5 s and fades out; 0.5 s later the dial's label tag fades in.
+    @State private var arrowShown = true
+    @State private var tagShown = false
 
     var body: some View {
         GeometryReader { geometry in
@@ -13,20 +16,26 @@ struct MarkerOverlay: View {
                 ZStack {
                     Spotlight(center: marker.center, radius: ringRadius * 1.6)
                     if let label = marker.label {
-                        DialArrow(from: marker.center, to: label, startInset: ringRadius)
+                        DialArrow(from: marker.center, to: label, startInset: ringRadius).opacity(tagShown ? 1 : 0)
                         if let setTo {
-                            LabelTag(label: setTo.label, meaning: setTo.meaning)
-                                .position(x: min(max(label.x, 90), geometry.size.width - 90), y: max(label.y - 34, 70))  // kept on screen
+                            LabelTag(label: setTo.label, meaning: setTo.meaning).opacity(tagShown ? 1 : 0)
+                                .position(x: min(max(label.x, 130), geometry.size.width - 130), y: max(label.y - 34, 70))  // kept on screen
                         }
                     }
                     PulsingRing(radius: ringRadius, precise: marker.precise, tint: tint).position(marker.center)
-                    BouncingArrow().position(x: marker.center.x, y: marker.center.y - ringRadius - 34)
+                    BouncingArrow().opacity(arrowShown ? 1 : 0).position(x: marker.center.x, y: marker.center.y - ringRadius - 34)
                 }
             } else {
                 EdgeHint(direction: marker.direction, size: geometry.size)
             }
         }
         .allowsHitTesting(false)
+        .task {
+            try? await Task.sleep(for: .seconds(1.5))
+            withAnimation(.easeOut(duration: 0.3)) { arrowShown = false }
+            try? await Task.sleep(for: .seconds(0.5))
+            withAnimation(.easeIn(duration: 0.4)) { tagShown = true }
+        }
     }
 
     private var ringRadius: CGFloat { min(max(marker.radius * 1.25, 26), 140) }

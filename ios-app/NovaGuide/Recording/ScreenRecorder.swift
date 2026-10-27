@@ -1,35 +1,44 @@
 import AVFoundation
 import ReplayKit
 
-/// A finished screen recording, waiting for the user's Save / Share / Delete.
-struct RecordedVideo: Identifiable {
-    let id = UUID()
+/// The last screen recording, kept until the next one replaces it or the user deletes it.
+struct RecordedVideo: Identifiable, Equatable {
+    var id: URL { url }
     let url: URL
+    var seconds: Double?
 }
 
-/// Records Nova's own screen (camera view, markers, cards) with ReplayKit, video only: no microphone, no app audio,
-/// so no one else's voice is ever captured (HACKATHON.md, design rule 6). It pauses while Nova waits for a model, so
-/// the video holds only the action. The file stays in the app's temporary folder until the user saves, shares or
-/// deletes it; it never goes to the server.
+/// Records Nova's own screen (camera view, markers, cards) with ReplayKit while a task runs, when Settings › Screen
+/// recording is on. Video only: no microphone, no app audio, so no one else's voice is ever captured (HACKATHON.md,
+/// design rule 6). It pauses while Nova waits for a model, so the video holds only the action. Only the last
+/// recording is kept, on the phone; it never goes to the server. Settings shares, saves or deletes it.
 @MainActor
 final class ScreenRecorder: ObservableObject {
     enum State: Equatable {
         case off, starting, recording, paused, finishing
     }
 
+    static let lastURL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+        .appendingPathComponent("Nova last recording.mp4")
+
     @Published private(set) var state: State = .off
-    @Published var finished: RecordedVideo?
+    @Published private(set) var last: RecordedVideo?
     @Published var failure: String?
     private var writer: VideoWriter?
+    /// Nova's waiting state, which can change while ReplayKit is still starting.
+    private var wantPaused = false
 
     var isActive: Bool { state == .starting || state == .recording || state == .paused }
 
-    /// The top bar's button. `waiting`: Nova is thinking right now, so the recording starts paused.
-    func toggle(waiting: Bool) {
-        isActive ? stop() : start(paused: waiting)
+    init() {
+        if FileManager.default.fileExists(atPath: Self.lastURL.path) {
+            last = RecordedVideo(url: Self.lastURL)
+            Task { await loadDuration() }
+        }
     }
 
-    func start(paused: Bool) {
+    /// A task started. `paused`: Nova is thinking right now, so nothing is written until the first step shows.
+    func beginTask(paused: Bool) {
         guard state == .off else { return }
         let recorder = RPScreenRecorder.shared()
         guard recorder.isAvailable else {
@@ -37,9 +46,9 @@ final class ScreenRecorder: ObservableObject {
             return
         }
         recorder.isMicrophoneEnabled = false
-        let name = "Nova-" + ISO8601DateFormatter().string(from: Date()).replacingOccurrences(of: ":", with: "-") + ".mp4"
-        let writer = VideoWriter(url: FileManager.default.temporaryDirectory.appendingPathComponent(name))
+        let writer = VideoWriter(url: FileManager.default.temporaryDirectory.appendingPathComponent("Nova-\(UUID().uuidString).mp4"))
         writer.setPaused(paused)
+        wantPaused = paused
         self.writer = writer
         state = .starting
         recorder.startCapture(handler: { buffer, type, error in
@@ -54,30 +63,45 @@ final class ScreenRecorder: ObservableObject {
                     // The user tapped "Don't Allow" on iOS's prompt, or recording failed to start.
                     self.failure = error.localizedDescription
                 } else if self.state == .starting {
-                    self.state = paused ? .paused : .recording
+                    self.state = self.wantPaused ? .paused : .recording
                 }
             }
         })
     }
 
     func setPaused(_ paused: Bool) {
-        guard state == .recording || state == .paused, let writer else { return }
+        guard isActive, let writer else { return }
+        wantPaused = paused
         writer.setPaused(paused)
-        state = paused ? .paused : .recording
+        if state != .starting { state = paused ? .paused : .recording }
     }
 
-    /// Stops and offers the video (task finished, Home, or the button).
-    func stop() {
+    /// The task ended (completed, Home, or a new task): the video becomes the last recording.
+    func finishTask() {
         end { url in
-            if let url { self.finished = RecordedVideo(url: url) }
+            guard let url else { return }
+            try? FileManager.default.removeItem(at: Self.lastURL)
+            guard (try? FileManager.default.moveItem(at: url, to: Self.lastURL)) != nil else { return }
+            self.last = RecordedVideo(url: Self.lastURL)
+            Task { await self.loadDuration() }
         }
     }
 
-    /// Stops and deletes the video (the app went to the background).
+    /// The app went to the background mid-task: the partial video is dropped.
     func discard() {
         end { url in
             if let url { try? FileManager.default.removeItem(at: url) }
         }
+    }
+
+    func deleteLast() {
+        try? FileManager.default.removeItem(at: Self.lastURL)
+        last = nil
+    }
+
+    private func loadDuration() async {
+        guard let duration = try? await AVURLAsset(url: Self.lastURL).load(.duration) else { return }
+        last?.seconds = duration.seconds
     }
 
     private func end(_ completion: @escaping @MainActor (URL?) -> Void) {

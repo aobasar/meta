@@ -4,9 +4,11 @@ struct SettingsView: View {
     @EnvironmentObject private var settings: GuideSettings
     @EnvironmentObject private var ar: ARGuideController
     @EnvironmentObject private var model: GuideModel
+    @EnvironmentObject private var screenRecorder: ScreenRecorder
     @Environment(\.dismiss) private var dismiss
     @Environment(\.openURL) private var openURL
     @State private var showHow = false
+    @State private var showLastRecording = false
 
     private var version: String {
         (Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0.1") + " Beta"
@@ -37,11 +39,39 @@ struct SettingsView: View {
                         }
                     }
                 }
+                Section {
+                    if ARGuideController.hasUltraWide {
+                        Picker(String(localized: "Field of view"), selection: $settings.lens) {
+                            ForEach(LensChoice.allCases) { choice in
+                                Text(choice.title).tag(choice)
+                            }
+                        }
+                    }
+                    Toggle(String(localized: "High detail (small labels)"), isOn: $settings.highDetail)
+                    Toggle(String(localized: "Torch"), isOn: $settings.torch)
+                    LabeledContent(String(localized: "In use"), value: ar.activeCamera)
+                } header: {
+                    Text("Camera")
+                } footer: {
+                    Text("The default is the widest camera this iPhone can use with the markers: more of the panel is in view, and wide panels fit in one frame. High detail is for small labels.")
+                }
                 Section(String(localized: "Task guidance")) {
                     Toggle(String(localized: "Verify each step"), isOn: $settings.verifyEach)
                     Toggle(String(localized: "Continue 5 s after a check"), isOn: $settings.autoContinue)
                         .disabled(!settings.verifyEach)
                     Toggle(String(localized: "Haptics"), isOn: $settings.haptics)
+                }
+                Section {
+                    Toggle(String(localized: "Record tasks on screen"), isOn: $settings.screenRecording)
+                    Button { showLastRecording = true } label: {
+                        LabeledContent(String(localized: "Share the last recording"), value: lastRecordingText)
+                    }
+                    .foregroundStyle(.primary)
+                    .disabled(screenRecorder.last == nil)
+                } header: {
+                    Text("Screen recording")
+                } footer: {
+                    Text("When on, each task is recorded without sound; recording pauses while Nova thinks. The video stays on the phone; save it to Photos or share it from here.")
                 }
                 Section {
                     TextField(String(localized: "Internet address"), text: $settings.publicURL)
@@ -87,7 +117,17 @@ struct SettingsView: View {
             .fullScreenCover(isPresented: $showHow) {
                 HowView(buttonTitle: String(localized: "Close")) { showHow = false }
             }
+            .sheet(isPresented: $showLastRecording) {
+                if let last = screenRecorder.last { RecordingPreview(video: last) }
+            }
         }
+    }
+
+    private var lastRecordingText: String {
+        guard let last = screenRecorder.last else { return String(localized: "none yet") }
+        guard let seconds = last.seconds else { return "" }
+        let whole = Int(seconds.rounded())
+        return String(format: "%d:%02d", whole / 60, whole % 60)
     }
 
     private var connectionText: String {

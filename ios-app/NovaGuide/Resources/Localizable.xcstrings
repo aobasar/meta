@@ -2,16 +2,6 @@
   "sourceLanguage": "en",
   "version": "1.0",
   "strings": {
-    "AI-generated guidance · Nova": {
-      "localizations": {
-        "tr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Yapay zekâ yönlendirmesi · Nova"
-          }
-        }
-      }
-    },
     "AI-generated guidance. Check before you press.": {
       "localizations": {
         "tr": {
@@ -108,6 +98,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Başlamadan önce"
+          }
+        }
+      }
+    },
+    "Camera": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kamera"
           }
         }
       }
@@ -252,12 +252,12 @@
         }
       }
     },
-    "Done": {
+    "Field of view": {
       "localizations": {
         "tr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Yaptım"
+            "value": "Görüş alanı"
           }
         }
       }
@@ -358,6 +358,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Özeti gizle"
+          }
+        }
+      }
+    },
+    "High detail (small labels)": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yüksek detay (küçük etiketler)"
           }
         }
       }
@@ -502,6 +512,16 @@
         }
       }
     },
+    "In use": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kullanılan"
+          }
+        }
+      }
+    },
     "Independent experimental prototype": {
       "localizations": {
         "tr": {
@@ -578,6 +598,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Dil ve ses"
+          }
+        }
+      }
+    },
+    "Last recording": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Son kayıt"
           }
         }
       }
@@ -688,6 +718,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Yok (daha az hassas)"
+          }
+        }
+      }
+    },
+    "Normal (1x)": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Normal (1x)"
           }
         }
       }
@@ -852,12 +892,12 @@
         }
       }
     },
-    "Record the screen": {
+    "Record tasks on screen": {
       "localizations": {
         "tr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ekranı kaydet"
+            "value": "Görevleri ekran kaydına al"
           }
         }
       }
@@ -868,26 +908,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Kayıt modu (test için)"
-          }
-        }
-      }
-    },
-    "Recording paused while Nova thinks. Tap to stop.": {
-      "localizations": {
-        "tr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Nova düşünürken kayıt duraklatıldı. Durdurmak için dokun."
-          }
-        }
-      }
-    },
-    "Recording the screen. Tap to stop.": {
-      "localizations": {
-        "tr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ekran kaydediliyor. Durdurmak için dokun."
           }
         }
       }
@@ -1008,6 +1028,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Paylaş"
+          }
+        }
+      }
+    },
+    "Share the last recording": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Son kaydı paylaş"
           }
         }
       }
@@ -1212,6 +1242,16 @@
         }
       }
     },
+    "The default is the widest camera this iPhone can use with the markers: more of the panel is in view, and wide panels fit in one frame. High detail is for small labels.": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Varsayılan, telefonun işaretlerle birlikte kullanılabilen en geniş kamerası: daha çok alan görünür, geniş paneller tek karede kalır. Yüksek detay küçük etiketler içindir."
+          }
+        }
+      }
+    },
     "The internet address is tried first and needs your invite code, kept in this iPhone's Keychain. The Mac over Tailscale is the fallback. The phone never holds the API key.": {
       "localizations": {
         "tr": {
@@ -1272,6 +1312,16 @@
         }
       }
     },
+    "Torch": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fener"
+          }
+        }
+      }
+    },
     "Try again": {
       "localizations": {
         "tr": {
@@ -1318,6 +1368,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Sorunu yaz"
+          }
+        }
+      }
+    },
+    "Ultra wide": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ultra geniş"
           }
         }
       }
@@ -1402,6 +1462,36 @@
         }
       }
     },
+    "When on, each task is recorded without sound; recording pauses while Nova thinks. The video stays on the phone; save it to Photos or share it from here.": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Açıkken her görev sessiz olarak kaydedilir; Nova düşünürken kayıt durur. Video sadece telefonda kalır; buradan Fotoğraflar'a kaydedebilir ya da paylaşabilirsin."
+          }
+        }
+      }
+    },
+    "Wide": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Geniş"
+          }
+        }
+      }
+    },
+    "Widest": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "En geniş"
+          }
+        }
+      }
+    },
     "Working out what this is…": {
       "localizations": {
         "tr": {
@@ -1448,6 +1538,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "iPhone dili"
+          }
+        }
+      }
+    },
+    "none yet": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "henüz yok"
           }
         }
       }

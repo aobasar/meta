@@ -2,10 +2,10 @@ import AVKit
 import Photos
 import SwiftUI
 
-/// After a screen recording: watch it, then save it to Photos, share it, or delete it. Closing this sheet deletes
-/// Nova's copy; a saved or shared copy stays where the user put it.
+/// Settings › Share the last recording: watch it, then save it to Photos, share it, or delete it.
 struct RecordingPreview: View {
     let video: RecordedVideo
+    @EnvironmentObject private var screenRecorder: ScreenRecorder
     @Environment(\.dismiss) private var dismiss
     @State private var player: AVPlayer?
     @State private var saved = false
@@ -37,21 +37,26 @@ struct RecordingPreview: View {
                     }
                     .buttonStyle(OutlineButtonStyle())
                 }
-                Button(role: .destructive) { dismiss() } label: {
-                    Text(saved ? String(localized: "Done") : String(localized: "Delete"))
+                Button(role: .destructive) {
+                    screenRecorder.deleteLast()
+                    dismiss()
+                } label: {
+                    Text("Delete")
                 }
                 .buttonStyle(OutlineButtonStyle())
             }
             .padding(16)
             .background(Color.novaGround.ignoresSafeArea())
-            .navigationTitle(Text("Screen recording"))
+            .navigationTitle(Text("Last recording"))
             .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button(String(localized: "Close")) { dismiss() }
+                }
+            }
         }
         .onAppear { player = AVPlayer(url: video.url) }
-        .onDisappear {
-            player?.pause()
-            try? FileManager.default.removeItem(at: video.url)
-        }
+        .onDisappear { player?.pause() }
     }
 
     private func save() {

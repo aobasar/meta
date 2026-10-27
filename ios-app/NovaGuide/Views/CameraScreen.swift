@@ -11,7 +11,6 @@ struct CameraScreen: View {
     @Environment(\.scenePhase) private var scenePhase
     @State private var showSettings = false
     @State private var tipClosed = false
-    @State private var flash = false
 
     var body: some View {
         GeometryReader { geometry in
@@ -35,9 +34,6 @@ struct CameraScreen: View {
                 if model.phase == .finished {
                     CompletionView().transition(.opacity)
                 }
-                if flash {
-                    Color.white.opacity(0.85).ignoresSafeArea().allowsHitTesting(false)
-                }
             }
             .animation(.easeOut(duration: 0.2), value: model.phase == .finished)
         }
@@ -45,14 +41,16 @@ struct CameraScreen: View {
         .sheet(isPresented: $showSettings, onDismiss: { Task { await model.checkConnection() } }) {
             SettingsView()
         }
-        .sheet(item: $screenRecorder.finished) { video in
-            RecordingPreview(video: video)
-        }
         .onAppear {
+            ar.apply(cameraOptions)
             ar.start()
             UIApplication.shared.isIdleTimerDisabled = true  // the screen stays on while the camera is in use
         }
-        .onDisappear { UIApplication.shared.isIdleTimerDisabled = false }
+        .onDisappear {
+            ar.pause()
+            UIApplication.shared.isIdleTimerDisabled = false
+        }
+        .onChange(of: cameraOptions) { _, options in ar.apply(options) }
         .task { await model.checkConnection() }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active {
@@ -69,8 +67,13 @@ struct CameraScreen: View {
         } message: {
             Text(screenRecorder.failure ?? "")
         }
-        .onChange(of: model.phase) { _, phase in
-            if phase == .finished { screenRecorder.stop() }
+        .onChange(of: model.phase) { old, phase in
+            // Settings › Screen recording: each task is one video, from the question to the last step.
+            if phase == .thinking && old != .guiding && settings.screenRecording {
+                screenRecorder.beginTask(paused: true)
+            } else if phase == .finished || phase == .asking {
+                screenRecorder.finishTask()
+            }
         }
     }
 
@@ -81,7 +84,9 @@ struct CameraScreen: View {
             if DemoMode.screen != nil { DemoBackdrop().ignoresSafeArea() }
             #endif
             if model.phase == .guiding, let marker = ar.marker {
-                MarkerOverlay(marker: marker, setTo: model.currentStep?.setTo, tint: ringTint).ignoresSafeArea()
+                MarkerOverlay(marker: marker, setTo: model.currentStep?.setTo, tint: ringTint)
+                    .id(model.stepIndex)  // each step replays the arrow, then the label tag
+                    .ignoresSafeArea()
             }
             if model.phase == .thinking {
                 ScanOverlay().padding(.horizontal, 20).padding(.top, land ? 60 : 110).padding(.bottom, land ? 60 : 300)
@@ -91,7 +96,7 @@ struct CameraScreen: View {
                 ReadyHint(land: land)
             }
             VStack(spacing: 8) {
-                TopBar(showSettings: $showSettings, share: share)
+                TopBar(showSettings: $showSettings)
                 if let issue = ar.trackingIssue, model.phase != .thinking {
                     Chip(text: issue, systemImage: "exclamationmark.triangle.fill", tint: .novaOrange)
                 }
@@ -128,6 +133,10 @@ struct CameraScreen: View {
         #endif
     }
 
+    private var cameraOptions: CameraOptions {
+        CameraOptions(lens: settings.lens, highDetail: settings.highDetail, torch: settings.torch)
+    }
+
     private var ringTint: Color {
         switch model.feedback {
         case .correct: .novaGreen
@@ -145,17 +154,6 @@ struct CameraScreen: View {
         case .connected, .unknown: nil
         }
     }
-
-    /// Share: a picture of the camera view with its markers and the AI label, then the iOS share sheet.
-    private func share() {
-        withAnimation(.easeOut(duration: 0.1)) { flash = true }
-        Task {
-            let image = await ShareCapture.image(ar: ar, marker: model.phase == .guiding ? ar.marker : nil,
-                                                 setTo: model.currentStep?.setTo, tint: ringTint)
-            withAnimation(.easeIn(duration: 0.2)) { flash = false }
-            if let image { ShareCapture.present([image]) }
-        }
-    }
 }
 
 struct ARViewContainer: UIViewRepresentable {
@@ -167,19 +165,15 @@ struct ARViewContainer: UIViewRepresentable {
 
 // MARK: Top bar
 
+/// Home (with the recognized device) on the left, Settings on the right; recording and sharing live in Settings.
 private struct TopBar: View {
     @EnvironmentObject private var model: GuideModel
-    @EnvironmentObject private var screenRecorder: ScreenRecorder
     @Binding var showSettings: Bool
-    var share: () -> Void
 
     var body: some View {
         HStack(spacing: 6) {
             HStack(spacing: 8) {
-                Button {
-                    model.newTask(keepDevice: true)
-                    screenRecorder.stop()
-                } label: {
+                Button { model.goHome() } label: {
                     Image(systemName: "house").font(.system(size: 15, weight: .semibold)).padding(.vertical, 4)
                 }
                 .accessibilityLabel(Text("Home"))
@@ -193,10 +187,6 @@ private struct TopBar: View {
             .frame(height: 32)
             .background(Color.novaCard.opacity(0.85), in: Capsule())
             Spacer(minLength: 6)
-            RecordButton()
-            RoundIconButton(action: share, accessibility: Text("Share")) {
-                Image(systemName: "square.and.arrow.up").font(.system(size: 17, weight: .medium)).foregroundStyle(.white)
-            }
             RoundIconButton(action: { showSettings = true }, accessibility: Text("Settings")) {
                 Image(systemName: "gearshape").font(.system(size: 18, weight: .medium)).foregroundStyle(.white)
                     .overlay(alignment: .topTrailing) {
@@ -214,42 +204,6 @@ private struct TopBar: View {
         case .connected: .novaGreen
         case .unknown: .gray
         default: .novaOrange
-        }
-    }
-}
-
-/// Screen recording: an empty red ring when off, a pulsing red dot while recording, grey while paused (Nova is
-/// thinking, so the wait stays out of the video).
-private struct RecordButton: View {
-    @EnvironmentObject private var model: GuideModel
-    @EnvironmentObject private var screenRecorder: ScreenRecorder
-    @State private var pulse = false
-
-    var body: some View {
-        RoundIconButton(action: { screenRecorder.toggle(waiting: model.isWaiting) }, accessibility: Text(label)) {
-            ZStack {
-                Circle().stroke(Color.novaRed, lineWidth: 2).frame(width: 16, height: 16)
-                switch screenRecorder.state {
-                case .recording:
-                    Circle().fill(Color.novaRed).frame(width: 16, height: 16)
-                        .scaleEffect(pulse ? 1.15 : 0.85)
-                        .onAppear { withAnimation(.easeInOut(duration: 0.7).repeatForever()) { pulse = true } }
-                        .onDisappear { pulse = false }
-                case .paused:
-                    Circle().fill(Color.gray).frame(width: 16, height: 16)
-                    Image(systemName: "pause.fill").font(.system(size: 7, weight: .black)).foregroundStyle(.white)
-                case .off, .starting, .finishing:
-                    EmptyView()
-                }
-            }
-        }
-    }
-
-    private var label: String {
-        switch screenRecorder.state {
-        case .recording: String(localized: "Recording the screen. Tap to stop.")
-        case .paused: String(localized: "Recording paused while Nova thinks. Tap to stop.")
-        default: String(localized: "Record the screen")
         }
     }
 }

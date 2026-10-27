@@ -1,4 +1,5 @@
 import ARKit
+import AVFoundation
 import CoreImage
 import RealityKit
 import UIKit
@@ -43,6 +44,13 @@ struct MarkerState: Equatable {
     var precise: Bool
 }
 
+/// The camera choices from Settings › Camera.
+struct CameraOptions: Equatable {
+    var lens: LensChoice = .widest
+    var highDetail = false
+    var torch = false
+}
+
 /// Owns the AR session. ARKit is used only for tracking and geometry (depth, raycasts); every recognition task
 /// stays with Meta's models on the Mac (HACKATHON.md, Approved Exceptions, 2026-10-27).
 final class ARGuideController: NSObject, ObservableObject, ARSessionDelegate {
@@ -54,6 +62,10 @@ final class ARGuideController: NSObject, ObservableObject, ARSessionDelegate {
     @Published private(set) var trackingIssue: String?
 
     var currentStep: Int? { didSet { updateMarker() } }
+    /// The camera ARKit is running, for Settings: "Ultra wide · 1920×1440".
+    @Published private(set) var activeCamera = ""
+    private(set) var options = CameraOptions()
+    private var running = false
     private(set) var anchors: [StepAnchor] = []
     private var displayLink: CADisplayLink?
     private let ciContext = CIContext()
@@ -71,6 +83,10 @@ final class ARGuideController: NSObject, ObservableObject, ARSessionDelegate {
 
     func start() {
         let configuration = ARWorldTrackingConfiguration()
+        if let format = Self.videoFormat(for: options, from: ARWorldTrackingConfiguration.supportedVideoFormats) {
+            configuration.videoFormat = format
+        }
+        activeCamera = Self.describe(configuration.videoFormat)
         configuration.planeDetection = [.horizontal, .vertical]
         if ARWorldTrackingConfiguration.supportsFrameSemantics(.sceneDepth) {
             configuration.frameSemantics.insert(.sceneDepth)
@@ -81,6 +97,14 @@ final class ARGuideController: NSObject, ObservableObject, ARSessionDelegate {
         arView.renderOptions = [.disableMotionBlur, .disableDepthOfField, .disablePersonOcclusion, .disableGroundingShadows]
         arView.session.delegate = self
         arView.session.run(configuration)
+        running = true
+        applyTorch()
+        #if DEBUG
+        for format in ARWorldTrackingConfiguration.supportedVideoFormats {
+            print("Nova camera format:", format.captureDeviceType.rawValue, Self.describe(format), format.framesPerSecond, "fps")
+        }
+        print("Nova camera in use:", activeCamera)
+        #endif
         if displayLink == nil {
             let link = CADisplayLink(target: self, selector: #selector(tick))
             link.preferredFrameRateRange = CAFrameRateRange(minimum: 30, maximum: 60, preferred: 60)
@@ -90,9 +114,60 @@ final class ARGuideController: NSObject, ObservableObject, ARSessionDelegate {
     }
 
     func pause() {
+        running = false
+        applyTorch()  // off while the camera is paused
         arView.session.pause()
         displayLink?.invalidate()
         displayLink = nil
+    }
+
+    // MARK: Camera options
+
+    /// Whether ARKit can track with the ultra wide camera on this iPhone. An iPhone 15 Pro offers the wide camera only
+    /// (1920×1440 by default, 4K for high detail), so there is no lens to choose there.
+    static var hasUltraWide: Bool {
+        ARWorldTrackingConfiguration.supportedVideoFormats.contains { $0.captureDeviceType == .builtInUltraWideCamera }
+    }
+
+    /// Settings › Camera changed: a new lens or resolution restarts the session; the torch just switches.
+    func apply(_ new: CameraOptions) {
+        let restart = new.lens != options.lens || new.highDetail != options.highDetail
+        options = new
+        if restart && running {
+            start()
+        } else {
+            applyTorch()
+        }
+    }
+
+    /// The widest camera ARKit offers for world tracking when the lens is "widest" (ultra wide where this iPhone
+    /// supports it), and its highest resolution for high detail; otherwise ARKit's own first choice.
+    static func videoFormat(for options: CameraOptions, from formats: [ARConfiguration.VideoFormat]) -> ARConfiguration.VideoFormat? {
+        let ultraWide = formats.filter { $0.captureDeviceType == .builtInUltraWideCamera }
+        let wide = formats.filter { $0.captureDeviceType == .builtInWideAngleCamera }
+        let pool = options.lens == .widest && !ultraWide.isEmpty ? ultraWide : (wide.isEmpty ? formats : wide)
+        guard !pool.isEmpty else { return nil }
+        if options.highDetail {
+            return pool.max { $0.imageResolution.width * $0.imageResolution.height < $1.imageResolution.width * $1.imageResolution.height }
+        }
+        return pool.first
+    }
+
+    private static func describe(_ format: ARConfiguration.VideoFormat) -> String {
+        let camera = format.captureDeviceType == .builtInUltraWideCamera ? String(localized: "Ultra wide") : String(localized: "Wide")
+        return "\(camera) · \(Int(format.imageResolution.width))×\(Int(format.imageResolution.height))"
+    }
+
+    /// The torch belongs to the back camera module; ARKit hands out the device it runs, and the wide camera has the
+    /// torch when the ultra wide one doesn't.
+    private func applyTorch() {
+        let candidates = [ARWorldTrackingConfiguration.configurableCaptureDeviceForPrimaryCamera,
+                          AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .back)]
+        guard let device = candidates.compactMap({ $0 }).first(where: { $0.hasTorch && $0.isTorchAvailable }) else { return }
+        let mode: AVCaptureDevice.TorchMode = options.torch && running ? .on : .off
+        guard device.torchMode != mode, (try? device.lockForConfiguration()) != nil else { return }
+        device.torchMode = mode
+        device.unlockForConfiguration()
     }
 
     // MARK: Capture

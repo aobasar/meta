@@ -60,6 +60,8 @@ final class GuideModel: ObservableObject {
     /// When the task's first question was asked and when its last step was done.
     @Published private(set) var startedAt: Date?
     @Published private(set) var finishedAt: Date?
+    /// Home shows the welcome screen again; "Get Started" returns to the camera.
+    @Published var showWelcome = false
 
     enum Listening: Equatable {
         case idle, listening, transcribing, answering
@@ -377,6 +379,12 @@ final class GuideModel: ObservableObject {
     }
 
     func newQuestion() { newTask(keepDevice: true) }
+
+    /// Home: the task and the recognized device are dropped, and the welcome screen comes back.
+    func goHome() {
+        newTask(keepDevice: false)
+        showWelcome = true
+    }
 
     // MARK: Voice
 

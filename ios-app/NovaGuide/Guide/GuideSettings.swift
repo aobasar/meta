@@ -35,6 +35,21 @@ enum OrientationChoice: String, CaseIterable, Identifiable {
     }
 }
 
+/// Settings › Camera › Field of view. ARKit tracks with one back camera at a time; the markers stay on the controls
+/// only on a camera ARKit itself runs, so there is no digital zoom.
+enum LensChoice: String, CaseIterable, Identifiable {
+    case widest, normal
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .widest: String(localized: "Widest")
+        case .normal: String(localized: "Normal (1x)")
+        }
+    }
+}
+
 /// User settings, kept in UserDefaults on the phone.
 final class GuideSettings: ObservableObject {
     /// The version of the terms the consent screen shows; a new version asks again.
@@ -58,6 +73,13 @@ final class GuideSettings: ObservableObject {
     @Published var autoContinue: Bool { didSet { defaults.set(autoContinue, forKey: "autoContinue") } }
     @Published var haptics: Bool { didSet { defaults.set(haptics, forKey: "haptics") } }
     @Published var orientation: OrientationChoice { didSet { defaults.set(orientation.rawValue, forKey: "orientation") } }
+    /// The widest camera ARKit can track with is the default: more of a wide panel fits in one frame.
+    @Published var lens: LensChoice { didSet { defaults.set(lens.rawValue, forKey: "lens") } }
+    /// The camera's highest-resolution format, for small labels (close-ups are cut from the full frame).
+    @Published var highDetail: Bool { didSet { defaults.set(highDetail, forKey: "highDetail") } }
+    @Published var torch: Bool { didSet { defaults.set(torch, forKey: "torch") } }
+    /// Record every task on screen (video only); the last recording is shared from Settings.
+    @Published var screenRecording: Bool { didSet { defaults.set(screenRecording, forKey: "screenRecording") } }
     /// The terms version the user accepted, with the date; empty until the consent screen is accepted.
     @Published private(set) var acceptedTerms: String { didSet { defaults.set(acceptedTerms, forKey: "acceptedTerms") } }
 
@@ -75,6 +97,10 @@ final class GuideSettings: ObservableObject {
         autoContinue = defaults.object(forKey: "autoContinue") as? Bool ?? true
         haptics = defaults.object(forKey: "haptics") as? Bool ?? true
         orientation = OrientationChoice(rawValue: defaults.string(forKey: "orientation") ?? "") ?? .automatic
+        lens = LensChoice(rawValue: defaults.string(forKey: "lens") ?? "") ?? .widest
+        highDetail = defaults.bool(forKey: "highDetail")
+        torch = defaults.bool(forKey: "torch")
+        screenRecording = defaults.bool(forKey: "screenRecording")
         acceptedTerms = defaults.string(forKey: "acceptedTerms") ?? ""
     }
 

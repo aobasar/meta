@@ -277,6 +277,10 @@ final class GuideSettingsTests: XCTestCase {
         XCTAssertTrue(settings.haptics)
         XCTAssertFalse(settings.record)
         XCTAssertEqual(settings.orientation, .automatic)
+        XCTAssertEqual(settings.lens, .widest)  // more of the panel in view
+        XCTAssertFalse(settings.highDetail)
+        XCTAssertFalse(settings.torch)
+        XCTAssertFalse(settings.screenRecording)
     }
 
     func testConsentIsAskedUntilTheCurrentTermsAreAccepted() {

@@ -15,13 +15,15 @@ struct OnboardingView: View {
     var body: some View {
         Group {
             switch page {
-            case .welcome: WelcomeView { withAnimation { page = .how } }
+            case .welcome: WelcomeView(onStart: next, onHow: next)
             case .how: HowView(buttonTitle: String(localized: "Continue")) { withAnimation { page = .consent } }
             case .consent: ConsentView { withAnimation { settings.acceptTerms() } }
             }
         }
         .transition(.opacity)
     }
+
+    private func next() { withAnimation { page = .how } }
 }
 
 /// Lays a screen out side by side when the phone is sideways.
@@ -32,6 +34,7 @@ private struct Orientation {
 
 struct WelcomeView: View {
     var onStart: () -> Void
+    var onHow: () -> Void
 
     var body: some View {
         GeometryReader { geometry in
@@ -86,7 +89,7 @@ struct WelcomeView: View {
             VStack(alignment: land ? .leading : .center, spacing: 12) {
                 Button(String(localized: "Get Started"), action: onStart)
                     .buttonStyle(PrimaryButtonStyle())
-                Button(action: onStart) {
+                Button(action: onHow) {
                     Text("How it works") + Text(verbatim: " ›")
                 }
                 .font(.subheadline)
