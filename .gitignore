@@ -26,3 +26,5 @@ venv/
 AOB/
 .claude-sessions
 web-prototype/data/
+test-photos/
+web-prototype/static/reports/

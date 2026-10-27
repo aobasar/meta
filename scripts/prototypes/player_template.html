@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Göster bana prototype</title>
+<style>
+  :root { --accent: #ffcc00; --set: #b06cff; --bg: #111; --fg: #f4f4f4; --muted: #a9a9a9; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 16px/1.5 -apple-system, BlinkMacSystemFont, sans-serif; }
+  main { max-width: 1100px; margin: 0 auto; padding: 16px; display: grid; gap: 14px; }
+  .question { font-size: 15px; color: var(--muted); }
+  .question b { color: var(--fg); }
+  .stage { position: relative; width: 100%; border-radius: 12px; overflow: hidden; background: #000; }
+  video { display: block; width: 100%; height: auto; }
+  .layer { position: absolute; inset: 0; pointer-events: none; }
+  .dim { position: absolute; inset: 0; -webkit-backdrop-filter: grayscale(1) brightness(0.45); backdrop-filter: grayscale(1) brightness(0.45); transition: opacity .2s; }
+  .ring { position: absolute; border: 3px solid var(--accent); border-radius: 14px; box-shadow: 0 0 18px var(--accent); }
+  .ring.round { border-radius: 50%; }
+  .arrow { position: absolute; width: 0; height: 0; border-left: 16px solid transparent; border-right: 16px solid transparent;
+           border-top: 26px solid var(--accent); transform: translate(-50%, -100%); filter: drop-shadow(0 0 6px #000); }
+  @media (prefers-reduced-motion: no-preference) {
+    .arrow { animation: bob 0.9s ease-in-out infinite; }
+    @keyframes bob { 50% { margin-top: -10px; } }
+  }
+  .setto { position: absolute; width: 18px; height: 18px; margin: -9px 0 0 -9px; border-radius: 50%; background: var(--set); border: 2px solid #fff; }
+  svg.turn { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+  .tag { position: absolute; transform: translate(-50%, calc(-100% - 14px)); background: rgba(10,10,10,.82); color: #fff;
+         border: 1px solid rgba(255,255,255,.35); border-radius: 8px; padding: 2px 8px; font-size: 13px; white-space: nowrap; }
+  .tag small { color: var(--muted); margin-left: 4px; }
+  .tag.hot { border-color: var(--accent); color: var(--accent); }
+  .missing { position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%); background: rgba(0,0,0,.75);
+             border-radius: 8px; padding: 4px 12px; font-size: 14px; }
+  .panel { display: grid; grid-template-columns: auto 1fr auto; gap: 12px; align-items: center; background: #1c1c1c; border-radius: 12px; padding: 14px; }
+  .count { font-size: 13px; color: var(--muted); white-space: nowrap; }
+  .instruction { font-size: 22px; font-weight: 600; }
+  .buttons { display: flex; gap: 8px; }
+  button { font: inherit; font-size: 15px; background: #2d2d2d; color: var(--fg); border: 1px solid #444; border-radius: 8px; padding: 8px 14px; cursor: pointer; }
+  button:hover { border-color: var(--accent); }
+  button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .meanings { display: grid; gap: 6px; font-size: 14px; color: var(--muted); }
+  .meanings b { color: var(--fg); }
+  .meta { font-size: 12px; color: #777; }
+  .note { font-size: 13px; color: var(--muted); }
+  @media (max-width: 700px) { .panel { grid-template-columns: 1fr; } .instruction { font-size: 19px; } }
+</style>
+</head>
+<body>
+<main>
+  <div class="question">Question: <b id="question"></b> · <span id="device"></span></div>
+  <div class="stage" id="stage">
+    <video id="video" muted playsinline loop autoplay controls></video>
+    <div class="layer" id="layer"></div>
+  </div>
+  <div class="panel">
+    <div class="count" id="count"></div>
+    <div class="instruction" id="instruction"></div>
+    <div class="buttons">
+      <button id="prev" type="button">Back</button>
+      <button id="speak" type="button">Read aloud</button>
+      <button id="next" type="button">Next step</button>
+    </div>
+  </div>
+  <div class="meanings" id="meanings"></div>
+  <p class="note" id="uncertainty"></p>
+  <p class="note">AI-generated guidance. Check the device before you press anything.</p>
+  <p class="meta" id="meta"></p>
+</main>
+<script>
+(async () => {
+const DATA = await (await fetch("result.json")).json();
+// A blob URL plays in Safari even though the dev server does not answer byte-range requests.
+document.getElementById("video").src = URL.createObjectURL(
+  new Blob([await (await fetch("clip.mp4")).arrayBuffer()], { type: "video/mp4" }));
+const LANG_CODES = { Turkish: "tr-TR", English: "en-US", Japanese: "ja-JP", Korean: "ko-KR", German: "de-DE", French: "fr-FR", Spanish: "es-ES" };
+const video = document.getElementById("video");
+const layer = document.getElementById("layer");
+const steps = DATA.plan.steps;
+let current = 0;
+
+const pct = (value, total) => (100 * value / total) + "%";
+const byKind = (kind, step) => DATA.objects.filter((o) => o.kind === kind && (step === undefined || o.step === step));
+
+function boxAt(object, frame) {
+  for (const offset of [0, -1, 1, -2, 2]) {
+    const box = object.frames[frame + offset];
+    if (box) return box;
+  }
+  return null;
+}
+
+function el(tag, className, style) {
+  const node = document.createElement(tag);
+  if (className) node.className = className;
+  if (style) Object.assign(node.style, style);
+  return node;
+}
+
+function render(frame) {
+  layer.replaceChildren();
+  const { width: W, height: H } = DATA;
+  const target = byKind("target", current)[0];
+  const box = target && boxAt(target, frame);
+  if (box) {
+    const [x1, y1, x2, y2] = box;
+    const dim = el("div", "dim");
+    dim.style.clipPath = `polygon(evenodd, 0% 0%, 100% 0%, 100% 100%, 0% 100%, 0% 0%, ${pct(x1 - 6, W)} ${pct(y1 - 6, H)}, ${pct(x2 + 6, W)} ${pct(y1 - 6, H)}, ${pct(x2 + 6, W)} ${pct(y2 + 6, H)}, ${pct(x1 - 6, W)} ${pct(y2 + 6, H)}, ${pct(x1 - 6, W)} ${pct(y1 - 6, H)})`;
+    layer.append(dim);
+    const square = Math.abs((x2 - x1) - (y2 - y1)) < 0.2 * (x2 - x1);
+    layer.append(el("div", "ring" + (square ? " round" : ""), { left: pct(x1 - 6, W), top: pct(y1 - 6, H), width: pct(x2 - x1 + 12, W), height: pct(y2 - y1 + 12, H) }));
+    layer.append(el("div", "arrow", { left: pct((x1 + x2) / 2, W), top: pct(y1 - 12, H) }));
+    for (const setTo of byKind("set_to", current)) {
+      const dest = boxAt(setTo, frame);
+      if (!dest) continue;
+      const cx = (x1 + x2) / 2, cy = (y1 + y2) / 2, dx = (dest[0] + dest[2]) / 2, dy = (dest[1] + dest[3]) / 2;
+      const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+      svg.setAttribute("class", "turn");
+      svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
+      svg.setAttribute("preserveAspectRatio", "none");
+      svg.innerHTML = `<defs><marker id="head" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M1 1L9 5L1 9z" fill="#b06cff"/></marker></defs>
+        <path d="M${cx} ${cy} Q ${(cx + dx) / 2 + (dy - cy) * 0.4} ${(cy + dy) / 2 - (dx - cx) * 0.4} ${dx} ${dy}" fill="none" stroke="#b06cff" stroke-width="5" stroke-dasharray="12 8" marker-end="url(#head)"/>`;
+      layer.append(svg);
+      layer.append(el("div", "setto", { left: pct(dx, W), top: pct(dy, H) }));
+    }
+  } else if (target) {
+    const note = el("div", "missing");
+    note.textContent = "Move the phone: the control is out of view";
+    layer.append(note);
+  }
+  const hot = (steps[current]?.set_to_label || "") + " " + (steps[current]?.instruction || "");
+  for (const label of byKind("label")) {
+    const tagBox = boxAt(label, frame);
+    if (!tagBox) continue;
+    const tag = el("div", "tag" + (hot.toLowerCase().includes(label.text.toLowerCase()) ? " hot" : ""),
+      { left: pct((tagBox[0] + tagBox[2]) / 2, W), top: pct(tagBox[1], H) });
+    tag.textContent = label.translation;
+    const original = el("small");
+    original.textContent = label.text;
+    tag.append(original);
+    layer.append(tag);
+  }
+}
+
+function showStep() {
+  const step = steps[current];
+  document.getElementById("count").textContent = steps.length ? `Step ${current + 1} / ${steps.length}` : "No steps";
+  document.getElementById("instruction").textContent = step ? step.instruction : (DATA.plan.safety_note || "");
+  document.getElementById("prev").disabled = current === 0;
+  document.getElementById("next").disabled = current >= steps.length - 1;
+}
+
+function speak() {
+  const step = steps[current];
+  if (!step || !("speechSynthesis" in window)) return;
+  speechSynthesis.cancel();
+  const utterance = new SpeechSynthesisUtterance(step.instruction);
+  utterance.lang = LANG_CODES[DATA.lang] || "en-US";
+  speechSynthesis.speak(utterance);
+}
+
+document.getElementById("question").textContent = DATA.question;
+document.getElementById("device").textContent = `${DATA.plan.device_type} · ${DATA.plan.brand_or_model_seen}`;
+document.getElementById("uncertainty").textContent = DATA.plan.uncertainty ? "Note: " + DATA.plan.uncertainty : "";
+document.getElementById("meanings").replaceChildren(...byKind("label").map((label) => {
+  const row = el("div");
+  const name = el("b");
+  name.textContent = `${label.translation} (${label.text}): `;
+  row.append(name, document.createTextNode(label.meaning));
+  return row;
+}));
+const total = Object.values(DATA.timings).reduce((a, b) => a + b, 0);
+document.getElementById("meta").textContent = `Key frame ${DATA.key_frame} · AI time ${total.toFixed(1)} s · models: ${DATA.served.join(", ")}`;
+document.getElementById("prev").onclick = () => { current = Math.max(0, current - 1); showStep(); speak(); };
+document.getElementById("next").onclick = () => { current = Math.min(steps.length - 1, current + 1); showStep(); speak(); };
+document.getElementById("speak").onclick = speak;
+showStep();
+
+const tick = (now, meta) => {
+  render(Math.round((meta ? meta.mediaTime : video.currentTime) * DATA.fps));
+  if (video.requestVideoFrameCallback) video.requestVideoFrameCallback(tick);
+};
+if (video.requestVideoFrameCallback) video.requestVideoFrameCallback(tick);
+else (function loop() { render(Math.round(video.currentTime * DATA.fps)); requestAnimationFrame(loop); })();
+video.addEventListener("seeked", () => render(Math.round(video.currentTime * DATA.fps)));
+})();
+</script>
+</body>
+</html>
