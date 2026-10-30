@@ -24,6 +24,7 @@ struct SettingsView: View {
                         ForEach(InterfaceLanguage.allCases) { Text($0.title).tag($0) }
                     }
                     Toggle(String(localized: "Speak instructions aloud", bundle: .ui), isOn: $settings.speakAloud)
+                    Toggle(String(localized: "Sound effects", bundle: .ui), isOn: $settings.soundEffects)
                     Picker(String(localized: "Torch", bundle: .ui), selection: $settings.torch) {
                         ForEach(TorchChoice.allCases) { Text($0.title).tag($0) }
                     }

@@ -1,3 +1,4 @@
+import AVFoundation
 import CoreGraphics
 import simd
 import XCTest
@@ -558,5 +559,15 @@ final class VoiceChoiceTests: XCTestCase {
         XCTAssertTrue(voice.language.hasPrefix("en"))
         XCTAssertFalse(voice.voiceTraits.contains(.isNoveltyVoice))
         XCTAssertFalse(Speaker.voiceDescription(for: "en-US").isEmpty)
+    }
+}
+
+final class SoundEffectsTests: XCTestCase {
+    func testEveryEffectIsAPlayableSound() throws {
+        for effect in SoundEffects.Effect.allCases {
+            let player = try AVAudioPlayer(data: SoundEffects.wav(effect))
+            XCTAssertGreaterThan(player.duration, 0.03)
+            XCTAssertLessThan(player.duration, 0.7)
+        }
     }
 }

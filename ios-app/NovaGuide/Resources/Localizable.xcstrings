@@ -723,12 +723,12 @@
         }
       }
     },
-    "I didn't hear anything. Tap Pulse and speak.": {
+    "I didn't hear anything. Tap the microphone and speak.": {
       "localizations": {
         "tr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Bir şey duymadım. Pulse'a dokun ve konuş."
+            "value": "Bir şey duymadım. Mikrofona dokunup konuş."
           }
         }
       }
@@ -1685,6 +1685,16 @@
         }
       }
     },
+    "Sound effects": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ses efektleri"
+          }
+        }
+      }
+    },
     "Speak instructions aloud": {
       "localizations": {
         "tr": {
@@ -2316,12 +2326,12 @@
         }
       }
     },
-    "You'll be asked for the camera and microphone. The mic opens only when you tap Pulse.": {
+    "You'll be asked for the camera and microphone. The mic opens only when you tap it.": {
       "localizations": {
         "tr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Kamera ve mikrofon izni istenecek. Mikrofon sadece Pulse'a dokununca açılır."
+            "value": "Kamera ve mikrofon izni istenecek. Mikrofon sadece sen dokununca açılır."
           }
         }
       }

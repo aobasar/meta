@@ -49,13 +49,10 @@ struct WelcomeView: View {
     var onSettings: (() -> Void)? = nil
 
     var body: some View {
-        GeometryReader { geometry in
+        lightScreen { GeometryReader { geometry in
             let land = Orientation(geometry.size).landscape
             ZStack(alignment: .topTrailing) {
-                RadialGradient(colors: [Color(red: 0.165, green: 0.149, blue: 0.094), .novaGround],
-                               center: land ? UnitPoint(x: 0.28, y: 0.5) : UnitPoint(x: 0.5, y: 0.3),
-                               startRadius: 0, endRadius: max(geometry.size.width, geometry.size.height) * 0.62)
-                    .ignoresSafeArea()
+                Color.sheetGround.ignoresSafeArea()
                 if land {
                     HStack(spacing: 32) {
                         mark(logo: 192, word: 40)
@@ -79,7 +76,7 @@ struct WelcomeView: View {
                     .padding(.top, 8)
                 }
             }
-        }
+        } }
     }
 
     /// The logo with "NOVA" under it, scaled together: wordmark 0.21 × logo, gap 0.09 × logo.
@@ -96,13 +93,13 @@ struct WelcomeView: View {
     private func text(land: Bool) -> some View {
         VStack(alignment: land ? .leading : .center, spacing: land ? 22 : 40) {
             VStack(alignment: land ? .leading : .center, spacing: 10) {
-                (Text("See it. Understand it.") + Text(verbatim: " ") + Text("Do it right.").foregroundColor(.novaYellow))
+                (Text("See it. Understand it.") + Text(verbatim: " ") + Text("Do it right.").foregroundColor(.novaGold))
                     .font(.system(size: land ? 21 : 24, weight: .bold))
                     .lineLimit(land ? 1 : nil)
                     .minimumScaleFactor(0.8)
                 Text("Shows where to touch, guides you step by step and checks every step.")
                     .font(.subheadline)
-                    .foregroundStyle(Color.novaText2)
+                    .foregroundStyle(Color.sheetMuted)
             }
             .multilineTextAlignment(land ? .leading : .center)
             VStack(alignment: land ? .leading : .center, spacing: 12) {
@@ -112,11 +109,11 @@ struct WelcomeView: View {
                     Text("How it works") + Text(verbatim: " ›")
                 }
                 .font(.subheadline)
-                .foregroundStyle(Color.novaText2)
+                .foregroundStyle(Color.sheetMuted)
                 .frame(maxWidth: .infinity)
                 Text("Independent experimental prototype")
                     .font(.caption)
-                    .foregroundStyle(Color(white: 0.56))
+                    .foregroundStyle(Color.sheetMuted)
                     .frame(maxWidth: .infinity)
             }
         }
@@ -134,7 +131,7 @@ struct HowView: View {
     }
 
     var body: some View {
-        GeometryReader { geometry in
+        lightScreen { GeometryReader { geometry in
             let land = Orientation(geometry.size).landscape
             VStack(spacing: land ? 12 : 18) {
                 Text("How Nova works")
@@ -146,14 +143,14 @@ struct HowView: View {
                         content {
                             Image(systemName: card.icon)
                                 .font(.system(size: 20, weight: .semibold))
-                                .foregroundStyle(Color.novaYellow)
+                                .foregroundStyle(Color.novaGold)
                                 .frame(width: land ? 36 : 44, height: land ? 36 : 44)
                                 .background(Color.novaYellow.opacity(0.15), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                             VStack(alignment: land ? .center : .leading, spacing: 3) {
                                 Text(card.title).font(.system(size: land ? 16 : 18, weight: .bold))
                                 Text(card.text)
                                     .font(.system(size: land ? 13 : 15))
-                                    .foregroundStyle(Color.novaText2)
+                                    .foregroundStyle(Color.sheetMuted)
                                     .multilineTextAlignment(land ? .center : .leading)
                                     .fixedSize(horizontal: false, vertical: true)
                             }
@@ -161,14 +158,14 @@ struct HowView: View {
                         }
                         .padding(land ? 12 : 14)
                         .frame(maxWidth: .infinity, maxHeight: land ? .infinity : nil)
-                        .background(Color.novaCard, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                        .background(Color.white, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
                     }
                 }
                 .fixedSize(horizontal: false, vertical: true)
-                Label(String(localized: "You'll be asked for the camera and microphone. The mic opens only when you tap Pulse.", bundle: .ui),
+                Label(String(localized: "You'll be asked for the camera and microphone. The mic opens only when you tap it.", bundle: .ui),
                       systemImage: "mic")
                     .font(.system(size: land ? 12 : 13))
-                    .foregroundStyle(Color.novaText3)
+                    .foregroundStyle(Color.sheetMuted)
                     .multilineTextAlignment(.center)
                     .padding(.bottom, land ? 4 : 24)
                 Button(buttonTitle, action: onContinue)
@@ -178,8 +175,8 @@ struct HowView: View {
             .padding(.horizontal, 22)
             .padding(.vertical, land ? 18 : 30)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(Color.novaGround.ignoresSafeArea())
-        }
+            .background(Color.sheetGround.ignoresSafeArea())
+        } }
     }
 }
 
@@ -198,7 +195,7 @@ struct ConsentView: View {
     }
 
     var body: some View {
-        GeometryReader { geometry in
+        lightScreen { GeometryReader { geometry in
             let land = Orientation(geometry.size).landscape
             VStack(alignment: .leading, spacing: 12) {
                 Text("Before you start").font(.system(size: 24, weight: .bold))
@@ -208,11 +205,11 @@ struct ConsentView: View {
                             Image(systemName: item.icon).foregroundStyle(item.color).frame(width: 20)
                             Text(item.text)
                                 .font(.subheadline)
-                                .foregroundStyle(Color(white: 0.9))
+                                .foregroundStyle(.primary)
                                 .fixedSize(horizontal: false, vertical: true)
                         }
                     }
-                    Divider().overlay(Color.novaRaised)
+                    Divider()
                     HStack(spacing: 4) {
                         Text("Full text:")
                         Link(String(localized: "Privacy", bundle: .ui), destination: URL(string: "#privacy", relativeTo: Self.legalURL)!)
@@ -220,17 +217,17 @@ struct ConsentView: View {
                         Link(String(localized: "Terms", bundle: .ui), destination: URL(string: "#terms", relativeTo: Self.legalURL)!)
                     }
                     .font(.footnote)
-                    .foregroundStyle(Color.novaText2)
+                    .foregroundStyle(Color.sheetMuted)
                 }
                 .padding(.horizontal, 16)
                 .padding(.vertical, 14)
-                .background(Color.novaCard, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                .background(Color.white, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
                 HStack(spacing: land ? 20 : 10) {
                     Button { agreed.toggle() } label: {
                         HStack(spacing: 10) {
                             RoundedRectangle(cornerRadius: 8, style: .continuous)
                                 .fill(agreed ? Color.novaYellow : .clear)
-                                .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).stroke(Color.novaYellow, lineWidth: 2))
+                                .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).stroke(Color.novaGold, lineWidth: 2))
                                 .overlay {
                                     if agreed { Image(systemName: "checkmark").font(.system(size: 14, weight: .heavy)).foregroundStyle(.black) }
                                 }
@@ -238,7 +235,7 @@ struct ConsentView: View {
                                 .shadow(color: .novaYellow.opacity(agreed ? 0 : (glow ? 0.8 : 0.1)), radius: 8)
                             Text("I've read and agree (18+)")
                                 .font(.body)
-                                .foregroundStyle(.white)
+                                .foregroundStyle(.primary)
                                 .multilineTextAlignment(.leading)
                         }
                     }
@@ -255,10 +252,18 @@ struct ConsentView: View {
             .padding(.vertical, land ? 18 : 30)
             .frame(maxWidth: 640, maxHeight: .infinity)
             .frame(maxWidth: .infinity)
-            .background(Color.novaGround.ignoresSafeArea())
+            .background(Color.sheetGround.ignoresSafeArea())
             .onAppear {
                 withAnimation(.easeInOut(duration: 1.1).repeatForever(autoreverses: true)) { glow = true }
             }
-        }
+        } }
     }
+}
+
+/// The screens outside the camera are light: the phone's status bar and the text follow.
+private func lightScreen<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
+    content()
+        .environment(\.colorScheme, .light)
+        .tint(.primary)
+        .preferredColorScheme(.light)
 }

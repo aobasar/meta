@@ -28,7 +28,6 @@ struct NovaGuideApp: App {
                 .environmentObject(ar)
                 .environmentObject(model)
                 .environmentObject(screenRecorder)
-                .preferredColorScheme(.dark)
                 .environment(\.locale, Locale(identifier: settings.interfaceCode))
                 .id(settings.interfaceCode)  // every view reads its strings again in the new language
         }

@@ -211,6 +211,8 @@ final class GuideSettings: ObservableObject {
     var interfaceCode: String { interfaceLanguage.code(defaults: defaults) }
     /// Words appear while the user speaks, and Meta finds the end of the sentence.
     @Published var liveTranscription: Bool { didSet { defaults.set(liveTranscription, forKey: "liveTranscription") } }
+    /// Short sounds for the microphone, checks and the end of a task.
+    @Published var soundEffects: Bool { didSet { defaults.set(soundEffects, forKey: "soundEffects") } }
     @Published var speakAloud: Bool { didSet { defaults.set(speakAloud, forKey: "speakAloud") } }
     /// Check each step on a close-up; when off, "I've done it" moves on and counts as the user's own confirmation.
     @Published var verifyEach: Bool { didSet { defaults.set(verifyEach, forKey: "verifyEach") } }
@@ -245,6 +247,7 @@ final class GuideSettings: ObservableObject {
         record = defaults.bool(forKey: "record")
         interfaceLanguage = InterfaceLanguage(rawValue: defaults.string(forKey: "interfaceLanguage") ?? "") ?? .iPhone
         liveTranscription = defaults.object(forKey: "liveTranscription") as? Bool ?? true
+        soundEffects = defaults.object(forKey: "soundEffects") as? Bool ?? true
         speakAloud = defaults.object(forKey: "speakAloud") as? Bool ?? true
         verifyEach = defaults.object(forKey: "verifyEach") as? Bool ?? true
         autoContinue = defaults.object(forKey: "autoContinue") as? Bool ?? true

@@ -14,6 +14,8 @@ extension Color {
     static let novaRed = Color(red: 1, green: 0.271, blue: 0.227)  // #FF453A
     static let novaOrange = Color(red: 1, green: 0.624, blue: 0.039)  // #FF9F0A
     static let novaPurple = Color(red: 0.749, green: 0.353, blue: 0.949)  // #BF5AF2
+    static let sheetGround = Color(red: 0.965, green: 0.97, blue: 0.975)  // the screens outside the camera
+    static let novaGold = Color(red: 0.72, green: 0.52, blue: 0)  // the yellow, readable on a light ground
     static let sheetMuted = Color(white: 0.32)  // secondary text on the light card
     static let novaCyan = Color(red: 0.392, green: 0.824, blue: 1)  // #64D2FF
 }

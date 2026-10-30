@@ -11,7 +11,9 @@ struct SidePanel: View {
         Group {
             if model.phase == .thinking {
                 ThinkingCard().padding(.horizontal, 14).padding(.vertical, 10).sheetStyle()
-            } else if model.phase != .finished {
+            } else if model.phase == .finished {
+                CompletionCard().padding(14).sheetStyle()
+            } else {
                 if folded, let line = foldedLine {
                     FoldedBar(prefix: line.prefix, title: line.title) { folded = false }
                 } else {
@@ -514,92 +516,34 @@ private struct Bubble: View {
 
 // MARK: Completion
 
-struct CompletionView: View {
+struct CompletionCard: View {
     @EnvironmentObject private var model: GuideModel
-    @State private var showSummary = false
 
     var body: some View {
-        GeometryReader { geometry in
-            ZStack {
-            Color(white: 0.02).opacity(0.86).ignoresSafeArea()
-            ScrollView {
-                VStack(spacing: 14) {
-                    let tone: Color = model.unsolved ? .novaOrange : .novaGreen
-                    Image(systemName: model.unsolved ? "exclamationmark" : "checkmark")
-                        .font(.system(size: 30, weight: .heavy))
-                        .foregroundStyle(tone)
-                        .frame(width: 68, height: 68)
-                        .background(tone.opacity(0.16), in: Circle())
-                        .overlay(Circle().stroke(tone.opacity(0.5), lineWidth: 2))
-                    Text(model.unsolved ? "Not solved" : "Task completed").font(.title2.weight(.heavy))
-                    if model.unsolved {
-                        Text("I couldn't solve this. Check the device's manual or contact service.")
-                            .font(.footnote).foregroundStyle(Color.novaText2).multilineTextAlignment(.center)
-                    }
-                    if let device = model.knownDevice {
-                        Text(device).font(.subheadline).foregroundStyle(Color.novaText2)
-                    }
-                    HStack(spacing: 8) {
-                        stat(Text(verbatim: "\(done)/\(model.records.count)"), String(localized: "Steps", bundle: .ui), .white)
-                        stat(Text(verbatim: "\(count(.verified))"), String(localized: "Verified", bundle: .ui), .novaGreen)
-                        stat(Text(verbatim: "\(count(.confirmed) + count(.skipped))"), String(localized: "You confirmed", bundle: .ui), .novaCyan)
-                        stat(Text(verbatim: duration), String(localized: "Time", bundle: .ui), .white)
-                    }
-                    if showSummary, let plan = model.plan {
-                        VStack(spacing: 6) {
-                            ForEach(Array(zip(plan.steps, model.records).enumerated()), id: \.offset) { _, pair in
-                                HStack(spacing: 10) {
-                                    Circle().fill(StepCardColors.color(pair.1.result)).frame(width: 10, height: 10)
-                                    Text(GuideText.display(pair.0.instruction)).frame(maxWidth: .infinity, alignment: .leading)
-                                    Text(StepCardColors.label(pair.1.result)).font(.caption).foregroundStyle(Color.novaText2)
-                                }
-                                .font(.footnote)
-                                .padding(.horizontal, 10)
-                                .padding(.vertical, 8)
-                                .background(Color.novaRaised, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-                            }
-                        }
-                    }
-                    Button(String(localized: "New task here", bundle: .ui)) { model.newTask(keepDevice: true) }
-                        .buttonStyle(PrimaryButtonStyle())
-                    HStack(spacing: 8) {
-                        Button(String(localized: "Something else", bundle: .ui)) { model.newTask(keepDevice: false) }
-                        Button(showSummary ? String(localized: "Hide summary", bundle: .ui) : String(localized: "View summary", bundle: .ui)) {
-                            withAnimation { showSummary.toggle() }
-                        }
-                    }
-                    .buttonStyle(OutlineButtonStyle())
-                }
-                .padding(22)
-                .frame(maxWidth: 420)
-                .background(Color.novaCard, in: RoundedRectangle(cornerRadius: 26, style: .continuous))
-                .padding(18)
-                .frame(maxWidth: .infinity, minHeight: geometry.size.height)
+        VStack(spacing: 8) {
+            Image(systemName: model.unsolved ? "exclamationmark" : "checkmark")
+                .font(.system(size: 24, weight: .heavy))
+                .foregroundStyle(model.unsolved ? Color.orange : Color.green)
+            Text(model.unsolved ? "Not solved" : "Task completed").font(.headline)
+            if model.unsolved {
+                Text("I couldn't solve this. Check the device's manual or contact service.")
+                    .font(.footnote).foregroundStyle(Color.sheetMuted).multilineTextAlignment(.center)
             }
-            .scrollBounceBehavior(.basedOnSize)
-            }
-        }
-    }
-
-    private var done: Int { model.records.filter { $0.result != .pending }.count }
-
-    private func count(_ result: GuideModel.StepRecord.Result) -> Int { model.records.filter { $0.result == result }.count }
-
-    private var duration: String {
-        guard let start = model.startedAt else { return "0:00" }
-        let seconds = max(Int((model.finishedAt ?? Date()).timeIntervalSince(start)), 0)
-        return String(format: "%d:%02d", seconds / 60, seconds % 60)
-    }
-
-    private func stat(_ value: Text, _ label: String, _ color: Color) -> some View {
-        VStack(spacing: 3) {
-            value.font(.title3.weight(.heavy)).foregroundStyle(color).monospacedDigit()
-            Text(label).font(.caption2).foregroundStyle(Color.novaText2).lineLimit(1).minimumScaleFactor(0.8)
+            Text(verbatim: summary).font(.caption.monospacedDigit()).foregroundStyle(Color.sheetMuted).multilineTextAlignment(.center)
+            Button(String(localized: "New task here", bundle: .ui)) { model.newTask(keepDevice: true) }
+                .buttonStyle(PrimaryButtonStyle())
+            Button(String(localized: "Something else", bundle: .ui)) { model.newTask(keepDevice: false) }
+                .buttonStyle(SheetButtonStyle())
         }
         .frame(maxWidth: .infinity)
-        .padding(.vertical, 10)
-        .padding(.horizontal, 4)
-        .background(Color.novaRaised, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+    }
+
+    /// "Maytag · washing machine · 4/4 · 3:12"
+    private var summary: String {
+        let done = model.records.filter { $0.result != .pending }.count
+        let seconds = model.startedAt.map { max(Int((model.finishedAt ?? Date()).timeIntervalSince($0)), 0) } ?? 0
+        return ([model.knownDevice, "\(done)/\(model.records.count)", String(format: "%d:%02d", seconds / 60, seconds % 60)] as [String?])
+            .compactMap { $0 }.joined(separator: " · ")
     }
 }
 

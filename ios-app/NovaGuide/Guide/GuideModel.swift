@@ -119,6 +119,7 @@ final class GuideModel: ObservableObject {
     let ar: ARGuideController
     let router: ServerRouter
     private let speaker = Speaker()
+    private let sounds = SoundEffects()
     private var task: Task<Void, Never>?
     private var checkTask: Task<Void, Never>?
     private var voiceTask: Task<Void, Never>?
@@ -384,6 +385,7 @@ final class GuideModel: ObservableObject {
         if !plan.device.type.isEmpty { knownDevice = plan.deviceLabel }
         if let asked = plan.question, plan.safe {
             phase = .choosing(asked)
+            sound(.question)
             speak(asked.text)
             return
         }
@@ -451,6 +453,7 @@ final class GuideModel: ObservableObject {
         guard phase == .confirming else { return }
         finish()
         note("solved")
+        sound(.done)
         speak(language.phrase("Task completed."))
     }
 
@@ -468,6 +471,7 @@ final class GuideModel: ObservableObject {
         unsolved = true
         finish()
         note("gave_up")
+        sound(.notSolved)
         speak(text.isEmpty ? String(localized: "I couldn't solve this. Check the device's manual or contact service.", bundle: .ui) : text)
     }
 
@@ -570,6 +574,7 @@ final class GuideModel: ObservableObject {
             return
         }
         haptic(.success)
+        sound(.moved)
         reply = String(localized: "Marker moved.", bundle: .ui)
         Task { try? await send { try await $0.noteCorrection(kind: "moved") } }
     }
@@ -768,12 +773,15 @@ final class GuideModel: ObservableObject {
         switch feedback {
         case .correct:
             haptic(.success)
+            sound(.correct)
             speak(language.phrase("Correct."))
         case .notDone(let text):
             haptic(.error)
+            sound(.wrong)
             speak(text)
         case .unsure(let text):
             haptic(.warning)
+            sound(.wrong)
             speak(text)
         case .checking, .error: break
         }
@@ -790,6 +798,7 @@ final class GuideModel: ObservableObject {
             feedback = nil
             reply = nil
             phase = .confirming
+            sound(.question)
             speak(language.phrase("Did this solve it?"))
         }
     }
@@ -879,6 +888,10 @@ final class GuideModel: ObservableObject {
                 show(message: String(localized: "Allow the microphone in Settings to talk to Nova.", bundle: .ui))
                 return
             }
+            if settings.soundEffects {  // over before the microphone opens, so it isn't taken for speech
+                sounds.play(.micOn)
+                try? await Task.sleep(for: .seconds(0.22))
+            }
             do {
                 startLive()
                 try recorder.start()
@@ -946,6 +959,7 @@ final class GuideModel: ObservableObject {
             closeLive()
             return
         }
+        sound(.micOff)
         if case .telling(let kind) = correcting, skipWords {
             skipWords = false
             closeLive()
@@ -988,7 +1002,7 @@ final class GuideModel: ObservableObject {
         }
         guard let wav else {
             listening = .idle
-            show(message: String(localized: "I didn't hear anything. Tap Pulse and speak.", bundle: .ui))
+            show(message: String(localized: "I didn't hear anything. Tap the microphone and speak.", bundle: .ui))
             return
         }
         listening = .transcribing
@@ -1147,7 +1161,12 @@ final class GuideModel: ObservableObject {
         reply = nil
         stepIndex = index
         ar.currentStep = index
+        sound(.ready)
         repeatStep()
+    }
+
+    private func sound(_ effect: SoundEffects.Effect) {
+        if settings.soundEffects { sounds.play(effect) }
     }
 
     private func speak(_ text: String) {

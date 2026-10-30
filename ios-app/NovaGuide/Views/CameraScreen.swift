@@ -26,13 +26,10 @@ struct CameraScreen: View {
                     .frame(maxWidth: land ? 300 : .infinity)
                     .padding(.horizontal, 8)
                     .padding(.bottom, 8)
-                if model.phase == .finished {
-                    CompletionView().transition(.opacity)
-                }
             }
-            .animation(.easeOut(duration: 0.2), value: model.phase == .finished)
         }
         .background(Color.black.ignoresSafeArea())
+        .preferredColorScheme(.dark)
         .sheet(item: $panel, onDismiss: { Task { await model.checkConnection() } }) { which in
             switch which {
             case .more:
@@ -194,9 +191,15 @@ private struct TopBar: View {
     @EnvironmentObject private var model: GuideModel
     @EnvironmentObject private var ar: ARGuideController
     var openMore: () -> Void
+    @EnvironmentObject private var settings: GuideSettings
 
     var body: some View {
         HStack(spacing: 6) {
+            if settings.record {  // frames are being kept on the Mac: never silently
+                Text(verbatim: "REC").font(.caption2.weight(.heavy)).foregroundStyle(.white)
+                    .padding(.horizontal, 7).padding(.vertical, 3)
+                    .background(Color.novaRed, in: Capsule())
+            }
             Spacer(minLength: 6)
             if ar.torchOn {
                 // The torch is lit (automatically in the dark, or from Settings): one tap turns it off for this task.
