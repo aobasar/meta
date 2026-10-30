@@ -54,6 +54,8 @@ struct SidePanel: View {
             ReadyCard()
         case .choosing(let asked):
             QuestionCard(asked: asked)
+        case .showing(let asked):
+            ShowCard(asked: asked)
         case .guiding:
             if let correcting = model.correcting {
                 CorrectionCard(correcting: correcting)
@@ -79,6 +81,8 @@ struct SidePanel: View {
             return ("", String(localized: "Kokobubu is ready to help.", bundle: .ui))
         case .choosing(let asked):
             return ("", GuideText.display(asked.text))
+        case .showing(let asked):
+            return ("", GuideText.display(asked.what))
         case .guiding:
             guard model.correcting == nil, let step = model.currentStep else { return nil }
             return (String(localized: "Step \(model.stepIndex + 1)", bundle: .ui), GuideText.display(step.instruction))
@@ -272,6 +276,31 @@ private struct ChoiceRow: View {
             .padding(.vertical, 3)
             .background(Color.novaYellow.opacity(0.18), in: RoundedRectangle(cornerRadius: 11, style: .continuous))
             .overlay(RoundedRectangle(cornerRadius: 11, style: .continuous).stroke(Color.black.opacity(0.12), lineWidth: 1.5))
+        }
+    }
+}
+
+/// "Show me the mouse": the user points the camera there and says so; nothing is sent before that.
+private struct ShowCard: View {
+    @EnvironmentObject private var model: GuideModel
+    var asked: GuidePlan.ShowRequest
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(GuideText.display(asked.what)).font(.headline).fixedSize(horizontal: false, vertical: true).clearsMascot()
+            if !asked.why.isEmpty {
+                Text(GuideText.display(asked.why)).font(.footnote).foregroundStyle(Color.sheetMuted)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            HStack(spacing: 8) {
+                MicButton()
+                Button(String(localized: "I'm showing it", bundle: .ui)) { model.shown() }
+                    .buttonStyle(PrimaryButtonStyle(fill: .novaYellow))
+            }
+            Button(String(localized: "I can't show this", bundle: .ui)) { model.cantShow() }
+                .font(.footnote.weight(.semibold))
+                .foregroundStyle(Color.sheetMuted)
+                .frame(maxWidth: .infinity, minHeight: 28)
         }
     }
 }

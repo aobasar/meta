@@ -519,6 +519,17 @@ final class GreetingTests: XCTestCase {
         XCTAssertEqual(CameraGaze.look(forSlide: CGPoint(x: 2, y: -2), screenWidth: 400), .zero)
     }
 
+    func testPlanCanAskToSeeSomethingElse() throws {
+        let json = """
+        {"device": {"type": "monitor", "brand": ""}, "safe": true, "safetyNote": "", "uncertainty": "",
+         "frame": {"width": 1600, "height": 900}, "served": [], "steps": [], "finding": "no mouse in view",
+         "showRequest": {"what": "Show me the mouse.", "why": "I'll check its light."}}
+        """
+        let plan = try JSONDecoder().decode(GuidePlan.self, from: Data(json.utf8))
+        XCTAssertEqual(plan.showRequest?.what, "Show me the mouse.")
+        XCTAssertEqual(plan.finding, "no mouse in view")
+    }
+
     @MainActor func testDoneLineSaysWhatChangedAndHowFarToGo() {
         let phrase: (String) -> String = { $0 }
         XCTAssertEqual(GuideModel.doneLine(confirmation: "Orange is set.", ready: "Okay.", stepsLeft: 1, goesOn: false, phrase: phrase),

@@ -81,6 +81,7 @@ struct CameraScreen: View {
             // Settings › Screen recording: each task is one video, from the question to the last step.
             var taskIsRunning = old == .guiding || old == .confirming
             if case .choosing = old { taskIsRunning = true }
+            if case .showing = old { taskIsRunning = true }
             if phase == .thinking && !taskIsRunning && settings.screenRecording {
                 screenRecorder.beginTask(paused: true)
             } else if phase == .finished || phase == .asking {

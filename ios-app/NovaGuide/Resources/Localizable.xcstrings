@@ -1840,6 +1840,28 @@
         }
       }
     },
+    "I'm showing it": {
+      "extractionState": "manual",
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gösterdim"
+          }
+        }
+      }
+    },
+    "I can't show this": {
+      "extractionState": "manual",
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bunu gösteremiyorum"
+          }
+        }
+      }
+    },
     "Sound effects": {
       "localizations": {
         "tr": {

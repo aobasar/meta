@@ -306,7 +306,7 @@ class PlanTests(unittest.TestCase):
         self.assertTrue(parts[0]["located"])
 
     def test_plan_prompt_starts_the_device_only_when_the_task_runs_it(self):
-        prompt = guide.PLAN_PROMPT.format(question="q", language_rule="", lang="Turkish", max_steps=6, marking="",
+        prompt = guide.PLAN_PROMPT.format(show_rule="",question="q", language_rule="", lang="Turkish", max_steps=6, marking="",
                                           ask_rule="", context="")
         self.assertIn("only when their task is to run it", prompt)
         self.assertIn("detail", guide.PLAN_SCHEMA["json_schema"]["schema"]["properties"]["steps"]["items"]["required"])
@@ -343,6 +343,41 @@ class PlanTests(unittest.TestCase):
         self.assertFalse(result["safe"])
         self.assertEqual(result["steps"], [])
         self.assertEqual(len(opener.bodies), 1)
+
+
+class ShowRequestTests(unittest.TestCase):
+    SHOW = {**PLAN, "steps": [], "show_request": {"what": "Fareyi göster.", "why": "Işığına bakacağım."}, "finding": "only a monitor",
+            "clarify": {"kind": "state", "question": "Kablolu mu?", "options": [{"label": "", "meaning": "Evet"}]}}
+
+    def run_plan(self, plan, **options):
+        opener = RoutingOpener(plan=plan)
+        return guide.plan(tiny_jpeg(1600, 900), "Fare çalışmıyor", "Turkish", FAKE_KEY, opener, allow_questions=True, **options), opener
+
+    def test_asks_to_see_it_before_asking_a_question(self):
+        result, _ = self.run_plan(self.SHOW)
+        self.assertEqual(result["showRequest"]["what"], "Fareyi göster.")
+        self.assertIsNone(result["question"])
+        self.assertEqual(result["finding"], "only a monitor")
+        self.assertEqual(result["steps"], [])
+
+    def test_after_the_limit_it_stops_asking_to_see(self):
+        result, opener = self.run_plan(self.SHOW, shows=guide.MAX_SHOWS)
+        self.assertIsNone(result["showRequest"])
+        self.assertIn("you have seen enough", json.dumps(opener.bodies, ensure_ascii=False))
+
+    def test_earlier_findings_reach_the_prompt(self):
+        _, opener = self.run_plan(self.SHOW, findings=["wireless mouse, switch off"])
+        self.assertIn("wireless mouse, switch off", json.dumps(opener.bodies, ensure_ascii=False))
+
+    def test_steps_win_over_a_show_request(self):
+        result, _ = self.run_plan({**PLAN, "show_request": {"what": "Fareyi göster.", "why": ""}})
+        self.assertIsNone(result["showRequest"])
+        self.assertTrue(result["steps"])
+
+    def test_bad_findings_are_refused(self):
+        for body in ({"findings": "x"}, {"findings": ["x"] * 7}, {"shows": -1}, {"shows": True}):
+            with self.assertRaises(guide.BadRequest):
+                guide.plan_findings(body)
 
 
 class VerifyTests(unittest.TestCase):

@@ -29,12 +29,22 @@ struct GuidePlan: Decodable, Equatable {
     var remaining: String? = nil
     /// Nova asks this before it plans; such a plan has no steps.
     var question: Question? = nil
+    /// Kokobubu needs to see something else first; such a plan has no steps.
+    var showRequest: ShowRequest? = nil
+    /// What this photo told about the problem, sent back with the next photo.
+    var finding: String? = nil
     var steps: [GuideStep]
     var served: [String]
     var recording: String?
 
     var isLocated: Bool { located ?? true }
     var goesOn: Bool { continues ?? false }
+
+    /// "Show me the mouse": the next thing to point the camera at, and what Kokobubu will check there.
+    struct ShowRequest: Decodable, Equatable {
+        var what: String
+        var why: String
+    }
 
     /// One thing Nova needs to know: a setting to pick, the device to confirm, or a fact the photo can't show.
     struct Question: Decodable, Equatable {

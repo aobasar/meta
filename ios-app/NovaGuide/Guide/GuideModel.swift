@@ -10,6 +10,8 @@ final class GuideModel: ObservableObject {
         case thinking
         /// Nova asked one thing before planning; the user answers on the card or by voice.
         case choosing(GuidePlan.Question)
+        /// Kokobubu needs to see something else; the user points the camera there and says so.
+        case showing(GuidePlan.ShowRequest)
         case guiding
         /// All steps are done: Nova asks whether the problem is solved.
         case confirming
@@ -110,6 +112,10 @@ final class GuideModel: ObservableObject {
     /// Settings › Speed test: the current task's timings, measured on the phone.
     @Published private(set) var timings = TaskTimings()
     private var lastLookingPhrase: String?
+    /// What this task's photos showed so far, and how many times Kokobubu asked to see something.
+    private var findings: [String] = []
+    private var shows = 0
+    static let maxFindings = 6
     private var lastReadyPhrase: String?
     /// Said before the next step's instruction, when the step just left could not be checked.
     private var stepLead: String?
@@ -247,6 +253,8 @@ final class GuideModel: ObservableObject {
         taskQuestion = text
         planCapture = capture
         answers = []
+        findings = []
+        shows = 0
         stepCorrections = [:]
         failedChecks = [:]
         correcting = nil
@@ -296,11 +304,46 @@ final class GuideModel: ObservableObject {
         requestPlan(capture: capture, correction: pendingCorrection)
     }
 
+    /// The camera now shows what Kokobubu asked for; `said` is what the user added, or why they can't show it.
+    func shown(said: String? = nil) {
+        guard case .showing = phase else { return }
+        if let said { remember("They said: \(said)") }
+        shows += 1
+        phase = .thinking
+        timings = TaskTimings(setting: settings.sparkLabel)
+        acknowledge("")
+        let earlier = plan?.steps ?? []
+        let correction = earlier.isEmpty ? pendingCorrection : GuideClient.Correction(
+            kind: "continue", wrongStep: "", said: plan?.remaining ?? "", done: earlier.map(\.instruction))
+        task = Task {
+            try? await Task.sleep(for: .seconds(Self.screenSettleSeconds))
+            if Task.isCancelled { return }
+            guard let capture = ar.capture() else {
+                if let plan, let asked = plan.showRequest { phase = .showing(asked) }
+                show(message: String(localized: "The camera isn't ready yet. Point it at the device and try again.", bundle: .ui))
+                return
+            }
+            planCapture = capture
+            requestPlan(capture: capture, correction: correction, from: earlier.count)
+        }
+    }
+
+    func cantShow() {
+        shown(said: "I can't show this.")
+    }
+
+    private func remember(_ finding: String) {
+        let text = String(finding.trimmingCharacters(in: .whitespacesAndNewlines).prefix(280))
+        guard !text.isEmpty, !findings.contains(text) else { return }
+        findings.append(text)
+        if findings.count > Self.maxFindings { findings.removeFirst() }
+    }
+
     func letNovaChoose() { answerQuestion("You choose the most common option and tell me which one you chose.") }
 
     /// Plans from a frame. A correction keeps the steps before `start`, and doesn't ask anything first.
     private func requestPlan(capture: CapturedFrame, correction: GuideClient.Correction? = nil, from start: Int = 0) {
-        let text = taskQuestion, answers = self.answers
+        let text = taskQuestion, answers = self.answers, findings = self.findings, shows = self.shows
         let allowQuestions = correction == nil || (correction?.kind == "outcome" && answers.isEmpty)
         let settings = self.settings
         task = Task {
@@ -312,7 +355,7 @@ final class GuideModel: ObservableObject {
                 let plan = try await send {
                     try await $0.plan(jpeg: capture.jpeg, question: text, language: language, autoLanguage: auto,
                                       record: record, camera: capture.cameraInfo, spark: spark, answers: answers,
-                                      correction: correction, allowQuestions: allowQuestions) { steps in
+                                      correction: correction, allowQuestions: allowQuestions, findings: findings, shows: shows) { steps in
                         status.cancel()
                         self.timings.steps = Date().timeIntervalSince(started)
                         self.heardLanguage(steps.language)
@@ -396,11 +439,11 @@ final class GuideModel: ObservableObject {
     }
 
     private func received(_ part: GuidePlan, capture: CapturedFrame, from start: Int, correction: GuideClient.Correction?) {
-        if correction?.kind == "outcome", !part.safe || (part.steps.isEmpty && part.question == nil) {
+        if correction?.kind == "outcome", !part.safe || (part.steps.isEmpty && part.question == nil && part.showRequest == nil) {
             finishUnsolved(note: part.uncertainty)
             return
         }
-        if correction != nil, !part.safe || (part.steps.isEmpty && part.question == nil) {
+        if correction != nil, !part.safe || (part.steps.isEmpty && part.question == nil && part.showRequest == nil) {
             phase = .guiding  // a wrong step is worse than none: the steps stay, and Nova says what it can't tell
             let note = part.uncertainty.isEmpty ? String(localized: "I'm not sure about this step. Check the device's manual, or skip it.", bundle: .ui) : part.uncertainty
             reply = note
@@ -422,6 +465,14 @@ final class GuideModel: ObservableObject {
     private func show(_ plan: GuidePlan, capture: CapturedFrame, from start: Int = 0) {
         self.plan = plan
         if !plan.device.type.isEmpty { knownDevice = plan.deviceLabel }
+        if plan.isLocated, let finding = plan.finding { remember(finding) }
+        if let asked = plan.showRequest, plan.safe {
+            ar.currentStep = nil
+            phase = .showing(asked)
+            sound(.question)
+            speak(asked.what)
+            return
+        }
         if let asked = plan.question, plan.safe {
             phase = .choosing(asked)
             sound(.question)
@@ -651,6 +702,8 @@ final class GuideModel: ObservableObject {
         if kind == "outcome" {
             outcomeTries += 1
             answers = []
+            findings = []
+            shows = 0
             let correction = GuideClient.Correction(kind: kind, wrongStep: "", said: said, done: plan.steps.map(\.instruction))
             pendingCorrection = correction
             planCapture = capture
@@ -887,6 +940,8 @@ final class GuideModel: ObservableObject {
         stepDefended = false
         failedChecks = [:]
         answers = []
+        findings = []
+        shows = 0
         feedback = nil
         reply = nil
         records = []
@@ -1098,6 +1153,12 @@ final class GuideModel: ObservableObject {
             return
         case .choosing:
             command == .newQuestion ? newQuestion() : answerQuestion(text)
+        case .showing:
+            if command == .newQuestion {
+                newQuestion()
+            } else {
+                shown(said: command == .done ? nil : text)
+            }
         case .confirming:
             switch VoiceCommand.confirmation(text) {
             case true?: confirmSolved()
@@ -1258,6 +1319,9 @@ final class GuideModel: ObservableObject {
             phase = .choosing(GuidePlan.Question(kind: "choice", text: "Hangi programı kullanmak istersin?", options: [
                 .init(label: "normal", meaning: "Normal günlük çamaşırlar"), .init(label: "delicate", meaning: "Hassas çamaşırlar"),
                 .init(label: "heavy duty", meaning: "Ağır kirli çamaşırlar")]))
+        case "show":
+            self.plan = nil
+            phase = .showing(GuidePlan.ShowRequest(what: "Lütfen fareyi yakından gösterin.", why: "Altındaki ışığa ve açma düğmesine bakacağım."))
         case "wrong":
             phase = .guiding
             stepIndex = 1
