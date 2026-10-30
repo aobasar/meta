@@ -8,6 +8,9 @@ struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var showHow = false
     @State private var showLastRecording = false
+    @State private var showAdvanced = false
+    @State private var showDeveloper = false
+    @State private var copied = false
 
     private var version: String {
         (Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0.1") + " Beta"
@@ -17,118 +20,93 @@ struct SettingsView: View {
         NavigationStack {
             Form {
                 Section {
-                    Picker(String(localized: "I speak", bundle: .ui), selection: $settings.languageName) {
-                        Text("Automatic").tag(GuideSettings.automaticLanguage)
-                        ForEach(UserLanguage.all) { language in
-                            Text(language.title).tag(language.serverName)
-                        }
-                    }
                     Picker(String(localized: "Interface language", bundle: .ui), selection: $settings.interfaceLanguage) {
                         ForEach(InterfaceLanguage.allCases) { Text($0.title).tag($0) }
                     }
-                    Toggle(String(localized: "Live transcription", bundle: .ui), isOn: $settings.liveTranscription)
                     Toggle(String(localized: "Speak instructions aloud", bundle: .ui), isOn: $settings.speakAloud)
-                    LabeledContent(String(localized: "Voice", bundle: .ui), value: Speaker.voiceDescription(for: model.language.voice))
-                } header: {
-                    Text("Language & voice")
-                } footer: {
-                    Text("Automatic: speak Turkish or English and Nova answers in the same language. Words printed on the device are read in their own language. Live transcription: your words appear as you speak, and Nova notices when you finish; turn it off if it cuts you off. For a more natural voice, download a Premium or Enhanced one in the iPhone's Settings › Accessibility › Read & Speak (or Spoken Content) › Voices; Nova uses the best one it finds.")
-                }
-                Section(String(localized: "Screen", bundle: .ui)) {
-                    Picker(String(localized: "Screen orientation", bundle: .ui), selection: $settings.orientation) {
-                        ForEach(OrientationChoice.allCases) { choice in
-                            Text(choice.title).tag(choice)
-                        }
+                    Picker(String(localized: "Torch", bundle: .ui), selection: $settings.torch) {
+                        ForEach(TorchChoice.allCases) { Text($0.title).tag($0) }
                     }
+                    LabeledContent(String(localized: "Voice", bundle: .ui), value: Speaker.voiceDescription(for: model.language.voice))
+                } footer: {
+                    Text("For a more natural voice, download a Premium or Enhanced one in the iPhone's Settings › Accessibility › Read & Speak (or Spoken Content) › Voices; Nova uses the best one it finds.")
                 }
                 Section {
-                    if ARGuideController.hasUltraWide {
-                        Picker(String(localized: "Field of view", bundle: .ui), selection: $settings.lens) {
-                            ForEach(LensChoice.allCases) { choice in
-                                Text(choice.title).tag(choice)
+                    DisclosureGroup(String(localized: "Advanced", bundle: .ui), isExpanded: $showAdvanced) {
+                        Picker(String(localized: "I speak", bundle: .ui), selection: $settings.languageName) {
+                            Text("Automatic").tag(GuideSettings.automaticLanguage)
+                            ForEach(UserLanguage.all) { Text($0.title).tag($0.serverName) }
+                        }
+                        Toggle(String(localized: "Live transcription", bundle: .ui), isOn: $settings.liveTranscription)
+                        Picker(String(localized: "Screen orientation", bundle: .ui), selection: $settings.orientation) {
+                            ForEach(OrientationChoice.allCases) { Text($0.title).tag($0) }
+                        }
+                        if ARGuideController.hasUltraWide {
+                            Picker(String(localized: "Field of view", bundle: .ui), selection: $settings.lens) {
+                                ForEach(LensChoice.allCases) { Text($0.title).tag($0) }
                             }
                         }
-                    }
-                    Toggle(String(localized: "High detail (small labels)", bundle: .ui), isOn: $settings.highDetail)
-                    Picker(String(localized: "Torch", bundle: .ui), selection: $settings.torch) {
-                        ForEach(TorchChoice.allCases) { choice in
-                            Text(choice.title).tag(choice)
+                        Toggle(String(localized: "High detail (small labels)", bundle: .ui), isOn: $settings.highDetail)
+                        Toggle(String(localized: "Verify each step", bundle: .ui), isOn: $settings.verifyEach)
+                        Toggle(String(localized: "Continue 5 s after a check", bundle: .ui), isOn: $settings.autoContinue)
+                            .disabled(!settings.verifyEach)
+                        Toggle(String(localized: "Haptics", bundle: .ui), isOn: $settings.haptics)
+                        Toggle(String(localized: "Record tasks on screen", bundle: .ui), isOn: $settings.screenRecording)
+                        Button { showLastRecording = true } label: {
+                            LabeledContent(String(localized: "Share the last recording", bundle: .ui), value: lastRecordingText)
                         }
+                        .foregroundStyle(.primary)
+                        .disabled(screenRecorder.last == nil)
+                        TextField(String(localized: "Internet address", bundle: .ui), text: $settings.publicURL)
+                            .keyboardType(.URL)
+                            .textInputAutocapitalization(.never)
+                            .autocorrectionDisabled()
+                        SecureField(String(localized: "Invite code", bundle: .ui), text: $settings.inviteCode)
+                            .textInputAutocapitalization(.characters)
+                            .autocorrectionDisabled()
+                        TextField(String(localized: "Mac over Tailscale", bundle: .ui), text: $settings.serverURL)
+                            .keyboardType(.URL)
+                            .textInputAutocapitalization(.never)
+                            .autocorrectionDisabled()
+                        LabeledContent(String(localized: "Status", bundle: .ui), value: connectionText)
+                        Button(String(localized: "How Nova works", bundle: .ui)) { showHow = true }
+                        Link(String(localized: "Privacy and terms", bundle: .ui), destination: ConsentView.legalURL)
                     }
-                    LabeledContent(String(localized: "In use", bundle: .ui), value: ar.activeCamera)
-                } header: {
-                    Text("Camera")
-                } footer: {
-                    Text("The default is the widest camera this iPhone can use with the markers: more of the panel is in view, and wide panels fit in one frame. High detail is for small labels. Automatic torch: on in the dark; it goes off for a moment now and then to check the room, and stays off when there is enough light.")
-                }
-                Section(String(localized: "Task guidance", bundle: .ui)) {
-                    Toggle(String(localized: "Verify each step", bundle: .ui), isOn: $settings.verifyEach)
-                    Toggle(String(localized: "Continue 5 s after a check", bundle: .ui), isOn: $settings.autoContinue)
-                        .disabled(!settings.verifyEach)
-                    Toggle(String(localized: "Haptics", bundle: .ui), isOn: $settings.haptics)
-                }
-                Section {
-                    Toggle(String(localized: "Record tasks on screen", bundle: .ui), isOn: $settings.screenRecording)
-                    Button { showLastRecording = true } label: {
-                        LabeledContent(String(localized: "Share the last recording", bundle: .ui), value: lastRecordingText)
-                    }
-                    .foregroundStyle(.primary)
-                    .disabled(screenRecorder.last == nil)
-                } header: {
-                    Text("Screen recording")
-                } footer: {
-                    Text("When on, each task is recorded without sound; recording pauses while Nova thinks. The video stays on the phone; save it to Photos or share it from here.")
-                }
-                Section {
-                    TextField(String(localized: "Internet address", bundle: .ui), text: $settings.publicURL)
-                        .keyboardType(.URL)
-                        .textInputAutocapitalization(.never)
-                        .autocorrectionDisabled()
-                    SecureField(String(localized: "Invite code", bundle: .ui), text: $settings.inviteCode)
-                        .textInputAutocapitalization(.characters)
-                        .autocorrectionDisabled()
-                    TextField(String(localized: "Mac over Tailscale", bundle: .ui), text: $settings.serverURL)
-                        .keyboardType(.URL)
-                        .textInputAutocapitalization(.never)
-                        .autocorrectionDisabled()
-                    LabeledContent(String(localized: "Status", bundle: .ui), value: connectionText)
-                } header: {
-                    Text("Connection")
-                } footer: {
-                    Text("The internet address is tried first and needs your invite code, kept in this iPhone's Keychain. The Mac over Tailscale is the fallback. The phone never holds the API key.")
                 }
                 #if DEBUG
                 Section {
-                    Picker(String(localized: "Model", bundle: .ui), selection: $settings.sparkProvider) {
-                        ForEach(SparkProvider.allCases) { Text($0.title).tag($0) }
-                    }
-                    Picker(String(localized: "Thinking", bundle: .ui), selection: $settings.sparkEffort) {
-                        ForEach(SparkEffort.allCases) { Text($0.title).tag($0) }
-                    }
-                    Toggle(String(localized: "Show timings on the camera screen", bundle: .ui), isOn: $settings.showTimings)
-                    LabeledContent(String(localized: "Last task", bundle: .ui),
-                                   value: model.timings.isEmpty ? String(localized: "none yet", bundle: .ui) : model.timings.summary)
-                } header: {
-                    Text("Speed test")
-                } footer: {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("For the maintainer's tests: the Mac refuses these settings for other invite codes. Only Muse Spark moves; SAM and voice recognition stay on Meta. Timings are measured on the phone, network included.")
+                    DisclosureGroup(String(localized: "Developer", bundle: .ui), isExpanded: $showDeveloper) {
+                        Picker(String(localized: "Model", bundle: .ui), selection: $settings.sparkProvider) {
+                            ForEach(SparkProvider.allCases) { Text($0.title).tag($0) }
+                        }
+                        Picker(String(localized: "Thinking", bundle: .ui), selection: $settings.sparkEffort) {
+                            ForEach(SparkEffort.allCases) { Text($0.title).tag($0) }
+                        }
+                        LabeledContent(String(localized: "Reasoning", bundle: .ui), value: reasoningModel)
+                        LabeledContent(String(localized: "Finding controls", bundle: .ui), value: "sam-3.1")
+                        LabeledContent(String(localized: "Voice to text", bundle: .ui), value: "muse-voice-transcribe-1.0")
+                        LabeledContent(String(localized: "Last task", bundle: .ui),
+                                       value: model.timings.isEmpty ? String(localized: "none yet", bundle: .ui) : model.timings.summary)
+                        Toggle(String(localized: "Show timings on the camera screen", bundle: .ui), isOn: $settings.showTimings)
+                        Toggle(String(localized: "Recording mode (for testing)", bundle: .ui), isOn: $settings.record)
+                        LabeledContent(String(localized: "Connection", bundle: .ui), value: connectionText)
+                        LabeledContent(String(localized: "In use", bundle: .ui), value: ar.activeCamera)
+                        LabeledContent(String(localized: "Depth sensor", bundle: .ui), value: depthText)
+                        LabeledContent(String(localized: "AR tracking", bundle: .ui), value: ar.trackingIssue ?? String(localized: "Normal", bundle: .ui))
+                        LabeledContent(String(localized: "Version", bundle: .ui), value: version)
+                        Button(copied ? String(localized: "Copied", bundle: .ui) : String(localized: "Copy debug report", bundle: .ui)) {
+                            UIPasteboard.general.string = debugReport
+                            copied = true
+                        }
                         if settings.sparkProvider == .baseten { Text("Built with Muse Spark Open") }
+                    }
+                } footer: {
+                    if showDeveloper {
+                        Text("Timings are measured on the phone, network included. Only Muse Spark moves; SAM and voice recognition stay on Meta. The report has no frames, words or keys.")
                     }
                 }
                 #endif
                 Section {
-                    Toggle(String(localized: "Recording mode (for testing)", bundle: .ui), isOn: $settings.record)
-                } footer: {
-                    Text("When on, each frame and answer is saved on the Mac for testing; nothing is kept on the phone. Audio is never saved. Only invite codes allowed to record can use it.")
-                }
-                Section {
-                    Button(String(localized: "How Nova works", bundle: .ui)) { showHow = true }
-                    Link(String(localized: "Privacy and terms", bundle: .ui), destination: ConsentView.legalURL)
-                    LabeledContent(String(localized: "Version", bundle: .ui), value: version)
-                    LabeledContent(String(localized: "Depth sensor", bundle: .ui), value: ar.hasLiDAR ? String(localized: "LiDAR", bundle: .ui) : String(localized: "None (less precise)", bundle: .ui))
-                } header: {
-                    Text("About")
                 } footer: {
                     Text("Independent experimental prototype. Guidance is AI-generated and can be wrong.")
                 }
@@ -140,6 +118,7 @@ struct SettingsView: View {
                     Button(String(localized: "Close", bundle: .ui)) { dismiss() }
                 }
             }
+            .preferredColorScheme(.light)
             .fullScreenCover(isPresented: $showHow) {
                 HowView(buttonTitle: String(localized: "Close", bundle: .ui)) { showHow = false }
             }
@@ -147,6 +126,23 @@ struct SettingsView: View {
                 if let last = screenRecorder.last { RecordingPreview(video: last) }
             }
         }
+    }
+
+    private var depthText: String {
+        ar.hasLiDAR ? String(localized: "LiDAR", bundle: .ui) : String(localized: "None (less precise)", bundle: .ui)
+    }
+
+    private var reasoningModel: String {
+        (settings.sparkProvider == .baseten ? "muse-spark-open-1026" : "muse-spark-1.3") + " · " + settings.sparkEffort.rawValue
+    }
+
+    /// For pasting into a bug report; no frames, words or keys.
+    private var debugReport: String {
+        ["Nova debug report", "version: \(version)", "phase: \(model.phase)", "step: \(model.stepIndex + 1)",
+         "reasoning: \(reasoningModel)", "provider: \(settings.sparkProvider.rawValue)", "controls: sam-3.1",
+         "voice: muse-voice-transcribe-1.0, live: \(settings.liveTranscription)", "connection: \(model.connection)",
+         "camera: \(ar.activeCamera), depth: \(ar.hasLiDAR)", "tracking: \(ar.trackingIssue ?? "normal")",
+         "torch: \(settings.torch.rawValue), lit: \(ar.torchOn)", "timings: \(model.timings.summary)"].joined(separator: "\n")
     }
 
     private var lastRecordingText: String {

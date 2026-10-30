@@ -1,36 +1,30 @@
 import RealityKit
 import SwiftUI
 
-/// The camera screen. Portrait: the camera fills the screen, Pulse and the cards sit over its bottom. Landscape: the
-/// camera on the left, a 300 pt column on the right under the thumb, Pulse at the bottom of the camera.
+/// The camera screen: the camera fills the screen, with one card over it (at the bottom in portrait, at the right in
+/// landscape, under the thumb). Everything used rarely is behind the ⋯ button.
 struct CameraScreen: View {
     @EnvironmentObject private var model: GuideModel
     @EnvironmentObject private var ar: ARGuideController
     @EnvironmentObject private var settings: GuideSettings
     @EnvironmentObject private var screenRecorder: ScreenRecorder
     @Environment(\.scenePhase) private var scenePhase
-    @State private var showSettings = false
-    @State private var tipClosed = false
+    @State private var panel: Panel?
+
+    enum Panel: String, Identifiable {
+        case more, settings
+        var id: String { rawValue }
+    }
 
     var body: some View {
         GeometryReader { geometry in
             let land = geometry.size.width > geometry.size.height
-            ZStack {
-                if land {
-                    HStack(spacing: 0) {
-                        cameraArea(land: true)
-                        SidePanel(land: true)
-                            .frame(width: 300)
-                            .background(Color.novaColumn.ignoresSafeArea())
-                    }
-                } else {
-                    ZStack(alignment: .bottom) {
-                        cameraArea(land: false)
-                        SidePanel(land: false)
-                            .padding(.horizontal, 12)
-                            .padding(.bottom, 8)
-                    }
-                }
+            ZStack(alignment: land ? .bottomTrailing : .bottom) {
+                cameraArea(land: land)
+                SidePanel(land: land)
+                    .frame(maxWidth: land ? 300 : .infinity)
+                    .padding(.horizontal, 8)
+                    .padding(.bottom, 8)
                 if model.phase == .finished {
                     CompletionView().transition(.opacity)
                 }
@@ -38,8 +32,14 @@ struct CameraScreen: View {
             .animation(.easeOut(duration: 0.2), value: model.phase == .finished)
         }
         .background(Color.black.ignoresSafeArea())
-        .sheet(isPresented: $showSettings, onDismiss: { Task { await model.checkConnection() } }) {
-            SettingsView()
+        .sheet(item: $panel, onDismiss: { Task { await model.checkConnection() } }) { which in
+            switch which {
+            case .more:
+                MoreMenu { panel = $0 }
+                    .presentationDetents([.medium, .large])
+            case .settings:
+                SettingsView()
+            }
         }
         .onAppear {
             model.greet()
@@ -103,11 +103,8 @@ struct CameraScreen: View {
                 ScanOverlay().padding(.horizontal, 20).padding(.top, land ? 60 : 110).padding(.bottom, land ? 60 : 300)
                     .allowsHitTesting(false)
             }
-            if model.phase == .asking && model.plan == nil {
-                ReadyHint(land: land)
-            }
             VStack(spacing: 8) {
-                TopBar(showSettings: $showSettings)
+                TopBar { panel = .more }
                 #if DEBUG
                 if settings.showTimings && !model.timings.isEmpty {
                     Text(model.timings.summary)
@@ -126,13 +123,6 @@ struct CameraScreen: View {
                 if let problem = connectionProblem {
                     Chip(text: problem, systemImage: "wifi.exclamationmark", tint: .novaOrange)
                 }
-                if !land && !tipClosed && model.phase != .finished {
-                    RotateTip { tipClosed = true }
-                        .task {
-                            try? await Task.sleep(for: .seconds(5))  // hides itself, with no countdown on screen
-                            withAnimation { tipClosed = true }
-                        }
-                }
                 if let words = model.liveWords, !words.isEmpty {
                     Text(verbatim: "“\(words)”")
                         .font(.body.weight(.semibold))
@@ -149,9 +139,6 @@ struct CameraScreen: View {
                         .background(Color.novaCard.opacity(0.92), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
                 }
                 Spacer()
-                if land && model.phase != .finished {
-                    PulseButton().padding(.bottom, 14)
-                }
             }
             .padding(.horizontal, 14)
             .padding(.top, 12)
@@ -196,28 +183,14 @@ struct ARViewContainer: UIViewRepresentable {
 
 // MARK: Top bar
 
-/// Home (with the recognized device) on the left, Settings on the right; recording and sharing live in Settings.
+/// Only what can't wait: the torch while it is lit, and ⋯ for everything else. Its dot shows the connection.
 private struct TopBar: View {
     @EnvironmentObject private var model: GuideModel
     @EnvironmentObject private var ar: ARGuideController
-    @Binding var showSettings: Bool
+    var openMore: () -> Void
 
     var body: some View {
         HStack(spacing: 6) {
-            HStack(spacing: 8) {
-                Button { model.goHome() } label: {
-                    Image(systemName: "house").font(.system(size: 15, weight: .semibold)).padding(.vertical, 4)
-                }
-                .accessibilityLabel(Text("Home"))
-                if let device = model.knownDevice {
-                    Rectangle().fill(Color(white: 0.28)).frame(width: 1, height: 14)
-                    Text(device).font(.footnote.weight(.semibold)).lineLimit(1)
-                }
-            }
-            .foregroundStyle(.white)
-            .padding(.horizontal, 10)
-            .frame(height: 32)
-            .background(Color.novaCard.opacity(0.85), in: Capsule())
             Spacer(minLength: 6)
             if ar.torchOn {
                 // The torch is lit (automatically in the dark, or from Settings): one tap turns it off for this task.
@@ -225,23 +198,73 @@ private struct TopBar: View {
                     Image(systemName: "flashlight.on.fill").font(.system(size: 17, weight: .semibold)).foregroundStyle(Color.novaYellow)
                 }
             }
-            RoundIconButton(action: { showSettings = true }, accessibility: Text("Settings")) {
-                Image(systemName: "gearshape").font(.system(size: 18, weight: .medium)).foregroundStyle(.white)
+            RoundIconButton(action: openMore, accessibility: Text("More options")) {
+                Image(systemName: "ellipsis").font(.system(size: 18, weight: .bold)).foregroundStyle(.white)
                     .overlay(alignment: .topTrailing) {
-                        Circle().fill(dotColor).frame(width: 9, height: 9)
+                        Circle().fill(dotColor).frame(width: 8, height: 8)
                             .overlay(Circle().stroke(Color.novaCard, lineWidth: 2))
-                            .offset(x: 8, y: -8)
+                            .offset(x: 10, y: -10)
                     }
             }
         }
     }
 
-    /// The connection at a glance: green when the server answers with its key loaded.
     private var dotColor: Color {
         switch model.connection {
         case .connected: .novaGreen
         case .unknown: .gray
         default: .novaOrange
+        }
+    }
+}
+
+/// ⋯: everything used rarely, two taps away.
+private struct MoreMenu: View {
+    @EnvironmentObject private var model: GuideModel
+    @Environment(\.dismiss) private var dismiss
+    var open: (CameraScreen.Panel) -> Void
+
+    var body: some View {
+        NavigationStack {
+            List {
+                if model.phase == .guiding, model.currentStep != nil {
+                    Section {
+                        row("Say it again", "speaker.wave.2") { model.repeatStep() }
+                        row("Re-evaluate", "arrow.triangle.2.circlepath") { model.reassess() }
+                        row("Explain it in more detail", "text.bubble") { model.explainMore() }
+                        row("The marker is in the wrong place", "scope") { model.startMovingMarker() }
+                        row("This step is wrong", "exclamationmark.bubble") { model.openCorrection() }
+                        row("Previous step", "chevron.left") { model.back() }
+                    }
+                }
+                Section {
+                    row("Start over", "arrow.counterclockwise") { model.newTask(keepDevice: true) }
+                    Button { open(.settings) } label: { Label("Settings", systemImage: "gearshape") }
+                    row("Home", "house") { model.goHome() }
+                } footer: {
+                    VStack(alignment: .leading, spacing: 4) {
+                        if let device = model.knownDevice { Text(device) }
+                        Text("AI-generated guidance. Check before you press.")
+                    }
+                }
+            }
+            .navigationTitle(Text("More options"))
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button(String(localized: "Close", bundle: .ui)) { dismiss() }
+                }
+            }
+        }
+        .preferredColorScheme(.light)
+    }
+
+    private func row(_ title: LocalizedStringKey, _ icon: String, action: @escaping () -> Void) -> some View {
+        Button {
+            dismiss()
+            action()
+        } label: {
+            Label(title, systemImage: icon)
         }
     }
 }
@@ -261,45 +284,6 @@ struct Chip: View {
         .padding(.horizontal, 12)
         .padding(.vertical, 7)
         .background(Color.novaCard.opacity(0.9), in: Capsule())
-    }
-}
-
-private struct RotateTip: View {
-    var onClose: () -> Void
-
-    var body: some View {
-        HStack(spacing: 10) {
-            Image(systemName: "rotate.right").foregroundStyle(Color.novaYellow).font(.title3)
-            Text("For wide control panels, turn your iPhone sideways. Portrait is fully supported.")
-                .font(.footnote)
-                .foregroundStyle(Color(white: 0.9))
-                .frame(maxWidth: .infinity, alignment: .leading)
-            Button(action: onClose) { Image(systemName: "xmark").foregroundStyle(Color.novaText2) }
-                .accessibilityLabel(Text("Close"))
-        }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 10)
-        .background(Color.novaCard.opacity(0.92), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-    }
-}
-
-/// Before the first question: what to do, over the camera.
-private struct ReadyHint: View {
-    var land: Bool
-
-    var body: some View {
-        VStack(spacing: 10) {
-            Image(systemName: "viewfinder").font(.system(size: 52, weight: .light)).foregroundStyle(Color.novaYellow)
-            Text("Point the camera at what you need help with, then tap Pulse and say what you want to do.")
-                .font(.subheadline.weight(.semibold))
-                .multilineTextAlignment(.center)
-                .padding(.horizontal, 14)
-                .padding(.vertical, 8)
-                .background(Color.black.opacity(0.6), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-                .frame(maxWidth: land ? 260 : 340)
-        }
-        .offset(y: land ? 10 : -120)
-        .allowsHitTesting(false)
     }
 }
 
@@ -339,65 +323,9 @@ private struct CornerBrackets: Shape {
     }
 }
 
-// MARK: Pulse
+// MARK: Microphone
 
-/// Pulse: the one round button. Same size in every state; only its color and content change.
-struct PulseButton: View {
-    @EnvironmentObject private var model: GuideModel
-    @State private var glow = false
-
-    var body: some View {
-        let pulse = model.pulse
-        VStack(spacing: 6) {
-            Button { model.microphoneTapped() } label: {
-                ZStack {
-                    Circle().fill(color(pulse))
-                        .shadow(color: pulse == .ready ? Color.novaYellow.opacity(glow ? 0.7 : 0.15) : .black.opacity(0.45),
-                                radius: pulse == .ready ? 14 : 12, y: pulse == .ready ? 0 : 8)
-                    switch pulse {
-                    case .ready, .guiding:
-                        Image(systemName: "mic").font(.system(size: 26, weight: .semibold)).foregroundStyle(.black)
-                    case .listening:
-                        Waveform(recorder: model.recorder)
-                    case .thinking:
-                        Orb(size: 26)
-                    }
-                }
-                .frame(width: 68, height: 68)
-                .scaleEffect(model.awaitingFirstTap && pulse == .ready && glow ? 1.08 : 1)
-            }
-            .disabled(pulse == .thinking)
-            .accessibilityLabel(Text(label(pulse)))
-            Text(label(pulse))
-                .font(.footnote.weight(.bold))
-                .foregroundStyle(color(pulse))
-                .shadow(color: .black.opacity(0.9), radius: 2, y: 1)
-                .lineLimit(1)
-                .frame(width: 128)
-        }
-        .onAppear { withAnimation(.easeInOut(duration: 1.2).repeatForever(autoreverses: true)) { glow = true } }
-    }
-
-    private func color(_ pulse: GuideModel.Pulse) -> Color {
-        switch pulse {
-        case .ready: .novaYellow
-        case .listening: .novaRed
-        case .thinking: .novaPurple
-        case .guiding: .novaGreen
-        }
-    }
-
-    private func label(_ pulse: GuideModel.Pulse) -> String {
-        switch pulse {
-        case .ready: String(localized: "Tap and talk", bundle: .ui)
-        case .listening: String(localized: "Listening…", bundle: .ui)
-        case .thinking: String(localized: "Thinking…", bundle: .ui)
-        case .guiding: String(localized: "Ask", bundle: .ui)
-        }
-    }
-}
-
-private struct Waveform: View {
+struct Waveform: View {
     @ObservedObject var recorder: VoiceRecorder
 
     var body: some View {

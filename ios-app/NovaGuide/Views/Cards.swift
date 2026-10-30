@@ -1,154 +1,221 @@
 import SwiftUI
 
-/// What sits beside (landscape) or under (portrait) the camera: Pulse in portrait, then the card for the phase.
+/// The one card over the camera. It folds to a single line, so the camera can be seen in full while the user works;
+/// it shows the microphone or the choices only when Nova is waiting for them.
 struct SidePanel: View {
     @EnvironmentObject private var model: GuideModel
     var land: Bool
+    @State private var folded = false
 
     var body: some View {
-        VStack(spacing: 10) {
-            if !land && model.phase != .finished {
-                PulseButton()
-            }
-            switch model.phase {
-            case .asking:
-                scrolling { ReadyCard(land: land) }
-            case .thinking:
-                ThinkingCard().cardStyle(land: land)
-                if land { Spacer(minLength: 0) }
-            case .choosing(let asked):
-                scrolling { QuestionCard(asked: asked) }
-            case .guiding:
-                if let correcting = model.correcting {
-                    scrolling { CorrectionCard(correcting: correcting) }
-                } else if let plan = model.plan, let step = model.currentStep {
-                    StepCard(step: step, total: plan.steps.count, land: land)
-                        .cardStyle(land: land)
-                        .frame(maxHeight: land ? .infinity : nil)
-                }
-            case .refused(let note), .failed(let note):
-                scrolling { MessageCard(note: note) }
-            case .confirming:
-                if let correcting = model.correcting {
-                    scrolling { CorrectionCard(correcting: correcting) }
+        Group {
+            if model.phase == .thinking {
+                ThinkingCard().padding(.horizontal, 14).padding(.vertical, 10).sheetStyle()
+            } else if model.phase != .finished {
+                if folded, let line = foldedLine {
+                    FoldedBar(prefix: line.prefix, title: line.title) { folded = false }
                 } else {
-                    scrolling { ConfirmCard() }
+                    VStack(alignment: .leading, spacing: 8) {
+                        Handle { folded = true }
+                        ScrollView {
+                            content.padding(.bottom, 2)
+                        }
+                        .scrollBounceBehavior(.basedOnSize)
+                        .frame(maxHeight: land ? 300 : 420)
+                        .fixedSize(horizontal: false, vertical: true)
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.bottom, 10)
+                    .sheetStyle()
                 }
-            case .finished:
-                if land { Spacer(minLength: 0) }
             }
         }
-        .padding(.horizontal, land ? 12 : 0)
-        .padding(.vertical, land ? 14 : 0)
-        .frame(maxHeight: land ? .infinity : nil, alignment: .top)
-    }
-
-    /// Landscape cards scroll inside the column (the keyboard takes most of the height); portrait cards just stack.
-    @ViewBuilder private func scrolling<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
-        if land {
-            ScrollView { content().cardStyle(land: true) }.scrollDismissesKeyboard(.interactively)
-        } else {
-            content().cardStyle(land: false)
+        .environment(\.colorScheme, .light)
+        .animation(.easeOut(duration: 0.2), value: folded)
+        .onChange(of: model.phase) { _, _ in folded = false }
+        .onChange(of: model.stepIndex) { _, _ in folded = false }
+        .onChange(of: model.feedback) { _, feedback in
+            if feedback != nil { folded = false }  // the result of a check is always seen
         }
     }
-}
 
-private struct NovaCardModifier: ViewModifier {
-    var land: Bool
+    @ViewBuilder private var content: some View {
+        switch model.phase {
+        case .asking:
+            ReadyCard()
+        case .choosing(let asked):
+            QuestionCard(asked: asked)
+        case .guiding:
+            if let correcting = model.correcting {
+                CorrectionCard(correcting: correcting)
+            } else if let plan = model.plan, let step = model.currentStep {
+                StepCard(step: step, total: plan.steps.count)
+            }
+        case .confirming:
+            if let correcting = model.correcting {
+                CorrectionCard(correcting: correcting)
+            } else {
+                ConfirmCard()
+            }
+        case .refused(let note), .failed(let note):
+            MessageCard(note: note)
+        case .thinking, .finished:
+            EmptyView()
+        }
+    }
 
-    func body(content: Content) -> some View {
-        if land {
-            content.padding(4)  // flat on the column: no box in a box
-        } else {
-            content
-                .padding(.horizontal, 16)
-                .padding(.vertical, 14)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(Color.novaCard.opacity(0.95), in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+    private var foldedLine: (prefix: String, title: String)? {
+        switch model.phase {
+        case .asking:
+            return ("", String(localized: "Nova is ready to help.", bundle: .ui))
+        case .choosing(let asked):
+            return ("", GuideText.display(asked.text))
+        case .guiding:
+            guard model.correcting == nil, let step = model.currentStep else { return nil }
+            return (String(localized: "Step \(model.stepIndex + 1)", bundle: .ui), GuideText.display(step.instruction))
+        case .confirming:
+            return ("", String(localized: "Did this solve it?", bundle: .ui))
+        default:
+            return nil
         }
     }
 }
 
 extension View {
-    func cardStyle(land: Bool) -> some View { modifier(NovaCardModifier(land: land)) }
+    /// The frosted card: the camera stays visible around it, and light enough to read in a dim room.
+    func sheetStyle() -> some View {
+        frame(maxWidth: .infinity, alignment: .leading)
+            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+            .shadow(color: .black.opacity(0.25), radius: 12, y: 4)
+    }
+}
+
+private struct Handle: View {
+    var action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Capsule().fill(Color.black.opacity(0.22)).frame(width: 38, height: 5)
+                .frame(maxWidth: .infinity, minHeight: 20)
+                .contentShape(Rectangle())
+        }
+        .accessibilityLabel(Text("Hide the card"))
+        .simultaneousGesture(DragGesture(minimumDistance: 12).onEnded { if $0.translation.height > 16 { action() } })
+    }
+}
+
+private struct FoldedBar: View {
+    var prefix: String
+    var title: String
+    var open: () -> Void
+
+    var body: some View {
+        Button(action: open) {
+            HStack(spacing: 8) {
+                if !prefix.isEmpty {
+                    Text(prefix).font(.footnote.weight(.semibold)).foregroundStyle(Color.sheetMuted)
+                }
+                Text(title).font(.footnote.weight(.semibold)).lineLimit(1)
+                Spacer(minLength: 4)
+                Image(systemName: "chevron.up").font(.footnote.weight(.bold)).foregroundStyle(Color.sheetMuted)
+            }
+            .padding(.horizontal, 14)
+            .frame(minHeight: 44)
+            .contentShape(Rectangle())
+        }
+        .foregroundStyle(.primary)
+        .accessibilityLabel(Text("Show the card"))
+        .sheetStyle()
+    }
+}
+
+/// A secondary button on the light card.
+private struct SheetButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.footnote.weight(.semibold))
+            .foregroundStyle(.primary)
+            .frame(maxWidth: .infinity, minHeight: 38)
+            .padding(.horizontal, 8)
+            .overlay(RoundedRectangle(cornerRadius: 11, style: .continuous).stroke(Color.black.opacity(0.16), lineWidth: 1.5))
+            .contentShape(Rectangle())
+            .opacity(configuration.isPressed ? 0.6 : 1)
+    }
+}
+
+/// The microphone: large while Nova waits for the user to speak, small beside the main button otherwise.
+private struct MicButton: View {
+    @EnvironmentObject private var model: GuideModel
+    var large = false
+    @State private var glow = false
+
+    var body: some View {
+        Button { model.microphoneTapped() } label: {
+            ZStack {
+                if large {
+                    Circle().fill(listening ? Color.novaRed : Color.novaYellow)
+                        .shadow(color: Color.novaYellow.opacity(model.awaitingFirstTap && glow ? 0.9 : 0), radius: 14)
+                } else {
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .fill(listening ? Color.novaRed : Color.clear)
+                        .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(Color.black.opacity(0.16), lineWidth: 1.5))
+                }
+                if listening {
+                    Waveform(recorder: model.recorder)
+                } else if model.pulse == .thinking {
+                    Orb(size: large ? 24 : 18)
+                } else {
+                    Image(systemName: "mic").font(.system(size: large ? 26 : 18, weight: .semibold)).foregroundStyle(.black)
+                }
+            }
+            .frame(width: large ? 64 : 44, height: large ? 64 : 44)
+            .scaleEffect(large && model.awaitingFirstTap && glow ? 1.08 : 1)
+        }
+        .disabled(model.pulse == .thinking)
+        .accessibilityLabel(Text(listening ? "Listening…" : "Tap and talk"))
+        .onAppear { withAnimation(.easeInOut(duration: 1.1).repeatForever(autoreverses: true)) { glow = true } }
+    }
+
+    private var listening: Bool { model.pulse == .listening }
 }
 
 // MARK: Ready
 
 private struct ReadyCard: View {
     @EnvironmentObject private var model: GuideModel
-    var land: Bool
     @State private var typing = false
     @FocusState private var focused: Bool
 
-    private var suggestions: [String] {
-        [String(localized: "How does this work?", bundle: .ui), String(localized: "Show me step by step", bundle: .ui)]
-    }
-
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(model.awaitingFirstTap ? "Nova is ready to help." : "How can I help you?").font(.title3.weight(.bold))
-                Text("Tap Pulse and say it, or pick one.").font(.footnote).foregroundStyle(Color.novaText3)
-            }
-            VStack(spacing: 10) {
-                if !(land && typing) {
-                    ForEach(suggestions, id: \.self) { suggestion in
-                        Button {
-                            model.question = suggestion
-                            model.ask()
-                        } label: {
-                            HStack {
-                                Text(suggestion).multilineTextAlignment(.leading)
-                                Spacer(minLength: 8)
-                                Image(systemName: "chevron.right").font(.footnote.weight(.bold))
-                            }
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(Color.novaYellow)
-                            .padding(.horizontal, 14)
-                            .frame(minHeight: 48)
-                            .background(Color.novaYellow.opacity(0.06), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-                            .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(Color.novaLine))
-                        }
-                    }
-                }
-                Button {
-                    withAnimation(.easeOut(duration: 0.2)) { typing.toggle() }
-                    focused = typing
-                } label: {
-                    HStack(spacing: 10) {
-                        Image(systemName: "keyboard")
-                        Text("Type instead").frame(maxWidth: .infinity, alignment: .leading)
-                        Image(systemName: typing ? "chevron.up" : "chevron.down").foregroundStyle(Color.novaText3)
-                    }
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(Color(white: 0.9))
-                    .padding(.horizontal, 14)
-                    .frame(minHeight: 48)
-                    .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(typing ? Color.novaYellow : Color.novaLine))
-                }
-                .accessibilityAddTraits(typing ? .isSelected : [])
-            }
+        VStack(spacing: 8) {
+            Text(model.awaitingFirstTap ? "Nova is ready to help." : "How can I help you?")
+                .font(.headline)
+                .multilineTextAlignment(.center)
+            MicButton(large: true)
+            Text(model.pulse == .listening ? "Listening…" : "Tap and talk").font(.footnote.weight(.semibold))
             if typing {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Type your question").font(.caption).foregroundStyle(Color.novaText3)
-                    TextField(String(localized: "I want a normal wash", bundle: .ui), text: $model.question, axis: .vertical)
-                        .lineLimit(2...3)
-                        .focused($focused)
-                        .submitLabel(.go)
-                        .onSubmit(send)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 10)
-                        .background(Color.novaRaised, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-                        .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(Color.novaLine))
-                    // Stays readable when there is nothing to send yet (the old button disappeared when disabled).
-                    Button(String(localized: "Show me", bundle: .ui), action: send)
-                        .buttonStyle(PrimaryButtonStyle(enabled: !isEmpty))
-                        .disabled(isEmpty)
+                TextField(String(localized: "I want a normal wash", bundle: .ui), text: $model.question, axis: .vertical)
+                    .lineLimit(1...3)
+                    .focused($focused)
+                    .submitLabel(.go)
+                    .onSubmit(send)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 9)
+                    .background(Color.white, in: RoundedRectangle(cornerRadius: 11, style: .continuous))
+                Button(String(localized: "Show me", bundle: .ui), action: send)
+                    .buttonStyle(PrimaryButtonStyle(enabled: !isEmpty))
+                    .disabled(isEmpty)
+            } else if model.pulse != .listening {
+                Button(String(localized: "Type instead", bundle: .ui)) {
+                    typing = true
+                    focused = true
                 }
-                .transition(.opacity)
+                .font(.footnote.weight(.semibold))
+                .foregroundStyle(Color.sheetMuted)
+                .frame(minHeight: 30)
             }
         }
+        .frame(maxWidth: .infinity)
     }
 
     private var isEmpty: Bool { model.question.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
@@ -166,12 +233,8 @@ private struct MessageCard: View {
     var note: String
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack(alignment: .top, spacing: 10) {
-                Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(Color.novaOrange)
-                Text(GuideText.display(note)).fixedSize(horizontal: false, vertical: true)
-            }
-            .font(.body.weight(.semibold))
+        VStack(alignment: .leading, spacing: 10) {
+            Bubble(icon: "exclamationmark.triangle.fill", color: .orange, title: nil, text: note)
             Button(String(localized: "Try again", bundle: .ui)) { model.newQuestion() }
                 .buttonStyle(PrimaryButtonStyle())
         }
@@ -180,7 +243,7 @@ private struct MessageCard: View {
 
 // MARK: Nova's question
 
-/// One big row: what the device says, and what it means.
+/// One row: what the device says, and what it means.
 private struct ChoiceRow: View {
     var title: String
     var subtitle: String?
@@ -188,22 +251,18 @@ private struct ChoiceRow: View {
 
     var body: some View {
         Button(action: action) {
-            HStack {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(title).font(.subheadline.weight(.semibold)).foregroundStyle(Color.novaYellow)
-                    if let subtitle {
-                        Text(subtitle).font(.caption).foregroundStyle(Color.novaText2)
-                    }
+            VStack(alignment: .leading, spacing: 1) {
+                Text(title).font(.subheadline.weight(.bold)).foregroundStyle(.primary)
+                if let subtitle {
+                    Text(subtitle).font(.caption).foregroundStyle(Color.sheetMuted)
                 }
-                .multilineTextAlignment(.leading)
-                Spacer(minLength: 8)
-                Image(systemName: "chevron.right").font(.footnote.weight(.bold)).foregroundStyle(Color.novaYellow)
             }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 8)
-            .frame(minHeight: 48)
-            .background(Color.novaYellow.opacity(0.06), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(Color.novaLine))
+            .multilineTextAlignment(.leading)
+            .frame(maxWidth: .infinity, minHeight: 42, alignment: .leading)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 3)
+            .background(Color.novaYellow.opacity(0.18), in: RoundedRectangle(cornerRadius: 11, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 11, style: .continuous).stroke(Color.black.opacity(0.12), lineWidth: 1.5))
         }
     }
 }
@@ -213,19 +272,14 @@ private struct QuestionCard: View {
     var asked: GuidePlan.Question
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text(GuideText.display(asked.text)).font(.title3.weight(.bold)).fixedSize(horizontal: false, vertical: true)
-            ScrollView {
-                VStack(spacing: 8) {
-                    ForEach(asked.options) { option in
-                        ChoiceRow(title: option.title, subtitle: option.subtitle) { model.answerQuestion(option.answer) }
-                    }
-                }
+        VStack(alignment: .leading, spacing: 7) {
+            Text(GuideText.display(asked.text)).font(.headline).fixedSize(horizontal: false, vertical: true)
+            ForEach(asked.options) { option in
+                ChoiceRow(title: option.title, subtitle: option.subtitle) { model.answerQuestion(option.answer) }
             }
-            .frame(maxHeight: 280)
             HStack(spacing: 8) {
-                Button(String(localized: "You choose", bundle: .ui)) { model.letNovaChoose() }.buttonStyle(OutlineButtonStyle())
-                Button(String(localized: "Something else", bundle: .ui)) { model.microphoneTapped() }.buttonStyle(OutlineButtonStyle())
+                Button(String(localized: "You choose", bundle: .ui)) { model.letNovaChoose() }.buttonStyle(SheetButtonStyle())
+                MicButton()
             }
         }
     }
@@ -237,17 +291,20 @@ private struct ConfirmCard: View {
     @EnvironmentObject private var model: GuideModel
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Did this solve it?").font(.title3.weight(.bold))
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Did this solve it?").font(.headline)
             if let reply = model.reply {
-                Text(GuideText.display(reply)).font(.footnote).foregroundStyle(Color.novaText2).fixedSize(horizontal: false, vertical: true)
+                Text(GuideText.display(reply)).font(.footnote).foregroundStyle(Color.sheetMuted).fixedSize(horizontal: false, vertical: true)
             }
             Button(String(localized: "Yes, solved", bundle: .ui)) { model.confirmSolved() }.buttonStyle(PrimaryButtonStyle(fill: .novaGreen))
-            Button(String(localized: "No, not solved", bundle: .ui)) { model.notSolved() }.buttonStyle(OutlineButtonStyle())
+            HStack(spacing: 8) {
+                Button(String(localized: "No, not solved", bundle: .ui)) { model.notSolved() }.buttonStyle(SheetButtonStyle())
+                MicButton()
+            }
             Button(String(localized: "Back to the last step", bundle: .ui)) { model.back() }
                 .font(.footnote.weight(.semibold))
-                .foregroundStyle(Color.novaText2)
-                .frame(maxWidth: .infinity, minHeight: 32)
+                .foregroundStyle(Color.sheetMuted)
+                .frame(maxWidth: .infinity, minHeight: 28)
         }
     }
 }
@@ -259,17 +316,17 @@ private struct CorrectionCard: View {
     var correcting: GuideModel.Correcting
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 7) {
             switch correcting {
             case .menu:
-                Text("What's wrong?").font(.title3.weight(.bold))
+                Text("What's wrong?").font(.headline)
                 ChoiceRow(title: String(localized: "It's pointing at the wrong place", bundle: .ui), subtitle: nil) { model.startMovingMarker() }
                 ChoiceRow(title: String(localized: "Explain it in more detail", bundle: .ui), subtitle: nil) { model.explainMore() }
                 if model.canCorrectStep {
                     ChoiceRow(title: String(localized: "This step is wrong", bundle: .ui), subtitle: nil) { model.tellWhatIsWrong(kind: "step") }
                 } else {
                     Text("I'm not sure about this step. Check the device's manual, or skip it.")
-                        .font(.footnote).foregroundStyle(Color.novaText2).fixedSize(horizontal: false, vertical: true)
+                        .font(.footnote).foregroundStyle(Color.sheetMuted).fixedSize(horizontal: false, vertical: true)
                     ChoiceRow(title: String(localized: "Skip this step", bundle: .ui), subtitle: nil) {
                         model.closeCorrection()
                         model.skip()
@@ -277,18 +334,19 @@ private struct CorrectionCard: View {
                 }
                 ChoiceRow(title: String(localized: "Start over", bundle: .ui), subtitle: nil) { model.tellWhatIsWrong(kind: "restart") }
             case .moving:
-                Text("Tap the right control on the screen.").font(.headline).fixedSize(horizontal: false, vertical: true)
+                Text("Tap the right control on the screen.").font(.subheadline.weight(.semibold)).fixedSize(horizontal: false, vertical: true)
             case .telling(let kind):
-                if kind == "outcome" {
-                    Text("What happened?").font(.title3.weight(.bold))
-                    Text("For example: it still doesn't turn on.").font(.footnote).foregroundStyle(Color.novaText2)
-                } else {
-                    Text("Tell me what's wrong.").font(.title3.weight(.bold))
-                    Text("For example: there is no such button.").font(.footnote).foregroundStyle(Color.novaText2)
+                HStack(spacing: 10) {
+                    MicButton()
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text(kind == "outcome" ? "What happened?" : "Tell me what's wrong.").font(.headline)
+                        Text(kind == "outcome" ? "For example: it still doesn't turn on." : "For example: there is no such button.")
+                            .font(.caption).foregroundStyle(Color.sheetMuted)
+                    }
                 }
                 Button(String(localized: "Just look again", bundle: .ui)) { model.lookAgainWithoutWords() }.buttonStyle(PrimaryButtonStyle())
             }
-            Button(String(localized: "Cancel", bundle: .ui)) { model.closeCorrection() }.buttonStyle(OutlineButtonStyle())
+            Button(String(localized: "Cancel", bundle: .ui)) { model.closeCorrection() }.buttonStyle(SheetButtonStyle())
         }
     }
 }
@@ -299,12 +357,9 @@ private struct ThinkingCard: View {
     @EnvironmentObject private var model: GuideModel
 
     var body: some View {
-        HStack(spacing: 14) {
-            Orb(size: 34)
-            VStack(alignment: .leading, spacing: 3) {
-                Text(model.statusLine).font(.headline)
-                Text("No need to hold the phone still.").font(.caption).foregroundStyle(Color.novaText2)
-            }
+        HStack(spacing: 10) {
+            Orb(size: 22)
+            Text(model.statusLine).font(.subheadline.weight(.semibold))
             Spacer(minLength: 0)
         }
     }
@@ -317,150 +372,99 @@ private struct StepCard: View {
     @EnvironmentObject private var settings: GuideSettings
     var step: GuideStep
     var total: Int
-    var land: Bool
-    @State private var nudge = false
 
     private var index: Int { model.stepIndex }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: land ? 8 : 10) {
+        VStack(alignment: .leading, spacing: 7) {
             HStack(spacing: 8) {
-                Text(model.knownDevice?.uppercased() ?? "")
-                    .font(.caption.weight(.bold))
-                    .tracking(0.6)
-                    .foregroundStyle(Color.novaText2)
-                    .lineLimit(1)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                HStack(spacing: 4) {
-                    arrow("chevron.left", label: index == 0 ? String(localized: "Back to the question", bundle: .ui) : String(localized: "Previous step", bundle: .ui)) {
-                        model.back()
+                Text("Step \(index + 1)").font(.caption.weight(.bold)).foregroundStyle(Color.sheetMuted)
+                HStack(spacing: 3) {
+                    ForEach(model.records.indices, id: \.self) { i in
+                        Capsule().fill(segmentColor(i)).frame(height: 4)
                     }
-                    Text(verbatim: model.plan?.goesOn == true ? "\(index + 1)" : "\(index + 1)/\(total)")  // the total isn't known yet
-                        .font(.footnote.weight(.bold).monospacedDigit())
-                        .foregroundStyle(Color.novaYellow)
-                        .frame(minWidth: 34)
-                    arrow("chevron.right", label: String(localized: "Next step", bundle: .ui)) { model.forward() }
-                        .disabled(!model.canGoForward)
-                        .opacity(model.canGoForward ? 1 : 0.35)
                 }
+                .accessibilityHidden(true)
             }
-            HStack(spacing: 4) {
-                ForEach(model.records.indices, id: \.self) { i in
-                    Capsule().fill(segmentColor(i)).frame(height: 5)
-                }
-            }
-            .accessibilityHidden(true)
             Text(GuideText.display(step.instruction))
-                .font(.system(size: land ? 17 : 22, weight: .bold))
+                .font(.headline)
                 .fixedSize(horizontal: false, vertical: true)
-            if let remaining = model.plan?.remaining, !remaining.isEmpty, index + 1 == total {
-                Text("Next: \(GuideText.display(remaining))")
-                    .font(.caption)
-                    .foregroundStyle(Color.novaText2)
-                    .lineLimit(2)
-            }
             if let motion = step.motionKind {
                 Label(motion.title, systemImage: motion.symbol)
                     .font(.footnote.weight(.bold))
-                    .foregroundStyle(Color.novaCyan)
+                    .foregroundStyle(.blue)
             }
-            if let detail = step.detail, !detail.isEmpty, !land || (resultBox == nil && model.reply == nil) {
-                Text(GuideText.display(detail))
-                    .font(.system(size: land ? 13 : 14))
-                    .foregroundStyle(Color.novaText2)
-                    .fixedSize(horizontal: false, vertical: true)
+            if let detail = step.detail, !detail.isEmpty, resultBox == nil, model.reply == nil {
+                Text(GuideText.display(detail)).font(.footnote).foregroundStyle(Color.sheetMuted).fixedSize(horizontal: false, vertical: true)
+            }
+            if let remaining = model.plan?.remaining, !remaining.isEmpty, index + 1 == total {
+                Text("Next: \(GuideText.display(remaining))").font(.caption).foregroundStyle(Color.sheetMuted).lineLimit(2)
             }
             if let reply = model.reply {
-                Bubble(icon: "bubble.left", color: .novaCyan, title: nil, text: reply)
+                Bubble(icon: "bubble.left", color: .blue, title: nil, text: reply)
             }
             if let box = resultBox {
                 Bubble(icon: box.icon, color: box.color, title: box.title, text: box.text)
             }
-            if land { Spacer(minLength: 0) }
-            VStack(spacing: 8) {
-                if model.seemsStuck {
-                    Bubble(icon: "arrow.triangle.2.circlepath", color: .novaOrange, title: nil,
-                           text: String(localized: "We seem stuck. Shall I look at this again?", bundle: .ui))
-                }
-                Text("AI-generated guidance. Check before you press.")
-                    .font(.caption2)
-                    .foregroundStyle(Color.novaText3)
-                    .lineLimit(2)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                HStack(spacing: 8) {
-                    Button { model.repeatStep() } label: {
-                        Image(systemName: "speaker.wave.2").font(.system(size: 18)).foregroundStyle(.white)
-                            .frame(width: 46, height: 46)
-                            .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(Color.novaLine))
-                    }
-                    .accessibilityLabel(Text("Repeat"))
-                    Button { model.primary() } label: {
-                        HStack(spacing: 8) {
-                            if model.feedback == .checking || model.isLocating { ProgressView().tint(.black) }
-                            Text(primaryTitle)
-                        }
-                    }
-                    .buttonStyle(PrimaryButtonStyle(fill: model.feedback == .correct ? .novaGreen : .novaYellow))
-                    .scaleEffect(nudge ? 1.03 : 1)
-                    .disabled(model.feedback == .checking || model.isLocating || model.reassessing)
-                }
-                HStack(spacing: 8) {
-                    Button { model.reassess() } label: {
-                        HStack(spacing: 6) {
-                            if model.reassessing { ProgressView().tint(.white) }
-                            Text(model.reassessing ? String(localized: "Looking again…", bundle: .ui) : String(localized: "Re-evaluate", bundle: .ui))
-                        }
-                    }
-                    .buttonStyle(OutlineButtonStyle())
-                    .disabled(model.feedback == .checking || model.isLocating || model.reassessing)
-                    Button(model.stepDefended ? String(localized: "Still wrong", bundle: .ui) : String(localized: "More options", bundle: .ui)) {
-                        model.openCorrection()
-                    }
-                    .buttonStyle(OutlineButtonStyle())
-                    .disabled(model.feedback == .checking || model.reassessing)
-                }
-                if let secondary = secondaryTitle {
-                    Button(secondary) { model.secondary() }.buttonStyle(OutlineButtonStyle())
-                }
+            if model.seemsStuck {
+                Bubble(icon: "arrow.triangle.2.circlepath", color: .orange, title: nil,
+                       text: String(localized: "We seem stuck. Shall I look at this again?", bundle: .ui))
             }
-        }
-        .onChange(of: model.feedback) { _, feedback in
-            // After a verified check the Continue button pulses; with auto-continue it moves on by itself, silently.
-            if feedback == .correct {
-                withAnimation(.easeInOut(duration: 0.6).repeatForever(autoreverses: true)) { nudge = true }
-            } else {
-                withAnimation(.default) { nudge = false }
+            if index == 0 && resultBox == nil {
+                Text("AI-generated guidance. Check before you press.").font(.caption2).foregroundStyle(Color.sheetMuted).lineLimit(2)
+            }
+            HStack(spacing: 8) {
+                MicButton()
+                Button { model.primary() } label: {
+                    HStack(spacing: 8) {
+                        if busy { ProgressView().tint(.black) }
+                        Text(primaryTitle)
+                    }
+                }
+                .buttonStyle(PrimaryButtonStyle(fill: model.feedback == .correct ? .novaGreen : .novaYellow))
+                .disabled(busy)
+            }
+            let extras = extraButtons
+            if !extras.isEmpty {
+                HStack(spacing: 8) {
+                    ForEach(extras, id: \.title) { extra in
+                        Button(extra.title, action: extra.action).buttonStyle(SheetButtonStyle())
+                    }
+                }
             }
         }
     }
 
-    private func arrow(_ symbol: String, label: String, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Image(systemName: symbol).font(.system(size: 14, weight: .bold)).foregroundStyle(.white)
-                .frame(width: 36, height: 36)
-                .overlay(Circle().stroke(Color.novaLine))
-        }
-        .accessibilityLabel(Text(label))
+    private var busy: Bool { model.feedback == .checking || model.isLocating || model.reassessing }
+
+    /// Shown only when something went wrong; everything else is in the ⋯ menu.
+    private var extraButtons: [(title: String, action: () -> Void)] {
+        var buttons: [(title: String, action: () -> Void)] = []
+        if model.seemsStuck { buttons.append((String(localized: "Re-evaluate", bundle: .ui), { model.reassess() })) }
+        if model.stepDefended { buttons.append((String(localized: "Still wrong", bundle: .ui), { model.openCorrection() })) }
+        if let secondary = secondaryTitle { buttons.append((secondary, { model.secondary() })) }
+        return buttons
     }
 
     private func segmentColor(_ i: Int) -> Color {
         let result = model.records[i].result
         if i == index && result == .pending { return .novaYellow }
-        return StepCardColors.color(result)
+        return result == .pending ? Color.black.opacity(0.14) : StepCardColors.color(result)
     }
 
     private var resultBox: (icon: String, color: Color, title: String?, text: String)? {
         switch model.feedback {
-        case .correct: ("checkmark", .novaGreen, String(localized: "Verified.", bundle: .ui), "")
-        case .notDone(let text): ("xmark", .novaRed, String(localized: "Needs correction.", bundle: .ui), text)
-        case .unsure(let text): ("questionmark.circle", .novaOrange, String(localized: "Not sure.", bundle: .ui), text)
-        case .error(let text): ("exclamationmark.triangle", .novaOrange, nil, text)
+        case .correct: ("checkmark", .green, String(localized: "Verified.", bundle: .ui), "")
+        case .notDone(let text): ("xmark", .red, nil, text)
+        case .unsure(let text): ("questionmark.circle", .orange, nil, text)
+        case .error(let text): ("exclamationmark.triangle", .orange, nil, text)
         case .checking, nil: nil
         }
     }
 
     private var primaryTitle: String {
         if model.isLocating { return String(localized: "Finding the control…", bundle: .ui) }
+        if model.reassessing { return String(localized: "Looking again…", bundle: .ui) }
         switch model.feedback {
         case .checking: return String(localized: "Checking…", bundle: .ui)
         case .correct: return model.isLastStep ? String(localized: "Finish", bundle: .ui) : String(localized: "Continue →", bundle: .ui)
@@ -488,16 +492,16 @@ private struct Bubble: View {
     var text: String
 
     var body: some View {
-        HStack(alignment: .top, spacing: 8) {
-            Image(systemName: icon).foregroundStyle(color).font(.subheadline.weight(.bold)).padding(.top, 1)
+        HStack(alignment: .top, spacing: 7) {
+            Image(systemName: icon).foregroundStyle(color).font(.footnote.weight(.bold)).padding(.top, 1)
             (Text(title.map { $0 + (text.isEmpty ? "" : " ") } ?? "").bold() + Text(GuideText.display(text)))
-                .font(.subheadline)
+                .font(.footnote)
                 .fixedSize(horizontal: false, vertical: true)
             Spacer(minLength: 0)
         }
-        .padding(.horizontal, 11)
-        .padding(.vertical, 9)
-        .background(color.opacity(0.15), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
+        .background(color.opacity(0.14), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
     }
 }
 

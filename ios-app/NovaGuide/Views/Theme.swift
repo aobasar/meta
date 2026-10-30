@@ -14,6 +14,7 @@ extension Color {
     static let novaRed = Color(red: 1, green: 0.271, blue: 0.227)  // #FF453A
     static let novaOrange = Color(red: 1, green: 0.624, blue: 0.039)  // #FF9F0A
     static let novaPurple = Color(red: 0.749, green: 0.353, blue: 0.949)  // #BF5AF2
+    static let sheetMuted = Color(white: 0.32)  // secondary text on the light card
     static let novaCyan = Color(red: 0.392, green: 0.824, blue: 1)  // #64D2FF
 }
 
@@ -26,7 +27,7 @@ struct PrimaryButtonStyle: ButtonStyle {
         configuration.label
             .font(.headline.weight(.heavy))
             .foregroundStyle(enabled ? Color.black : Color(white: 0.56))
-            .frame(maxWidth: .infinity, minHeight: 48)
+            .frame(maxWidth: .infinity, minHeight: 44)
             .padding(.horizontal, 12)
             .background(enabled ? fill : Color.novaLine, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
             .opacity(configuration.isPressed ? 0.8 : 1)
