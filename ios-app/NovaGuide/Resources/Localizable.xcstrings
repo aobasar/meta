@@ -1818,6 +1818,17 @@
         }
       }
     },
+    "Mascot": {
+      "extractionState": "manual",
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Maskot"
+          }
+        }
+      }
+    },
     "Sound effects": {
       "localizations": {
         "tr": {

@@ -79,10 +79,10 @@ struct WelcomeView: View {
         } }
     }
 
-    /// The logo with "NOVA" under it, scaled together: wordmark 0.21 × logo, gap 0.09 × logo.
+    /// The mascot with the name under it, scaled together: wordmark 0.21 × logo, gap 0.09 × logo.
     private func mark(logo: CGFloat, word: CGFloat) -> some View {
         VStack(spacing: logo * 0.09) {
-            NovaLogo(size: logo)
+            KokobubuMascot(size: logo)
             Text(verbatim: "KOKOBUBU")
                 .font(.system(size: word, weight: .light))
                 .tracking(word * 0.35)

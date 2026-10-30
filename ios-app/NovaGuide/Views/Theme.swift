@@ -66,22 +66,6 @@ struct RoundIconButton<Label: View>: View {
     }
 }
 
-/// Nova's mark: viewfinder corners around a four-pointed star (the prototype's logo, drawn as shapes).
-struct NovaLogo: View {
-    var size: CGFloat
-
-    var body: some View {
-        ZStack {
-            ViewfinderCorners()
-                .stroke(Color.novaYellow, style: StrokeStyle(lineWidth: size * 0.045, lineCap: .round, lineJoin: .round))
-            FourPointStar().fill(Color.novaYellow)
-                .shadow(color: .novaYellow.opacity(0.45), radius: size * 0.06)
-        }
-        .frame(width: size, height: size)
-        .accessibilityHidden(true)
-    }
-}
-
 /// Four rounded corner brackets, in a 100×100 box like the prototype's SVG.
 struct ViewfinderCorners: Shape {
     func path(in rect: CGRect) -> Path {
