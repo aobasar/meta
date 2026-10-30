@@ -63,7 +63,7 @@ struct RecordingPreview: View {
         Task {
             // Add-only access: Nova can put the video in Photos but can't see the library.
             guard await PHPhotoLibrary.requestAuthorization(for: .addOnly) == .authorized else {
-                message = String(localized: "Allow Nova Guide to add to Photos in Settings, then try again.", bundle: .ui)
+                message = String(localized: "Allow Koko Guide to add to Photos in Settings, then try again.", bundle: .ui)
                 return
             }
             do {

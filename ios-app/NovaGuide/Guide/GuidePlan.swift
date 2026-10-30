@@ -152,6 +152,8 @@ struct StepCheck: Decodable, Equatable {
     var status: Status
     var observed: String
     var correction: String
+    /// What is now set, said after a passed check; empty or missing when the model gave none.
+    var confirmation: String?
     /// "too_small" when the server judged the close-up too small to read.
     var reason: String?
     var recording: String?

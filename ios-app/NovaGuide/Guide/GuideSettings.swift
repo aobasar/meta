@@ -180,7 +180,7 @@ enum SparkEffort: String, CaseIterable, Identifiable {
 /// User settings, kept in UserDefaults on the phone.
 final class GuideSettings: ObservableObject {
     /// The version of the terms the consent screen shows; a new version asks again.
-    static let termsVersion = "2026-10-27"
+    static let termsVersion = "2026-10-30"
     /// Settings › I speak › Automatic: Nova answers in the language the user just spoke (the default).
     static let automaticLanguage = "Automatic"
 

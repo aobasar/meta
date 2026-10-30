@@ -30,7 +30,7 @@ struct SettingsView: View {
                     }
                     LabeledContent(String(localized: "Voice", bundle: .ui), value: Speaker.voiceDescription(for: model.language.voice))
                 } footer: {
-                    Text("For a more natural voice, download a Premium or Enhanced one in the iPhone's Settings › Accessibility › Read & Speak (or Spoken Content) › Voices; Nova uses the best one it finds.")
+                    Text("For a more natural voice, download a Premium or Enhanced one in the iPhone's Settings › Accessibility › Read & Speak (or Spoken Content) › Voices; Koko uses the best one it finds.")
                 }
                 Section {
                     DisclosureGroup(String(localized: "Advanced", bundle: .ui), isExpanded: $showAdvanced) {
@@ -70,8 +70,8 @@ struct SettingsView: View {
                             .textInputAutocapitalization(.never)
                             .autocorrectionDisabled()
                         LabeledContent(String(localized: "Status", bundle: .ui), value: connectionText)
-                        Button(String(localized: "How Nova works", bundle: .ui)) { showHow = true }
-                        Link(String(localized: "Privacy and terms", bundle: .ui), destination: ConsentView.legalURL)
+                        Button(String(localized: "How Koko works", bundle: .ui)) { showHow = true }
+                        Link(String(localized: "Privacy", bundle: .ui), destination: ConsentView.legalURL)
                     }
                 }
                 #if DEBUG
@@ -127,6 +127,7 @@ struct SettingsView: View {
                 if let last = screenRecorder.last { RecordingPreview(video: last) }
             }
         }
+        .presentationBackground(Color.sheetGround)
     }
 
     private var depthText: String {
@@ -139,7 +140,7 @@ struct SettingsView: View {
 
     /// For pasting into a bug report; no frames, words or keys.
     private var debugReport: String {
-        ["Nova debug report", "version: \(version)", "phase: \(model.phase)", "step: \(model.stepIndex + 1)",
+        ["Koko debug report", "version: \(version)", "phase: \(model.phase)", "step: \(model.stepIndex + 1)",
          "reasoning: \(reasoningModel)", "provider: \(settings.sparkProvider.rawValue)", "controls: sam-3.1",
          "voice: muse-voice-transcribe-1.0, live: \(settings.liveTranscription)", "connection: \(model.connection)",
          "camera: \(ar.activeCamera), depth: \(ar.hasLiDAR)", "tracking: \(ar.trackingIssue ?? "normal")",

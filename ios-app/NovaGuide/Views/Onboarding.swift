@@ -83,7 +83,7 @@ struct WelcomeView: View {
     private func mark(logo: CGFloat, word: CGFloat) -> some View {
         VStack(spacing: logo * 0.09) {
             NovaLogo(size: logo)
-            Text(verbatim: "NOVA")
+            Text(verbatim: "KOKO")
                 .font(.system(size: word, weight: .light))
                 .tracking(word * 0.35)
                 .padding(.leading, word * 0.35)
@@ -127,14 +127,14 @@ struct HowView: View {
     private var cards: [(icon: String, title: String, text: String)] {
         [("viewfinder", String(localized: "Show", bundle: .ui), String(localized: "Point the camera; the right control gets marked.", bundle: .ui)),
          ("list.bullet", String(localized: "Follow", bundle: .ui), String(localized: "One step at a time, large and read aloud.", bundle: .ui)),
-         ("checkmark.circle", String(localized: "Verify", bundle: .ui), String(localized: "Say “done” and Nova checks with the camera.", bundle: .ui))]
+         ("checkmark.circle", String(localized: "Verify", bundle: .ui), String(localized: "Say “done” and Koko checks with the camera.", bundle: .ui))]
     }
 
     var body: some View {
         lightScreen { GeometryReader { geometry in
             let land = Orientation(geometry.size).landscape
             VStack(spacing: land ? 12 : 18) {
-                Text("How Nova works")
+                Text("How Koko works")
                     .font(.system(size: land ? 20 : 24, weight: .bold))
                 let layout = land ? AnyLayout(HStackLayout(alignment: .top, spacing: 10)) : AnyLayout(VStackLayout(spacing: 10))
                 layout {
@@ -181,14 +181,14 @@ struct HowView: View {
 }
 
 struct ConsentView: View {
-    static let legalURL = URL(string: "https://aobasar.com/projects/nova/legal")!
+    static let legalURL = URL(string: "https://www.aobasar.com/projects/kokobubu/legal/")!
 
     var onAgree: () -> Void
     @State private var agreed = false
     @State private var glow = false
 
     private var items: [(icon: String, color: Color, text: String)] {
-        [("paperplane", .novaYellow, String(localized: "Frames and your voice go to the Nova server and AI models only when you ask; they aren't kept.", bundle: .ui)),
+        [("paperplane", .novaYellow, String(localized: "Frames and your voice go to the Koko server and the Meta Model API only when you ask. Koko's server doesn't keep them; Meta's terms apply.", bundle: .ui)),
          ("exclamationmark.triangle", .novaOrange, String(localized: "AI-generated guidance. Check before you press. It can be wrong; labels and manuals come first.", bundle: .ui)),
          ("nosign", .novaRed, String(localized: "Not for gas, electrical panels, vehicles or medication.", bundle: .ui)),
          ("person", .novaCyan, String(localized: "For ages 18 and up.", bundle: .ui))]
@@ -212,9 +212,7 @@ struct ConsentView: View {
                     Divider()
                     HStack(spacing: 4) {
                         Text("Full text:")
-                        Link(String(localized: "Privacy", bundle: .ui), destination: URL(string: "#privacy", relativeTo: Self.legalURL)!)
-                        Text(verbatim: "·")
-                        Link(String(localized: "Terms", bundle: .ui), destination: URL(string: "#terms", relativeTo: Self.legalURL)!)
+                        Link(String(localized: "Privacy", bundle: .ui), destination: Self.legalURL)
                     }
                     .font(.footnote)
                     .foregroundStyle(Color.sheetMuted)

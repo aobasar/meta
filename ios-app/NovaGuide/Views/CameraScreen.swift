@@ -34,7 +34,7 @@ struct CameraScreen: View {
             switch which {
             case .more:
                 MoreMenu { panel = $0 }
-                    .presentationDetents([.medium, .large])
+                    .presentationDetents([.large])  // every action in view, with the camera out of the way
             case .settings:
                 SettingsView()
             }
@@ -116,7 +116,8 @@ struct CameraScreen: View {
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, 10)
                         .padding(.vertical, 4)
-                        .background(Color.black.opacity(0.65), in: Capsule())
+                        .background(Color.black.opacity(0.65), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                        .padding(.trailing, land ? 310 : 0)  // beside the card, which can be tall in landscape
                         .allowsHitTesting(false)
                 }
                 #endif
@@ -257,6 +258,7 @@ private struct MoreMenu: View {
                     }
                 }
             }
+            .tint(.primary)  // dark rows: the default blue is hard to read
             .navigationTitle(Text("More options"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -266,6 +268,7 @@ private struct MoreMenu: View {
             }
         }
         .preferredColorScheme(.light)
+        .presentationBackground(Color.sheetGround)  // solid: the camera must not show through the text
     }
 
     private func row(_ title: LocalizedStringKey, _ icon: String, action: @escaping () -> Void) -> some View {

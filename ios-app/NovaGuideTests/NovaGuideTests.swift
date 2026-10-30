@@ -511,9 +511,32 @@ final class InterfaceLanguageTests: XCTestCase {
 }
 
 final class GreetingTests: XCTestCase {
+    @MainActor func testDoneLineSaysWhatChangedAndHowFarToGo() {
+        let phrase: (String) -> String = { $0 }
+        XCTAssertEqual(GuideModel.doneLine(confirmation: "Orange is set.", ready: "Okay.", stepsLeft: 1, goesOn: false, phrase: phrase),
+                       "Orange is set. Last step.")
+        XCTAssertEqual(GuideModel.doneLine(confirmation: " ", ready: "Okay.", stepsLeft: 2, goesOn: false, phrase: phrase),
+                       "Okay. Two steps left.")
+        XCTAssertEqual(GuideModel.doneLine(confirmation: nil, ready: "Good.", stepsLeft: 0, goesOn: false, phrase: phrase), "Good.")
+        XCTAssertEqual(GuideModel.doneLine(confirmation: nil, ready: "Good.", stepsLeft: 1, goesOn: true, phrase: phrase), "Good.")
+    }
+
+    @MainActor func testLookingPhraseNeverRepeatsAndIsTranslated() {
+        var last: String?
+        for _ in 0..<50 {
+            let phrase = GuideModel.lookingPhrase(after: last)
+            XCTAssertNotEqual(phrase, last)
+            last = phrase
+        }
+        let turkish = UserLanguage.all[0]
+        for phrase in GuideModel.lookingPhrases {
+            XCTAssertNotEqual(turkish.phrase(phrase), phrase)
+        }
+    }
+
     func testBothSpokenLinesExistInTurkish() {
         let turkish = UserLanguage.named("Turkish")
-        XCTAssertEqual(turkish.phrase("Nova is ready to help."), "Nova yardıma hazır.")
+        XCTAssertEqual(turkish.phrase("Koko is ready to help."), "Koko yardıma hazır.")
         XCTAssertEqual(turkish.phrase("How can I help you?"), "Sana nasıl yardımcı olabilirim?")
     }
 }

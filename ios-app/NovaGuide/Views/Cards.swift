@@ -69,7 +69,7 @@ struct SidePanel: View {
     private var foldedLine: (prefix: String, title: String)? {
         switch model.phase {
         case .asking:
-            return ("", String(localized: "Nova is ready to help.", bundle: .ui))
+            return ("", String(localized: "Koko is ready to help.", bundle: .ui))
         case .choosing(let asked):
             return ("", GuideText.display(asked.text))
         case .guiding:
@@ -190,7 +190,7 @@ private struct ReadyCard: View {
 
     var body: some View {
         VStack(spacing: 8) {
-            Text(model.awaitingFirstTap ? "Nova is ready to help." : "How can I help you?")
+            Text(model.awaitingFirstTap ? "Koko is ready to help." : "How can I help you?")
                 .font(.headline)
                 .multilineTextAlignment(.center)
             MicButton(large: true)
@@ -463,7 +463,7 @@ private struct StepCard: View {
 
     private var resultBox: (icon: String, color: Color, title: String?, text: String)? {
         switch model.feedback {
-        case .correct: ("checkmark", .green, String(localized: "Verified.", bundle: .ui), "")
+        case .correct: ("checkmark", .green, model.doneText.map(GuideText.display) ?? String(localized: "Verified.", bundle: .ui), "")
         case .notDone(let text): ("xmark", .red, nil, text)
         case .unsure(let text): ("questionmark.circle", .orange, nil, text)
         case .error(let text): ("exclamationmark.triangle", .orange, nil, text)

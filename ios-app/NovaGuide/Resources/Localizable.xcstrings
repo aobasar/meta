@@ -62,22 +62,22 @@
         }
       }
     },
-    "Allow Nova Guide to add to Photos in Settings, then try again.": {
+    "Allow Koko Guide to add to Photos in Settings, then try again.": {
       "localizations": {
         "tr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ayarlar'da Nova Guide'ın Fotoğraflar'a eklemesine izin ver, sonra tekrar dene."
+            "value": "Ayarlar'da Koko Guide'ın Fotoğraflar'a eklemesine izin ver, sonra tekrar dene."
           }
         }
       }
     },
-    "Allow the microphone in Settings to talk to Nova.": {
+    "Allow the microphone in Settings to talk to Koko.": {
       "localizations": {
         "tr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Nova ile konuşmak için Ayarlar'dan mikrofona izin verin."
+            "value": "Koko ile konuşmak için Ayarlar'dan mikrofona izin verin."
           }
         }
       }
@@ -112,32 +112,32 @@
         }
       }
     },
-    "Automatic: speak Turkish or English and Nova answers in the same language. Words printed on the device are read in their own language.": {
+    "Automatic: speak Turkish or English and Koko answers in the same language. Words printed on the device are read in their own language.": {
       "localizations": {
         "tr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Otomatik: Türkçe ya da İngilizce konuş, Nova aynı dilde cevap verir. Cihazda yazan kelimeler kendi dilinde okunur. Canlı yazıya çevirme: sen konuşurken kelimeler ekranda görünür ve Nova konuşmanın bittiğini anlar; sözünü kesiyorsa kapat."
+            "value": "Otomatik: Türkçe ya da İngilizce konuş, Koko aynı dilde cevap verir. Cihazda yazan kelimeler kendi dilinde okunur. Canlı yazıya çevirme: sen konuşurken kelimeler ekranda görünür ve Koko konuşmanın bittiğini anlar; sözünü kesiyorsa kapat."
           }
         }
       }
     },
-    "Automatic: speak Turkish or English and Nova answers in the same language. Words printed on the device are read in their own language. Live transcription: your words appear as you speak, and Nova notices when you finish; turn it off if it cuts you off.": {
+    "Automatic: speak Turkish or English and Koko answers in the same language. Words printed on the device are read in their own language. Live transcription: your words appear as you speak, and Koko notices when you finish; turn it off if it cuts you off.": {
       "localizations": {
         "tr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Otomatik: Türkçe ya da İngilizce konuş, Nova aynı dilde cevap verir. Cihazda yazan kelimeler kendi dilinde okunur. Canlı yazıya çevirme: sen konuşurken kelimeler ekranda görünür ve Nova konuşmanın bittiğini anlar; sözünü kesiyorsa kapat."
+            "value": "Otomatik: Türkçe ya da İngilizce konuş, Koko aynı dilde cevap verir. Cihazda yazan kelimeler kendi dilinde okunur. Canlı yazıya çevirme: sen konuşurken kelimeler ekranda görünür ve Koko konuşmanın bittiğini anlar; sözünü kesiyorsa kapat."
           }
         }
       }
     },
-    "Automatic: speak Turkish or English and Nova answers in the same language. Words printed on the device are read in their own language. Live transcription: your words appear as you speak, and Nova notices when you finish; turn it off if it cuts you off. For a more natural voice, download a Premium or Enhanced one in the iPhone's Settings › Accessibility › Read & Speak (or Spoken Content) › Voices; Nova uses the best one it finds.": {
+    "Automatic: speak Turkish or English and Koko answers in the same language. Words printed on the device are read in their own language. Live transcription: your words appear as you speak, and Koko notices when you finish; turn it off if it cuts you off. For a more natural voice, download a Premium or Enhanced one in the iPhone's Settings › Accessibility › Read & Speak (or Spoken Content) › Voices; Koko uses the best one it finds.": {
       "localizations": {
         "tr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Otomatik: Türkçe ya da İngilizce konuş, Nova aynı dilde cevap verir. Cihazda yazan kelimeler kendi dilinde okunur. Canlı yazıya çevirme: sen konuşurken kelimeler ekranda görünür ve Nova konuşmanın bittiğini anlar; sözünü kesiyorsa kapat. Daha doğal bir ses için iPhone Ayarlar › Erişilebilirlik › Okuma ve Konuşma (ya da Seslendirilen İçerik) › Sesler bölümünden Premium ya da Gelişmiş bir ses indir; Nova bulduğu en iyisini kullanır."
+            "value": "Otomatik: Türkçe ya da İngilizce konuş, Koko aynı dilde cevap verir. Cihazda yazan kelimeler kendi dilinde okunur. Canlı yazıya çevirme: sen konuşurken kelimeler ekranda görünür ve Koko konuşmanın bittiğini anlar; sözünü kesiyorsa kapat. Daha doğal bir ses için iPhone Ayarlar › Erişilebilirlik › Okuma ve Konuşma (ya da Seslendirilen İçerik) › Sesler bölümünden Premium ya da Gelişmiş bir ses indir; Koko bulduğu en iyisini kullanır."
           }
         }
       }
@@ -342,16 +342,101 @@
         }
       }
     },
-    "Correct.": {
+    "Okay.": {
+      "comment": "Spoken after a step; plain and calm.",
+      "extractionState": "manual",
       "localizations": {
         "tr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Doğru."
+            "value": "Tamam."
           }
         }
-      },
-      "extractionState": "manual"
+      }
+    },
+    "Done.": {
+      "comment": "Spoken after a step; plain and calm.",
+      "extractionState": "manual",
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Oldu."
+          }
+        }
+      }
+    },
+    "Good.": {
+      "comment": "Spoken after a step; plain and calm.",
+      "extractionState": "manual",
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Güzel."
+          }
+        }
+      }
+    },
+    "Two steps left.": {
+      "comment": "Spoken after a step; plain and calm.",
+      "extractionState": "manual",
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "İki adım kaldı."
+          }
+        }
+      }
+    },
+    "Last step.": {
+      "comment": "Spoken after a step; plain and calm.",
+      "extractionState": "manual",
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Son adım."
+          }
+        }
+      }
+    },
+    "No problem, let's try again.": {
+      "comment": "Spoken after a step; plain and calm.",
+      "extractionState": "manual",
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sorun değil, tekrar deneyelim."
+          }
+        }
+      }
+    },
+    "Okay, next step.": {
+      "comment": "Spoken after a step; plain and calm.",
+      "extractionState": "manual",
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tamam, sıradaki adım."
+          }
+        }
+      }
+    },
+    "Done. It should be working now.": {
+      "comment": "Spoken after a step; plain and calm.",
+      "extractionState": "manual",
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bitti. Çalışıyor olmalı."
+          }
+        }
+      }
     },
     "Delete": {
       "localizations": {
@@ -483,12 +568,12 @@
         }
       }
     },
-    "For a more natural voice, download a Premium or Enhanced one in the iPhone's Settings › Accessibility › Read & Speak (or Spoken Content) › Voices; Nova uses the best one it finds.": {
+    "For a more natural voice, download a Premium or Enhanced one in the iPhone's Settings › Accessibility › Read & Speak (or Spoken Content) › Voices; Koko uses the best one it finds.": {
       "localizations": {
         "tr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Daha doğal bir ses için iPhone Ayarlar › Erişilebilirlik › Okuma ve Konuşma (ya da Seslendirilen İçerik) › Sesler bölümünden Premium ya da Gelişmiş bir ses indir; Nova bulduğu en iyisini kullanır."
+            "value": "Daha doğal bir ses için iPhone Ayarlar › Erişilebilirlik › Okuma ve Konuşma (ya da Seslendirilen İçerik) › Sesler bölümünden Premium ya da Gelişmiş bir ses indir; Koko bulduğu en iyisini kullanır."
           }
         }
       }
@@ -543,12 +628,12 @@
         }
       }
     },
-    "Frames and your voice go to the Nova server and AI models only when you ask; they aren't kept.": {
+    "Frames and your voice go to the Koko server and the Meta Model API only when you ask. Koko's server doesn't keep them; Meta's terms apply.": {
       "localizations": {
         "tr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Kareler ve sesin yalnızca sorduğunda Nova sunucusuna ve yapay zekâ modellerine gider; saklanmaz."
+            "value": "Kareler ve sesin yalnızca sorduğunda Koko sunucusuna ve Meta Model API'ye gider. Koko sunucusu saklamaz; Meta'nın koşulları geçerlidir."
           }
         }
       }
@@ -643,12 +728,12 @@
         }
       }
     },
-    "How Nova works": {
+    "How Koko works": {
       "localizations": {
         "tr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Nova nasıl çalışır"
+            "value": "Koko nasıl çalışır"
           }
         }
       }
@@ -921,6 +1006,54 @@
           "stringUnit": {
             "state": "translated",
             "value": "Bakıyorum…"
+          }
+        }
+      }
+    },
+    "Let me see…": {
+      "comment": "A spoken variation of Let me look, said while Koko looks at the frame.",
+      "extractionState": "manual",
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bir bakayım…"
+          }
+        }
+      }
+    },
+    "One moment…": {
+      "comment": "A spoken variation of Let me look, said while Koko looks at the frame.",
+      "extractionState": "manual",
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bir saniye…"
+          }
+        }
+      }
+    },
+    "Looking at it now…": {
+      "comment": "A spoken variation of Let me look, said while Koko looks at the frame.",
+      "extractionState": "manual",
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hemen bakıyorum…"
+          }
+        }
+      }
+    },
+    "Give me a second…": {
+      "comment": "A spoken variation of Let me look, said while Koko looks at the frame.",
+      "extractionState": "manual",
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "İnceliyorum…"
           }
         }
       }
@@ -1205,32 +1338,32 @@
         }
       }
     },
-    "Nova can't guide this safely.": {
+    "Koko can't guide this safely.": {
       "localizations": {
         "tr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Nova bu konuda güvenle yol gösteremez."
+            "value": "Koko bu konuda güvenle yol gösteremez."
           }
         }
       }
     },
-    "Nova couldn't find the controls for this.": {
+    "Koko couldn't find the controls for this.": {
       "localizations": {
         "tr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Nova bunun için gereken düğmeleri bulamadı."
+            "value": "Koko bunun için gereken düğmeleri bulamadı."
           }
         }
       }
     },
-    "Nova is ready to help.": {
+    "Koko is ready to help.": {
       "localizations": {
         "tr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Nova yardıma hazır."
+            "value": "Koko yardıma hazır."
           }
         }
       }
@@ -1485,12 +1618,12 @@
         }
       }
     },
-    "Say “done” and Nova checks with the camera.": {
+    "Say “done” and Koko checks with the camera.": {
       "localizations": {
         "tr": {
           "stringUnit": {
             "state": "translated",
-            "value": "“Yaptım” de, Nova kameradan bakar."
+            "value": "“Yaptım” de, Koko kameradan bakar."
           }
         }
       }
@@ -2256,12 +2389,12 @@
         }
       }
     },
-    "When on, each task is recorded without sound; recording pauses while Nova thinks. The video stays on the phone; save it to Photos or share it from here.": {
+    "When on, each task is recorded without sound; recording pauses while Koko thinks. The video stays on the phone; save it to Photos or share it from here.": {
       "localizations": {
         "tr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Açıkken her görev sessiz olarak kaydedilir; Nova düşünürken kayıt durur. Video sadece telefonda kalır; buradan Fotoğraflar'a kaydedebilir ya da paylaşabilirsin."
+            "value": "Açıkken her görev sessiz olarak kaydedilir; Koko düşünürken kayıt durur. Video sadece telefonda kalır; buradan Fotoğraflar'a kaydedebilir ya da paylaşabilirsin."
           }
         }
       }

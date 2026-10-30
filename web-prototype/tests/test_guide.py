@@ -359,6 +359,12 @@ class VerifyTests(unittest.TestCase):
         opener = RoutingOpener(check={"status": "done", "observed": "hot", "correction": "x"})
         self.assertEqual(guide.verify(tiny_jpeg(520, 520), "i", "s", "Turkish", FAKE_KEY, opener)["correction"], "")
 
+    def test_confirmation_only_comes_with_a_done_step(self):
+        done = RoutingOpener(check={"status": "done", "observed": "hot", "correction": "", "confirmation": "«hot» seçildi."})
+        self.assertEqual(guide.verify(tiny_jpeg(520, 520), "i", "s", "Turkish", FAKE_KEY, done)["confirmation"], "«hot» seçildi.")
+        failed = RoutingOpener(check={"status": "not_done", "observed": "warm", "correction": "x", "confirmation": "y"})
+        self.assertEqual(guide.verify(tiny_jpeg(520, 520), "i", "s", "Turkish", FAKE_KEY, failed)["confirmation"], "")
+
     def test_a_tiny_crop_is_unsure_without_calling_meta(self):
         opener = RoutingOpener()
         result = guide.verify(tiny_jpeg(100, 100), "i", "s", "Turkish", FAKE_KEY, opener)

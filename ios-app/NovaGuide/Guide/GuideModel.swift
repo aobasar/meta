@@ -109,6 +109,12 @@ final class GuideModel: ObservableObject {
 
     /// Settings › Speed test: the current task's timings, measured on the phone.
     @Published private(set) var timings = TaskTimings()
+    private var lastLookingPhrase: String?
+    private var lastReadyPhrase: String?
+    /// Said before the next step's instruction, when the step just left could not be checked.
+    private var stepLead: String?
+    /// The words of the last passed check, also shown on the step card.
+    @Published private(set) var doneText: String?
     /// How long the question being handled took to transcribe; nil for a typed question.
     private var heardSeconds: Double?
 
@@ -252,7 +258,7 @@ final class GuideModel: ObservableObject {
     func greet() {
         guard phase == .asking, plan == nil, !greeted else { return }
         greeted = true
-        speak(language.phrase("Nova is ready to help."))
+        speak(language.phrase("Koko is ready to help."))
     }
 
     /// The task's first tap: Nova asks, and the microphone opens when it has finished, so it doesn't hear itself.
@@ -338,11 +344,44 @@ final class GuideModel: ObservableObject {
         }
     }
 
+    /// Said after a passed check when the model gave no confirmation.
+    static let readyPhrases = ["Okay.", "Done.", "Good."]
+
+    static func readyPhrase(after last: String?) -> String {
+        readyPhrases.filter { $0 != last }.randomElement() ?? readyPhrases[0]
+    }
+
+    /// What a passed check says: what is now set, then how far there is to go. Calm, without praise.
+    static func doneLine(confirmation: String?, ready: String, stepsLeft: Int, goesOn: Bool, phrase: (String) -> String) -> String {
+        let said = confirmation?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let first = said.isEmpty ? phrase(ready) : said
+        guard !goesOn else { return first }
+        switch stepsLeft {
+        case 2: return first + " " + phrase("Two steps left.")
+        case 1: return first + " " + phrase("Last step.")
+        default: return first
+        }
+    }
+
+    /// Spoken variations of "I'm looking", so the same words don't come back every time.
+    static let lookingPhrases = ["Let me look…", "Let me see…", "One moment…", "Looking at it now…", "Give me a second…"]
+
+    /// Any phrase but the last one said.
+    static func lookingPhrase(after last: String?) -> String {
+        lookingPhrases.filter { $0 != last }.randomElement() ?? lookingPhrases[0]
+    }
+
+    private func nextLookingPhrase() -> String {
+        let phrase = Self.lookingPhrase(after: lastLookingPhrase)
+        lastLookingPhrase = phrase
+        return phrase
+    }
+
     /// Said the moment a question is asked, in the language it was asked in, so the wait isn't silent.
     private func acknowledge(_ question: String) {
         if settings.isAutomaticLanguage { heardLanguage(UserLanguage.guess(question)?.serverName) }
         guard settings.speakAloud else { return }
-        speaker.speak(language.phrase("Let me look…"), voice: language.voice)
+        speaker.speak(language.phrase(nextLookingPhrase()), voice: language.voice)
     }
 
     /// The located plan, after its steps are already on screen: the markers appear and "I've done it" works.
@@ -390,13 +429,13 @@ final class GuideModel: ObservableObject {
             return
         }
         guard plan.safe else {
-            let note = plan.safetyNote.isEmpty ? String(localized: "Nova can't guide this safely.", bundle: .ui) : plan.safetyNote
+            let note = plan.safetyNote.isEmpty ? String(localized: "Koko can't guide this safely.", bundle: .ui) : plan.safetyNote
             phase = .refused(note)
             speak(note)
             return
         }
         guard !plan.steps.isEmpty else {
-            let note = plan.uncertainty.isEmpty ? String(localized: "Nova couldn't find the controls for this.", bundle: .ui) : plan.uncertainty
+            let note = plan.uncertainty.isEmpty ? String(localized: "Koko couldn't find the controls for this.", bundle: .ui) : plan.uncertainty
             phase = .refused(note)
             speak(note)
             return
@@ -454,7 +493,7 @@ final class GuideModel: ObservableObject {
         finish()
         note("solved")
         sound(.done)
-        speak(language.phrase("Task completed."))
+        speak(language.phrase("Done. It should be working now."))
     }
 
     func notSolved() {
@@ -506,7 +545,7 @@ final class GuideModel: ObservableObject {
         reply = nil
         stepDefended = false
         reassessing = true
-        speak(language.phrase("Let me look…"))
+        speak(language.phrase(nextLookingPhrase()))
         let index = stepIndex, context = taskContext(), settings = self.settings
         voiceTask = Task {
             do {
@@ -692,6 +731,7 @@ final class GuideModel: ObservableObject {
             return
         }
         guard step.isVerifiable else {
+            stepLead = language.phrase("Okay, next step.")
             mark(.unchecked)
             return
         }
@@ -731,7 +771,13 @@ final class GuideModel: ObservableObject {
         switch check.status {
         case .done:
             records[index].result = .verified
-            say(.correct)
+            let ready = Self.readyPhrase(after: lastReadyPhrase)
+            lastReadyPhrase = ready
+            let line = Self.doneLine(confirmation: check.confirmation, ready: ready,
+                                     stepsLeft: (plan?.steps.count ?? 0) - index - 1, goesOn: plan?.goesOn ?? false,
+                                     phrase: language.phrase)
+            doneText = line
+            say(.correct, line: line)
             guard settings.autoContinue else { return }
             checkTask = Task {
                 try? await Task.sleep(for: .seconds(Self.autoContinueSeconds))
@@ -742,7 +788,9 @@ final class GuideModel: ObservableObject {
             let correction = check.correction.isEmpty
                 ? String(localized: "Not yet. Check the marker and try again.", bundle: .ui) : check.correction
             failedChecks[index, default: 0] += 1
-            say(.notDone(correction))
+            // A second miss stays on the step, in a softer voice.
+            let retry = failedChecks[index, default: 0] > 1
+            say(.notDone(retry ? language.phrase("No problem, let's try again.") + " " + correction : correction))
             if seemsStuck { speak(correction + " " + language.phrase("We seem stuck. Shall I look at this again?")) }
         case .unsure:
             records[index].result = .uncertain
@@ -768,13 +816,13 @@ final class GuideModel: ObservableObject {
         }
     }
 
-    private func say(_ feedback: Feedback) {
+    private func say(_ feedback: Feedback, line: String? = nil) {
         self.feedback = feedback
         switch feedback {
         case .correct:
             haptic(.success)
             sound(.correct)
-            speak(language.phrase("Correct."))
+            speak(line ?? language.phrase("Okay."))
         case .notDone(let text):
             haptic(.error)
             sound(.wrong)
@@ -885,7 +933,7 @@ final class GuideModel: ObservableObject {
         speaker.stop()
         voiceTask = Task {
             guard await VoiceRecorder.requestPermission() else {
-                show(message: String(localized: "Allow the microphone in Settings to talk to Nova.", bundle: .ui))
+                show(message: String(localized: "Allow the microphone in Settings to talk to Koko.", bundle: .ui))
                 return
             }
             if settings.soundEffects {  // over before the microphone opens, so it isn't taken for speech
@@ -1162,7 +1210,12 @@ final class GuideModel: ObservableObject {
         stepIndex = index
         ar.currentStep = index
         sound(.ready)
-        repeatStep()
+        if let lead = stepLead, let step = currentStep {
+            speak(lead + " " + step.instruction)
+        } else {
+            repeatStep()
+        }
+        stepLead = nil
     }
 
     private func sound(_ effect: SoundEffects.Effect) {
