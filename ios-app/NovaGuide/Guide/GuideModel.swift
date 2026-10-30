@@ -11,6 +11,8 @@ final class GuideModel: ObservableObject {
         /// Nova asked one thing before planning; the user answers on the card or by voice.
         case choosing(GuidePlan.Question)
         case guiding
+        /// All steps are done: Nova asks whether the problem is solved.
+        case confirming
         case finished
         case refused(String)
         case failed(String)
@@ -19,7 +21,7 @@ final class GuideModel: ObservableObject {
     /// "This is wrong" on the step card: the choices, tapping the right control, or saying what is wrong.
     enum Correcting: Equatable {
         case menu, moving
-        case telling(kind: String)  // "step" or "restart"
+        case telling(kind: String)  // "step", "restart" or "outcome"
     }
 
     enum Connection: Equatable {
@@ -56,6 +58,8 @@ final class GuideModel: ObservableObject {
     static let autoContinueSeconds = 5.0
     /// A step is planned again at most this often; after that Nova says it isn't sure instead of guessing again.
     static let maxStepCorrections = 2
+    /// "Not solved" gets this many new tries; then Nova says it couldn't solve it.
+    static let maxOutcomeTries = 2
 
     @Published var phase: Phase = .asking
     @Published var question = ""
@@ -73,6 +77,8 @@ final class GuideModel: ObservableObject {
     /// Until the task's first tap: the title says Nova is ready, and Pulse pulses.
     @Published private(set) var awaitingFirstTap = true
     @Published private(set) var correcting: Correcting?
+    /// The task ended without solving the problem: the last screen says so.
+    @Published private(set) var unsolved = false
     /// "Re-evaluate" is running; and afterwards, Nova looked again and stands by the step.
     @Published private(set) var reassessing = false
     @Published private(set) var stepDefended = false
@@ -116,6 +122,8 @@ final class GuideModel: ObservableObject {
     private var answers: [GuideClient.Answer] = []
     private var greeted = false
     private var askingAloud = false
+    private var outcomeTries = 0
+    private var pendingCorrection: GuideClient.Correction?
     private var skipWords = false
     private var discardRecording = false
     private var live: LiveTranscriber?
@@ -205,7 +213,7 @@ final class GuideModel: ObservableObject {
         let text = question.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty, phase != .thinking else { return }
         guard let capture = ar.capture() else {
-            phase = .failed(String(localized: "The camera isn't ready yet. Point it at the device and try again."))
+            phase = .failed(String(localized: "The camera isn't ready yet. Point it at the device and try again.", bundle: .ui))
             return
         }
         ar.clear()
@@ -217,6 +225,9 @@ final class GuideModel: ObservableObject {
         timings = TaskTimings(transcript: heardSeconds, liveVoice: heardLive, setting: settings.sparkLabel)
         awaitingFirstTap = false
         askingAloud = false
+        outcomeTries = 0
+        pendingCorrection = nil
+        unsolved = false
         taskQuestion = text
         planCapture = capture
         answers = []
@@ -266,7 +277,7 @@ final class GuideModel: ObservableObject {
         phase = .thinking
         timings = TaskTimings(setting: settings.sparkLabel)
         acknowledge("")
-        requestPlan(capture: capture)
+        requestPlan(capture: capture, correction: pendingCorrection)
     }
 
     func letNovaChoose() { answerQuestion("You choose the most common option and tell me which one you chose.") }
@@ -274,6 +285,7 @@ final class GuideModel: ObservableObject {
     /// Plans from a frame. A correction keeps the steps before `start`, and doesn't ask anything first.
     private func requestPlan(capture: CapturedFrame, correction: GuideClient.Correction? = nil, from start: Int = 0) {
         let text = taskQuestion, answers = self.answers
+        let allowQuestions = correction == nil || (correction?.kind == "outcome" && answers.isEmpty)
         let settings = self.settings
         task = Task {
             let status = Task { await self.cycleStatus() }
@@ -284,11 +296,11 @@ final class GuideModel: ObservableObject {
                 let plan = try await send {
                     try await $0.plan(jpeg: capture.jpeg, question: text, language: language, autoLanguage: auto,
                                       record: record, camera: capture.cameraInfo, spark: spark, answers: answers,
-                                      correction: correction) { steps in
+                                      correction: correction, allowQuestions: allowQuestions) { steps in
                         status.cancel()
                         self.timings.steps = Date().timeIntervalSince(started)
                         self.heardLanguage(steps.language)
-                        self.received(steps, capture: capture, from: start, corrected: correction != nil)
+                        self.received(steps, capture: capture, from: start, correction: correction)
                     }
                 }
                 let elapsed = Date().timeIntervalSince(started)
@@ -299,7 +311,7 @@ final class GuideModel: ObservableObject {
                     located(merged(plan, from: start), capture: capture, from: start)
                 } else {
                     heardLanguage(plan.language)
-                    received(plan, capture: capture, from: start, corrected: correction != nil)
+                    received(plan, capture: capture, from: start, correction: correction)
                 }
             } catch is CancellationError {
                 phase = .asking
@@ -307,7 +319,7 @@ final class GuideModel: ObservableObject {
                 // Home or a new task canceled the request (URLSession reports it as its own error).
             } catch {
                 if correction != nil, self.plan?.isLocated == true {
-                    phase = .guiding  // the old steps are still there
+                    phase = correction?.kind == "outcome" ? .confirming : .guiding  // the old steps are still there
                     reply = error.localizedDescription
                 } else {
                     phase = .failed(error.localizedDescription)
@@ -334,10 +346,14 @@ final class GuideModel: ObservableObject {
         ar.currentStep = stepIndex
     }
 
-    private func received(_ part: GuidePlan, capture: CapturedFrame, from start: Int, corrected: Bool) {
-        if corrected, !part.safe || part.steps.isEmpty {
+    private func received(_ part: GuidePlan, capture: CapturedFrame, from start: Int, correction: GuideClient.Correction?) {
+        if correction?.kind == "outcome", !part.safe || (part.steps.isEmpty && part.question == nil) {
+            finishUnsolved(note: part.uncertainty)
+            return
+        }
+        if correction != nil, !part.safe || (part.steps.isEmpty && part.question == nil) {
             phase = .guiding  // a wrong step is worse than none: the steps stay, and Nova says what it can't tell
-            let note = part.uncertainty.isEmpty ? String(localized: "I'm not sure about this step. Check the device's manual, or skip it.") : part.uncertainty
+            let note = part.uncertainty.isEmpty ? String(localized: "I'm not sure about this step. Check the device's manual, or skip it.", bundle: .ui) : part.uncertainty
             reply = note
             speak(note)
             return
@@ -363,13 +379,13 @@ final class GuideModel: ObservableObject {
             return
         }
         guard plan.safe else {
-            let note = plan.safetyNote.isEmpty ? String(localized: "Nova can't guide this safely.") : plan.safetyNote
+            let note = plan.safetyNote.isEmpty ? String(localized: "Nova can't guide this safely.", bundle: .ui) : plan.safetyNote
             phase = .refused(note)
             speak(note)
             return
         }
         guard !plan.steps.isEmpty else {
-            let note = plan.uncertainty.isEmpty ? String(localized: "Nova couldn't find the controls for this.") : plan.uncertainty
+            let note = plan.uncertainty.isEmpty ? String(localized: "Nova couldn't find the controls for this.", bundle: .ui) : plan.uncertainty
             phase = .refused(note)
             speak(note)
             return
@@ -381,6 +397,47 @@ final class GuideModel: ObservableObject {
         go(to: start)
     }
 
+    // MARK: Is the problem solved?
+
+    func confirmSolved() {
+        guard phase == .confirming else { return }
+        finish()
+        note("solved")
+        speak(String(localized: "Task completed.", bundle: .ui))
+    }
+
+    func notSolved() {
+        guard phase == .confirming else { return }
+        note("not_solved")
+        guard outcomeTries < Self.maxOutcomeTries else {
+            finishUnsolved(note: "")
+            return
+        }
+        tellWhatIsWrong(kind: "outcome")
+    }
+
+    private func finishUnsolved(note text: String) {
+        unsolved = true
+        finish()
+        note("gave_up")
+        speak(text.isEmpty ? String(localized: "I couldn't solve this. Check the device's manual or contact service.", bundle: .ui) : text)
+    }
+
+    private func finish() {
+        checkTask?.cancel()
+        correcting = nil
+        reply = nil
+        phase = .finished
+        feedback = nil
+        finishedAt = Date()
+        ar.currentStep = nil
+        ar.taskEnded()
+    }
+
+    private func note(_ kind: String) {
+        Task { try? await send { try await $0.noteCorrection(kind: kind) } }
+    }
+
     // MARK: Corrections
 
     /// "Re-evaluate": one tap, no choices. Nova looks at the step again from a new frame: it locates the control again,
@@ -388,7 +445,7 @@ final class GuideModel: ObservableObject {
     func reassess() {
         guard phase == .guiding, !reassessing, !isLocating, let step = currentStep else { return }
         guard let capture = ar.capture() else {
-            show(message: String(localized: "The camera isn't ready yet. Point it at the device and try again."))
+            show(message: String(localized: "The camera isn't ready yet. Point it at the device and try again.", bundle: .ui))
             return
         }
         checkTask?.cancel()
@@ -461,11 +518,11 @@ final class GuideModel: ObservableObject {
         guard correcting == .moving else { return }
         correcting = nil
         guard ar.moveMarker(step: stepIndex, toScreen: point) else {
-            show(message: String(localized: "The camera isn't ready yet. Point it at the device and try again."))
+            show(message: String(localized: "The camera isn't ready yet. Point it at the device and try again.", bundle: .ui))
             return
         }
         haptic(.success)
-        reply = String(localized: "Marker moved.")
+        reply = String(localized: "Marker moved.", bundle: .ui)
         Task { try? await send { try await $0.noteCorrection(kind: "moved") } }
     }
 
@@ -496,15 +553,28 @@ final class GuideModel: ObservableObject {
         correcting = nil
         listening = .idle
         guard let plan, let step = currentStep, let capture = ar.capture() else {
-            show(message: String(localized: "The camera isn't ready yet. Point it at the device and try again."))
+            show(message: String(localized: "The camera isn't ready yet. Point it at the device and try again.", bundle: .ui))
             return
         }
+        if kind == "outcome" {
+            outcomeTries += 1
+            answers = []
+            let correction = GuideClient.Correction(kind: kind, wrongStep: "", said: said, done: plan.steps.map(\.instruction))
+            pendingCorrection = correction
+            planCapture = capture
+            phase = .thinking
+            timings = TaskTimings(setting: settings.sparkLabel)
+            acknowledge(said)
+            requestPlan(capture: capture, correction: correction)
+            return
+        }
+        pendingCorrection = nil
         let restart = kind == "restart"
         if restart {
             stepCorrections = [:]
         } else {
             guard canCorrectStep else {
-                let note = String(localized: "I'm not sure about this step. Check the device's manual, or skip it.")
+                let note = String(localized: "I'm not sure about this step. Check the device's manual, or skip it.", bundle: .ui)
                 reply = note
                 speak(note)
                 return
@@ -528,9 +598,9 @@ final class GuideModel: ObservableObject {
 
     private func cycleStatus() async {
         let lines = [
-            String(localized: "Working out what this is…"),
-            String(localized: "Planning the steps…"),
-            String(localized: "Finding the controls…"),
+            String(localized: "Working out what this is…", bundle: .ui),
+            String(localized: "Planning the steps…", bundle: .ui),
+            String(localized: "Finding the controls…", bundle: .ui),
         ]
         for line in lines {
             statusLine = line
@@ -574,11 +644,11 @@ final class GuideModel: ObservableObject {
         }
         switch ar.closeUp(step: stepIndex) {
         case .offScreen:
-            say(.unsure(String(localized: "Point the camera at the control, then check again.")))
+            say(.unsure(String(localized: "Point the camera at the control, then check again.", bundle: .ui)))
         case .tooSmall:
-            say(.unsure(String(localized: "Move the phone closer to the control, then check again.")))
+            say(.unsure(String(localized: "Move the phone closer to the control, then check again.", bundle: .ui)))
         case .notReady:
-            say(.unsure(String(localized: "Hold the phone steady, then check again.")))
+            say(.unsure(String(localized: "Hold the phone steady, then check again.", bundle: .ui)))
         case .jpeg(let jpeg):
             feedback = .checking
             reply = nil
@@ -617,15 +687,15 @@ final class GuideModel: ObservableObject {
         case .notDone:
             records[index].result = .failed
             let correction = check.correction.isEmpty
-                ? String(localized: "Not yet. Check the marker and try again.") : check.correction
+                ? String(localized: "Not yet. Check the marker and try again.", bundle: .ui) : check.correction
             failedChecks[index, default: 0] += 1
             say(.notDone(correction))
             if seemsStuck { speak(correction + " " + language.phrase("We seem stuck. Shall I look at this again?")) }
         case .unsure:
             records[index].result = .uncertain
             say(.unsure(check.reason == "too_small"
-                ? String(localized: "Move the phone closer to the control, then check again.")
-                : String(localized: "I can't see it clearly. Move closer, or confirm it yourself.")))
+                ? String(localized: "Move the phone closer to the control, then check again.", bundle: .ui)
+                : String(localized: "I can't see it clearly. Move closer, or confirm it yourself.", bundle: .ui)))
         }
     }
 
@@ -650,7 +720,7 @@ final class GuideModel: ObservableObject {
         switch feedback {
         case .correct:
             haptic(.success)
-            speak(String(localized: "Correct."))
+            speak(String(localized: "Correct.", bundle: .ui))
         case .notDone(let text):
             haptic(.error)
             speak(text)
@@ -667,18 +737,16 @@ final class GuideModel: ObservableObject {
             go(to: stepIndex + 1)
         } else {
             checkTask?.cancel()
-            phase = .finished
             feedback = nil
-            finishedAt = Date()
-            ar.currentStep = nil
-            ar.taskEnded()
-            speak(String(localized: "Task completed."))
+            reply = nil
+            phase = .confirming
+            speak(language.phrase("Did this solve it?"))
         }
     }
 
     /// Back one step; from the first step, back to the question with the same thing in view.
     func back() {
-        if phase == .finished {
+        if phase == .finished || phase == .confirming {
             phase = .guiding
             go(to: stepIndex)
         } else if stepIndex > 0 {
@@ -703,6 +771,9 @@ final class GuideModel: ObservableObject {
         greeted = false
         awaitingFirstTap = true
         askingAloud = false
+        outcomeTries = 0
+        pendingCorrection = nil
+        unsolved = false
         correcting = nil
         reassessing = false
         stepDefended = false
@@ -754,7 +825,7 @@ final class GuideModel: ObservableObject {
         speaker.stop()
         voiceTask = Task {
             guard await VoiceRecorder.requestPermission() else {
-                show(message: String(localized: "Allow the microphone in Settings to talk to Nova."))
+                show(message: String(localized: "Allow the microphone in Settings to talk to Nova.", bundle: .ui))
                 return
             }
             do {
@@ -763,7 +834,7 @@ final class GuideModel: ObservableObject {
                 listening = .listening
             } catch {
                 closeLive()
-                show(message: String(localized: "The microphone couldn't start."))
+                show(message: String(localized: "The microphone couldn't start.", bundle: .ui))
             }
         }
     }
@@ -866,7 +937,7 @@ final class GuideModel: ObservableObject {
         }
         guard let wav else {
             listening = .idle
-            show(message: String(localized: "I didn't hear anything. Tap Pulse and speak."))
+            show(message: String(localized: "I didn't hear anything. Tap Pulse and speak.", bundle: .ui))
             return
         }
         listening = .transcribing
@@ -898,7 +969,7 @@ final class GuideModel: ObservableObject {
             return
         }
         guard !text.isEmpty else {
-            show(message: String(localized: "I didn't catch that. Please say it again."))
+            show(message: String(localized: "I didn't catch that. Please say it again.", bundle: .ui))
             return
         }
         heard = text
@@ -914,6 +985,14 @@ final class GuideModel: ObservableObject {
             return
         case .choosing:
             command == .newQuestion ? newQuestion() : answerQuestion(text)
+        case .confirming:
+            switch VoiceCommand.confirmation(text) {
+            case true?: confirmSolved()
+            case false?: notSolved()
+            case nil:  // they said what happened
+                note("not_solved")
+                outcomeTries < Self.maxOutcomeTries ? runCorrection(kind: "outcome", said: text) : finishUnsolved(note: "")
+            }
         case .guiding:
             switch command {
             case .done: primary()
@@ -938,7 +1017,7 @@ final class GuideModel: ObservableObject {
     /// A question in the middle of the task: answer it and keep the user's place, or start the new task they asked for.
     private func askDuringTask(_ text: String, correction: String? = nil) {
         guard plan != nil, let capture = ar.capture() else {
-            show(message: String(localized: "The camera isn't ready yet. Point it at the device and try again."))
+            show(message: String(localized: "The camera isn't ready yet. Point it at the device and try again.", bundle: .ui))
             return
         }
         let context = taskContext()
@@ -1039,6 +1118,14 @@ final class GuideModel: ObservableObject {
         startedAt = Date().addingTimeInterval(-192)
         timings = TaskTimings(transcript: 1.9, steps: 3.4, markers: 7.1, check: 1.6, setting: settings.sparkLabel)
         switch screen {
+        case "confirm":
+            phase = .confirming
+            stepIndex = plan.steps.count - 1
+        case "unsolved":
+            stepIndex = plan.steps.count - 1
+            unsolved = true
+            finishedAt = Date()
+            phase = .finished
         case "question":
             self.plan = nil
             phase = .choosing(GuidePlan.Question(kind: "choice", text: "Hangi programı kullanmak istersin?", options: [
@@ -1050,7 +1137,7 @@ final class GuideModel: ObservableObject {
             correcting = .menu
         case "thinking":
             self.plan = nil
-            statusLine = String(localized: "Planning the steps…")
+            statusLine = String(localized: "Planning the steps…", bundle: .ui)
             phase = .thinking
         case "guiding", "verified", "correction":
             phase = .guiding

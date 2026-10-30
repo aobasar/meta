@@ -42,7 +42,7 @@ final class ScreenRecorder: ObservableObject {
         guard state == .off else { return }
         let recorder = RPScreenRecorder.shared()
         guard recorder.isAvailable else {
-            failure = String(localized: "Screen recording isn't available on this iPhone right now.")
+            failure = String(localized: "Screen recording isn't available on this iPhone right now.", bundle: .ui)
             return
         }
         recorder.isMicrophoneEnabled = false

@@ -17,7 +17,7 @@ struct RecordingPreview: View {
                 VideoPlayer(player: player)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-                Label(String(localized: "Before you share, check that no faces or personal details are in the video."),
+                Label(String(localized: "Before you share, check that no faces or personal details are in the video.", bundle: .ui),
                       systemImage: "person.crop.circle.badge.exclamationmark")
                     .font(.footnote)
                     .foregroundStyle(Color.novaText2)
@@ -27,13 +27,13 @@ struct RecordingPreview: View {
                 }
                 HStack(spacing: 10) {
                     Button(action: save) {
-                        Label(saved ? String(localized: "Saved") : String(localized: "Save to Photos"),
+                        Label(saved ? String(localized: "Saved", bundle: .ui) : String(localized: "Save to Photos", bundle: .ui),
                               systemImage: saved ? "checkmark" : "square.and.arrow.down")
                     }
                     .buttonStyle(PrimaryButtonStyle(enabled: !saved))
                     .disabled(saved)
                     ShareLink(item: video.url) {
-                        Label(String(localized: "Share"), systemImage: "square.and.arrow.up")
+                        Label(String(localized: "Share", bundle: .ui), systemImage: "square.and.arrow.up")
                     }
                     .buttonStyle(OutlineButtonStyle())
                 }
@@ -51,7 +51,7 @@ struct RecordingPreview: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
-                    Button(String(localized: "Close")) { dismiss() }
+                    Button(String(localized: "Close", bundle: .ui)) { dismiss() }
                 }
             }
         }
@@ -63,7 +63,7 @@ struct RecordingPreview: View {
         Task {
             // Add-only access: Nova can put the video in Photos but can't see the library.
             guard await PHPhotoLibrary.requestAuthorization(for: .addOnly) == .authorized else {
-                message = String(localized: "Allow Nova Guide to add to Photos in Settings, then try again.")
+                message = String(localized: "Allow Nova Guide to add to Photos in Settings, then try again.", bundle: .ui)
                 return
             }
             do {

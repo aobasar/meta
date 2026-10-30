@@ -52,7 +52,13 @@ struct UserLanguage: Identifiable, Hashable {
     }
 }
 
-/// Settings › Interface language: the iPhone's language, or one chosen for this app. iOS reads the choice at launch.
+extension Bundle {
+    /// Where `String(localized:, bundle: .ui)` reads the interface language from, so a new choice applies at once; iOS itself only
+    /// reads the app's language at launch. SwiftUI's `Text` follows the root view's locale.
+    nonisolated(unsafe) static var ui = Bundle.main
+}
+
+/// Settings › Interface language: the iPhone's language, or one chosen for this app.
 enum InterfaceLanguage: String, CaseIterable, Identifiable {
     case iPhone, turkish, english
 
@@ -60,10 +66,25 @@ enum InterfaceLanguage: String, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
-        case .iPhone: String(localized: "iPhone language")
+        case .iPhone: String(localized: "iPhone language", bundle: .ui)
         case .turkish: "Türkçe"
         case .english: "English"
         }
+    }
+
+    /// "tr" or "en": the language the screen uses with this choice.
+    func code(defaults: UserDefaults) -> String {
+        switch self {
+        case .turkish: return "tr"
+        case .english: return "en"
+        case .iPhone:
+            let first = (defaults.array(forKey: "AppleLanguages") as? [String])?.first ?? Locale.preferredLanguages.first ?? "en"
+            return first.hasPrefix("tr") ? "tr" : "en"
+        }
+    }
+
+    static func apply(code: String) {
+        Bundle.ui = Bundle.main.path(forResource: code, ofType: "lproj").flatMap(Bundle.init(path:)) ?? .main
     }
 
     /// The value for iOS's per-app language key; nil follows the iPhone.
@@ -84,9 +105,9 @@ enum OrientationChoice: String, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
-        case .automatic: String(localized: "Automatic")
-        case .portrait: String(localized: "Portrait")
-        case .landscape: String(localized: "Landscape")
+        case .automatic: String(localized: "Automatic", bundle: .ui)
+        case .portrait: String(localized: "Portrait", bundle: .ui)
+        case .landscape: String(localized: "Landscape", bundle: .ui)
         }
     }
 }
@@ -100,8 +121,8 @@ enum LensChoice: String, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
-        case .widest: String(localized: "Widest")
-        case .normal: String(localized: "Normal (1x)")
+        case .widest: String(localized: "Widest", bundle: .ui)
+        case .normal: String(localized: "Normal (1x)", bundle: .ui)
         }
     }
 }
@@ -114,9 +135,9 @@ enum TorchChoice: String, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
-        case .automatic: String(localized: "Automatic")
-        case .on: String(localized: "On")
-        case .off: String(localized: "Off")
+        case .automatic: String(localized: "Automatic", bundle: .ui)
+        case .on: String(localized: "On", bundle: .ui)
+        case .off: String(localized: "Off", bundle: .ui)
         }
     }
 }
@@ -150,8 +171,8 @@ enum SparkEffort: String, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
-        case .low: String(localized: "Low")
-        case .minimal: String(localized: "Minimal")
+        case .low: String(localized: "Low", bundle: .ui)
+        case .minimal: String(localized: "Minimal", bundle: .ui)
         }
     }
 }
@@ -183,8 +204,11 @@ final class GuideSettings: ObservableObject {
             } else {
                 defaults.removeObject(forKey: "AppleLanguages")
             }
+            InterfaceLanguage.apply(code: interfaceCode)
         }
     }
+    /// The language the screen uses now.
+    var interfaceCode: String { interfaceLanguage.code(defaults: defaults) }
     /// Words appear while the user speaks, and Meta finds the end of the sentence.
     @Published var liveTranscription: Bool { didSet { defaults.set(liveTranscription, forKey: "liveTranscription") } }
     @Published var speakAloud: Bool { didSet { defaults.set(speakAloud, forKey: "speakAloud") } }
@@ -234,6 +258,7 @@ final class GuideSettings: ObservableObject {
         sparkEffort = SparkEffort(rawValue: defaults.string(forKey: "sparkEffort") ?? "") ?? .minimal
         showTimings = defaults.bool(forKey: "showTimings")
         acceptedTerms = defaults.string(forKey: "acceptedTerms") ?? ""
+        InterfaceLanguage.apply(code: interfaceCode)
     }
 
     var isAutomaticLanguage: Bool { languageName == Self.automaticLanguage }

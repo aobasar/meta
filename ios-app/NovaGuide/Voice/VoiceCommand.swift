@@ -50,6 +50,16 @@ enum VoiceCommand: CaseIterable {
         return nil
     }
 
+    /// An answer to "Did this solve it?": true, false, or nil when the sentence says something else (what happened).
+    static func confirmation(_ transcript: String) -> Bool? {
+        let words = normalize(transcript)
+        guard !words.isEmpty, words.count <= maxWords else { return nil }
+        let no: Set = ["hayır", "değil", "olmadı", "çözülmedi", "no", "not", "nope"]
+        let yes: Set = ["evet", "çözüldü", "oldu", "tamam", "yes", "yeah", "solved", "worked", "ok", "okay"]
+        if !no.isDisjoint(with: words) { return false }
+        return yes.isDisjoint(with: words) ? nil : true
+    }
+
     static func normalize(_ text: String) -> [String] {
         text.lowercased(with: Locale(identifier: "tr_TR"))
             .components(separatedBy: CharacterSet.letters.inverted)

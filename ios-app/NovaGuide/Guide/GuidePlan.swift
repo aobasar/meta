@@ -96,7 +96,39 @@ struct GuideStep: Decodable, Equatable {
     /// False when a close-up can't show the result (a momentary press); such steps are not checked.
     var verifiable: Bool? = nil
 
+    /// How the hand moves the control; an older server sends none, and Spark says "unknown" when it can't tell.
+    var motion: String? = nil
+
     var isVerifiable: Bool { verifiable ?? true }
+
+    enum Motion: String {
+        case press
+        case turnClockwise = "turn_clockwise"
+        case turnCounterclockwise = "turn_counterclockwise"
+        case pull, push
+
+        var title: String {
+            switch self {
+            case .press: String(localized: "Press", bundle: .ui)
+            case .turnClockwise: String(localized: "Turn clockwise", bundle: .ui)
+            case .turnCounterclockwise: String(localized: "Turn counterclockwise", bundle: .ui)
+            case .pull: String(localized: "Pull toward you", bundle: .ui)
+            case .push: String(localized: "Push in", bundle: .ui)
+            }
+        }
+
+        var symbol: String {
+            switch self {
+            case .press: "hand.tap"
+            case .turnClockwise: "arrow.clockwise"
+            case .turnCounterclockwise: "arrow.counterclockwise"
+            case .pull: "arrow.up.left.and.arrow.down.right"
+            case .push: "arrow.down.right.and.arrow.up.left"
+            }
+        }
+    }
+
+    var motionKind: Motion? { motion.flatMap(Motion.init(rawValue:)) }
 
     /// Where the marker goes: the SAM box's center when SAM found a usable box, otherwise Spark's point.
     var markerPoint: NormalizedPoint {

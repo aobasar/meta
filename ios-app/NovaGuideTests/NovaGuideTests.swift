@@ -500,6 +500,9 @@ final class InterfaceLanguageTests: XCTestCase {
         settings.interfaceLanguage = .turkish
         XCTAssertEqual(defaults.persistentDomain(forName: suite)?["AppleLanguages"] as? [String], ["tr"])
         XCTAssertEqual(GuideSettings(defaults: defaults).interfaceLanguage, .turkish)
+        XCTAssertEqual(String(localized: "Did this solve it?", bundle: .ui), "Sorun çözüldü mü?")  // at once, without a new launch
+        settings.interfaceLanguage = .english
+        XCTAssertEqual(String(localized: "Did this solve it?", bundle: .ui), "Did this solve it?")
         settings.interfaceLanguage = .iPhone
         XCTAssertNil(defaults.persistentDomain(forName: suite)?["AppleLanguages"])
     }
@@ -510,5 +513,26 @@ final class GreetingTests: XCTestCase {
         let turkish = UserLanguage.named("Turkish")
         XCTAssertEqual(turkish.phrase("Nova is ready to help."), "Nova yardıma hazır.")
         XCTAssertEqual(turkish.phrase("How can I help you?"), "Sana nasıl yardımcı olabilirim?")
+    }
+}
+
+final class OutcomeTests: XCTestCase {
+    func testSpokenAnswersToDidThisSolveIt() {
+        XCTAssertEqual(VoiceCommand.confirmation("Evet çözüldü"), true)
+        XCTAssertEqual(VoiceCommand.confirmation("Yes it worked"), true)
+        XCTAssertEqual(VoiceCommand.confirmation("Hayır"), false)
+        XCTAssertEqual(VoiceCommand.confirmation("Hayır olmadı"), false)
+        XCTAssertEqual(VoiceCommand.confirmation("No, not yet"), false)
+        XCTAssertNil(VoiceCommand.confirmation("Ekran hâlâ siyah kalıyor ve hiçbir şey olmuyor"))
+    }
+
+    func testMotionFromTheServer() {
+        var step = GuideStep(instruction: "", target: "", success: "", point: NormalizedPoint(x: 0, y: 0), box: nil,
+                             boxMethod: "point", setTo: nil)
+        XCTAssertNil(step.motionKind)
+        step.motion = "turn_counterclockwise"
+        XCTAssertEqual(step.motionKind, .turnCounterclockwise)
+        step.motion = "unknown"
+        XCTAssertNil(step.motionKind)
     }
 }

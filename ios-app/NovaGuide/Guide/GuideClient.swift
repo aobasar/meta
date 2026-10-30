@@ -9,9 +9,9 @@ struct GuideClient {
 
         var errorDescription: String? {
             switch self {
-            case .noServer: String(localized: "Set the Mac's address in Settings.")
+            case .noServer: String(localized: "Set the Mac's address in Settings.", bundle: .ui)
             case .server(_, let message): message
-            case .unreadable: String(localized: "The Mac sent an answer the app couldn't read.")
+            case .unreadable: String(localized: "The Mac sent an answer the app couldn't read.", bundle: .ui)
             }
         }
     }
@@ -45,7 +45,7 @@ struct GuideClient {
         /// One JSON line per part: the steps first, then the located plan.
         var stream = true
         /// Nova may answer with a question instead of steps.
-        var allowQuestions = true
+        var allowQuestions: Bool
         var answers: [Answer] = []
         var correction: Correction?
     }
@@ -82,7 +82,7 @@ struct GuideClient {
 
     /// "This step is wrong" or "Start over": what went wrong, so the next plan doesn't repeat it.
     struct Correction: Encodable, Equatable {
-        var kind: String  // "step" or "restart"
+        var kind: String  // "step", "restart", or "outcome" (all done, and the problem isn't solved)
         var wrongStep: String
         var said: String
         var done: [String]
@@ -90,10 +90,10 @@ struct GuideClient {
 
     func plan(jpeg: Data, question: String, language: String, autoLanguage: Bool = false, record: Bool,
               camera: CameraInfo?, spark: SparkChoice? = nil, answers: [Answer] = [], correction: Correction? = nil,
-              onSteps: @MainActor (GuidePlan) -> Void = { _ in }) async throws -> GuidePlan {
+              allowQuestions: Bool = true, onSteps: @MainActor (GuidePlan) -> Void = { _ in }) async throws -> GuidePlan {
         let request = PlanRequest(frame: jpeg.base64EncodedString(), question: question, language: language,
                                   autoLanguage: autoLanguage, record: record, camera: record ? camera : nil, spark: spark,
-                                  answers: answers, correction: correction)
+                                  allowQuestions: allowQuestions, answers: answers, correction: correction)
         let bytes = try await open(path: "api/guide/plan", body: try JSONEncoder().encode(request), timeout: 90)
         for try await line in bytes.lines where !line.isEmpty {
             let data = Data(line.utf8)
@@ -259,7 +259,7 @@ struct GuideClient {
 
     private static func failure(_ status: Int, _ data: Data) -> Failure {
         let message = (try? JSONDecoder().decode(ServerError.self, from: data))?.error.message
-        return .server(status: status, message: message ?? String(localized: "The Mac answered with HTTP \(status)."))
+        return .server(status: status, message: message ?? String(localized: "The Mac answered with HTTP \(status).", bundle: .ui))
     }
 
     private func request(path: String, body: Data?, contentType: String, timeout: TimeInterval) throws -> URLRequest {

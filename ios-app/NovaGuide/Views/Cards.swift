@@ -28,6 +28,12 @@ struct SidePanel: View {
                 }
             case .refused(let note), .failed(let note):
                 scrolling { MessageCard(note: note) }
+            case .confirming:
+                if let correcting = model.correcting {
+                    scrolling { CorrectionCard(correcting: correcting) }
+                } else {
+                    scrolling { ConfirmCard() }
+                }
             case .finished:
                 if land { Spacer(minLength: 0) }
             }
@@ -76,7 +82,7 @@ private struct ReadyCard: View {
     @FocusState private var focused: Bool
 
     private var suggestions: [String] {
-        [String(localized: "How does this work?"), String(localized: "Show me step by step")]
+        [String(localized: "How does this work?", bundle: .ui), String(localized: "Show me step by step", bundle: .ui)]
     }
 
     var body: some View {
@@ -126,7 +132,7 @@ private struct ReadyCard: View {
             if typing {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Type your question").font(.caption).foregroundStyle(Color.novaText3)
-                    TextField(String(localized: "I want a normal wash"), text: $model.question, axis: .vertical)
+                    TextField(String(localized: "I want a normal wash", bundle: .ui), text: $model.question, axis: .vertical)
                         .lineLimit(2...3)
                         .focused($focused)
                         .submitLabel(.go)
@@ -136,7 +142,7 @@ private struct ReadyCard: View {
                         .background(Color.novaRaised, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                         .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(Color.novaLine))
                     // Stays readable when there is nothing to send yet (the old button disappeared when disabled).
-                    Button(String(localized: "Show me"), action: send)
+                    Button(String(localized: "Show me", bundle: .ui), action: send)
                         .buttonStyle(PrimaryButtonStyle(enabled: !isEmpty))
                         .disabled(isEmpty)
                 }
@@ -166,7 +172,7 @@ private struct MessageCard: View {
                 Text(GuideText.display(note)).fixedSize(horizontal: false, vertical: true)
             }
             .font(.body.weight(.semibold))
-            Button(String(localized: "Try again")) { model.newQuestion() }
+            Button(String(localized: "Try again", bundle: .ui)) { model.newQuestion() }
                 .buttonStyle(PrimaryButtonStyle())
         }
     }
@@ -218,9 +224,30 @@ private struct QuestionCard: View {
             }
             .frame(maxHeight: 280)
             HStack(spacing: 8) {
-                Button(String(localized: "You choose")) { model.letNovaChoose() }.buttonStyle(OutlineButtonStyle())
-                Button(String(localized: "Something else")) { model.microphoneTapped() }.buttonStyle(OutlineButtonStyle())
+                Button(String(localized: "You choose", bundle: .ui)) { model.letNovaChoose() }.buttonStyle(OutlineButtonStyle())
+                Button(String(localized: "Something else", bundle: .ui)) { model.microphoneTapped() }.buttonStyle(OutlineButtonStyle())
             }
+        }
+    }
+}
+
+// MARK: Is it solved?
+
+private struct ConfirmCard: View {
+    @EnvironmentObject private var model: GuideModel
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Did this solve it?").font(.title3.weight(.bold))
+            if let reply = model.reply {
+                Text(GuideText.display(reply)).font(.footnote).foregroundStyle(Color.novaText2).fixedSize(horizontal: false, vertical: true)
+            }
+            Button(String(localized: "Yes, solved", bundle: .ui)) { model.confirmSolved() }.buttonStyle(PrimaryButtonStyle(fill: .novaGreen))
+            Button(String(localized: "No, not solved", bundle: .ui)) { model.notSolved() }.buttonStyle(OutlineButtonStyle())
+            Button(String(localized: "Back to the last step", bundle: .ui)) { model.back() }
+                .font(.footnote.weight(.semibold))
+                .foregroundStyle(Color.novaText2)
+                .frame(maxWidth: .infinity, minHeight: 32)
         }
     }
 }
@@ -236,27 +263,32 @@ private struct CorrectionCard: View {
             switch correcting {
             case .menu:
                 Text("What's wrong?").font(.title3.weight(.bold))
-                ChoiceRow(title: String(localized: "It's pointing at the wrong place"), subtitle: nil) { model.startMovingMarker() }
-                ChoiceRow(title: String(localized: "Explain it in more detail"), subtitle: nil) { model.explainMore() }
+                ChoiceRow(title: String(localized: "It's pointing at the wrong place", bundle: .ui), subtitle: nil) { model.startMovingMarker() }
+                ChoiceRow(title: String(localized: "Explain it in more detail", bundle: .ui), subtitle: nil) { model.explainMore() }
                 if model.canCorrectStep {
-                    ChoiceRow(title: String(localized: "This step is wrong"), subtitle: nil) { model.tellWhatIsWrong(kind: "step") }
+                    ChoiceRow(title: String(localized: "This step is wrong", bundle: .ui), subtitle: nil) { model.tellWhatIsWrong(kind: "step") }
                 } else {
                     Text("I'm not sure about this step. Check the device's manual, or skip it.")
                         .font(.footnote).foregroundStyle(Color.novaText2).fixedSize(horizontal: false, vertical: true)
-                    ChoiceRow(title: String(localized: "Skip this step"), subtitle: nil) {
+                    ChoiceRow(title: String(localized: "Skip this step", bundle: .ui), subtitle: nil) {
                         model.closeCorrection()
                         model.skip()
                     }
                 }
-                ChoiceRow(title: String(localized: "Start over"), subtitle: nil) { model.tellWhatIsWrong(kind: "restart") }
+                ChoiceRow(title: String(localized: "Start over", bundle: .ui), subtitle: nil) { model.tellWhatIsWrong(kind: "restart") }
             case .moving:
                 Text("Tap the right control on the screen.").font(.headline).fixedSize(horizontal: false, vertical: true)
-            case .telling:
-                Text("Tell me what's wrong.").font(.title3.weight(.bold))
-                Text("For example: there is no such button.").font(.footnote).foregroundStyle(Color.novaText2)
-                Button(String(localized: "Just look again")) { model.lookAgainWithoutWords() }.buttonStyle(PrimaryButtonStyle())
+            case .telling(let kind):
+                if kind == "outcome" {
+                    Text("What happened?").font(.title3.weight(.bold))
+                    Text("For example: it still doesn't turn on.").font(.footnote).foregroundStyle(Color.novaText2)
+                } else {
+                    Text("Tell me what's wrong.").font(.title3.weight(.bold))
+                    Text("For example: there is no such button.").font(.footnote).foregroundStyle(Color.novaText2)
+                }
+                Button(String(localized: "Just look again", bundle: .ui)) { model.lookAgainWithoutWords() }.buttonStyle(PrimaryButtonStyle())
             }
-            Button(String(localized: "Cancel")) { model.closeCorrection() }.buttonStyle(OutlineButtonStyle())
+            Button(String(localized: "Cancel", bundle: .ui)) { model.closeCorrection() }.buttonStyle(OutlineButtonStyle())
         }
     }
 }
@@ -300,14 +332,14 @@ private struct StepCard: View {
                     .lineLimit(1)
                     .frame(maxWidth: .infinity, alignment: .leading)
                 HStack(spacing: 4) {
-                    arrow("chevron.left", label: index == 0 ? String(localized: "Back to the question") : String(localized: "Previous step")) {
+                    arrow("chevron.left", label: index == 0 ? String(localized: "Back to the question", bundle: .ui) : String(localized: "Previous step", bundle: .ui)) {
                         model.back()
                     }
                     Text(verbatim: "\(index + 1)/\(total)")
                         .font(.footnote.weight(.bold).monospacedDigit())
                         .foregroundStyle(Color.novaYellow)
                         .frame(minWidth: 34)
-                    arrow("chevron.right", label: String(localized: "Next step")) { model.forward() }
+                    arrow("chevron.right", label: String(localized: "Next step", bundle: .ui)) { model.forward() }
                         .disabled(!model.canGoForward)
                         .opacity(model.canGoForward ? 1 : 0.35)
                 }
@@ -321,6 +353,11 @@ private struct StepCard: View {
             Text(GuideText.display(step.instruction))
                 .font(.system(size: land ? 17 : 22, weight: .bold))
                 .fixedSize(horizontal: false, vertical: true)
+            if let motion = step.motionKind {
+                Label(motion.title, systemImage: motion.symbol)
+                    .font(.footnote.weight(.bold))
+                    .foregroundStyle(Color.novaCyan)
+            }
             if let detail = step.detail, !detail.isEmpty, !land || (resultBox == nil && model.reply == nil) {
                 Text(GuideText.display(detail))
                     .font(.system(size: land ? 13 : 14))
@@ -337,7 +374,7 @@ private struct StepCard: View {
             VStack(spacing: 8) {
                 if model.seemsStuck {
                     Bubble(icon: "arrow.triangle.2.circlepath", color: .novaOrange, title: nil,
-                           text: String(localized: "We seem stuck. Shall I look at this again?"))
+                           text: String(localized: "We seem stuck. Shall I look at this again?", bundle: .ui))
                 }
                 Text("AI-generated guidance. Check before you press.")
                     .font(.caption2)
@@ -365,12 +402,12 @@ private struct StepCard: View {
                     Button { model.reassess() } label: {
                         HStack(spacing: 6) {
                             if model.reassessing { ProgressView().tint(.white) }
-                            Text(model.reassessing ? String(localized: "Looking again…") : String(localized: "Re-evaluate"))
+                            Text(model.reassessing ? String(localized: "Looking again…", bundle: .ui) : String(localized: "Re-evaluate", bundle: .ui))
                         }
                     }
                     .buttonStyle(OutlineButtonStyle())
                     .disabled(model.feedback == .checking || model.isLocating || model.reassessing)
-                    Button(model.stepDefended ? String(localized: "Still wrong") : String(localized: "More options")) {
+                    Button(model.stepDefended ? String(localized: "Still wrong", bundle: .ui) : String(localized: "More options", bundle: .ui)) {
                         model.openCorrection()
                     }
                     .buttonStyle(OutlineButtonStyle())
@@ -408,31 +445,31 @@ private struct StepCard: View {
 
     private var resultBox: (icon: String, color: Color, title: String?, text: String)? {
         switch model.feedback {
-        case .correct: ("checkmark", .novaGreen, String(localized: "Verified."), "")
-        case .notDone(let text): ("xmark", .novaRed, String(localized: "Needs correction."), text)
-        case .unsure(let text): ("questionmark.circle", .novaOrange, String(localized: "Not sure."), text)
+        case .correct: ("checkmark", .novaGreen, String(localized: "Verified.", bundle: .ui), "")
+        case .notDone(let text): ("xmark", .novaRed, String(localized: "Needs correction.", bundle: .ui), text)
+        case .unsure(let text): ("questionmark.circle", .novaOrange, String(localized: "Not sure.", bundle: .ui), text)
         case .error(let text): ("exclamationmark.triangle", .novaOrange, nil, text)
         case .checking, nil: nil
         }
     }
 
     private var primaryTitle: String {
-        if model.isLocating { return String(localized: "Finding the control…") }
+        if model.isLocating { return String(localized: "Finding the control…", bundle: .ui) }
         switch model.feedback {
-        case .checking: return String(localized: "Checking…")
-        case .correct: return model.isLastStep ? String(localized: "Finish") : String(localized: "Continue →")
-        case .notDone, .error: return String(localized: "Check again")
-        case .unsure: return String(localized: "Show closer")
+        case .checking: return String(localized: "Checking…", bundle: .ui)
+        case .correct: return model.isLastStep ? String(localized: "Finish", bundle: .ui) : String(localized: "Continue →", bundle: .ui)
+        case .notDone, .error: return String(localized: "Check again", bundle: .ui)
+        case .unsure: return String(localized: "Show closer", bundle: .ui)
         case nil:
-            if step.isVerifiable && settings.verifyEach { return String(localized: "I've done it →") }
-            return model.isLastStep ? String(localized: "Finish") : String(localized: "Continue →")
+            if step.isVerifiable && settings.verifyEach { return String(localized: "I've done it →", bundle: .ui) }
+            return model.isLastStep ? String(localized: "Finish", bundle: .ui) : String(localized: "Continue →", bundle: .ui)
         }
     }
 
     private var secondaryTitle: String? {
         switch model.feedback {
-        case .notDone, .error: String(localized: "Skip, I did it")
-        case .unsure: String(localized: "I did it, confirm")
+        case .notDone, .error: String(localized: "Skip, I did it", bundle: .ui)
+        case .unsure: String(localized: "I did it, confirm", bundle: .ui)
         default: nil
         }
     }
@@ -470,21 +507,26 @@ struct CompletionView: View {
             Color(white: 0.02).opacity(0.86).ignoresSafeArea()
             ScrollView {
                 VStack(spacing: 14) {
-                    Image(systemName: "checkmark")
+                    let tone: Color = model.unsolved ? .novaOrange : .novaGreen
+                    Image(systemName: model.unsolved ? "exclamationmark" : "checkmark")
                         .font(.system(size: 30, weight: .heavy))
-                        .foregroundStyle(Color.novaGreen)
+                        .foregroundStyle(tone)
                         .frame(width: 68, height: 68)
-                        .background(Color.novaGreen.opacity(0.16), in: Circle())
-                        .overlay(Circle().stroke(Color.novaGreen.opacity(0.5), lineWidth: 2))
-                    Text("Task completed").font(.title2.weight(.heavy))
+                        .background(tone.opacity(0.16), in: Circle())
+                        .overlay(Circle().stroke(tone.opacity(0.5), lineWidth: 2))
+                    Text(model.unsolved ? "Not solved" : "Task completed").font(.title2.weight(.heavy))
+                    if model.unsolved {
+                        Text("I couldn't solve this. Check the device's manual or contact service.")
+                            .font(.footnote).foregroundStyle(Color.novaText2).multilineTextAlignment(.center)
+                    }
                     if let device = model.knownDevice {
                         Text(device).font(.subheadline).foregroundStyle(Color.novaText2)
                     }
                     HStack(spacing: 8) {
-                        stat(Text(verbatim: "\(done)/\(model.records.count)"), String(localized: "Steps"), .white)
-                        stat(Text(verbatim: "\(count(.verified))"), String(localized: "Verified"), .novaGreen)
-                        stat(Text(verbatim: "\(count(.confirmed) + count(.skipped))"), String(localized: "You confirmed"), .novaCyan)
-                        stat(Text(verbatim: duration), String(localized: "Time"), .white)
+                        stat(Text(verbatim: "\(done)/\(model.records.count)"), String(localized: "Steps", bundle: .ui), .white)
+                        stat(Text(verbatim: "\(count(.verified))"), String(localized: "Verified", bundle: .ui), .novaGreen)
+                        stat(Text(verbatim: "\(count(.confirmed) + count(.skipped))"), String(localized: "You confirmed", bundle: .ui), .novaCyan)
+                        stat(Text(verbatim: duration), String(localized: "Time", bundle: .ui), .white)
                     }
                     if showSummary, let plan = model.plan {
                         VStack(spacing: 6) {
@@ -501,11 +543,11 @@ struct CompletionView: View {
                             }
                         }
                     }
-                    Button(String(localized: "New task here")) { model.newTask(keepDevice: true) }
+                    Button(String(localized: "New task here", bundle: .ui)) { model.newTask(keepDevice: true) }
                         .buttonStyle(PrimaryButtonStyle())
                     HStack(spacing: 8) {
-                        Button(String(localized: "Something else")) { model.newTask(keepDevice: false) }
-                        Button(showSummary ? String(localized: "Hide summary") : String(localized: "View summary")) {
+                        Button(String(localized: "Something else", bundle: .ui)) { model.newTask(keepDevice: false) }
+                        Button(showSummary ? String(localized: "Hide summary", bundle: .ui) : String(localized: "View summary", bundle: .ui)) {
                             withAnimation { showSummary.toggle() }
                         }
                     }
@@ -559,11 +601,11 @@ enum StepCardColors {
 
     static func label(_ result: GuideModel.StepRecord.Result) -> String {
         switch result {
-        case .verified: String(localized: "verified")
-        case .confirmed: String(localized: "you confirmed")
-        case .unchecked: String(localized: "can't be checked")
-        case .skipped: String(localized: "skipped")
-        case .pending, .failed, .uncertain: String(localized: "pending")
+        case .verified: String(localized: "verified", bundle: .ui)
+        case .confirmed: String(localized: "you confirmed", bundle: .ui)
+        case .unchecked: String(localized: "can't be checked", bundle: .ui)
+        case .skipped: String(localized: "skipped", bundle: .ui)
+        case .pending, .failed, .uncertain: String(localized: "pending", bundle: .ui)
         }
     }
 }

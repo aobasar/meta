@@ -112,12 +112,12 @@
         }
       }
     },
-    "Automatic: speak Turkish or English and Nova answers in the same language. Words printed on the device are read in their own language. Live transcription: your words appear as you speak, and Nova notices when you finish; turn it off if it cuts you off. A new interface language applies the next time you open Nova.": {
+    "Back to the last step": {
       "localizations": {
         "tr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Otomatik: Türkçe ya da İngilizce konuş, Nova aynı dilde cevap verir. Cihazda yazan kelimeler kendi dilinde okunur. Canlı yazıya çevirme: sen konuşurken kelimeler ekranda görünür ve Nova konuşmanın bittiğini anlar; sözünü kesiyorsa kapat. Yeni arayüz dili, Nova'yı bir sonraki açışında geçerli olur."
+            "value": "Son adıma dön"
           }
         }
       }
@@ -322,6 +322,16 @@
         }
       }
     },
+    "Did this solve it?": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sorun çözüldü mü?"
+          }
+        }
+      }
+    },
     "Do it right.": {
       "localizations": {
         "tr": {
@@ -398,6 +408,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "18 yaş ve üstü içindir."
+          }
+        }
+      }
+    },
+    "For example: it still doesn't turn on.": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Örneğin: hâlâ açılmıyor."
           }
         }
       }
@@ -568,6 +588,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Net göremiyorum. Biraz yaklaş ya da kendin onayla."
+          }
+        }
+      }
+    },
+    "I couldn't solve this. Check the device's manual or contact service.": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bunu çözemedim. Cihazın kılavuzuna bak ya da servise başvur."
           }
         }
       }
@@ -984,6 +1014,16 @@
         }
       }
     },
+    "No, not solved": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hayır, çözülmedi"
+          }
+        }
+      }
+    },
     "None (less precise)": {
       "localizations": {
         "tr": {
@@ -1010,6 +1050,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Gaz, elektrik panosu, araç ve ilaç için kullanma."
+          }
+        }
+      }
+    },
+    "Not solved": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Çözülemedi"
           }
         }
       }
@@ -1164,6 +1214,16 @@
         }
       }
     },
+    "Press": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bas"
+          }
+        }
+      }
+    },
     "Previous step": {
       "localizations": {
         "tr": {
@@ -1190,6 +1250,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Gizlilik ve koşullar"
+          }
+        }
+      }
+    },
+    "Pull toward you": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kendine doğru çek"
+          }
+        }
+      }
+    },
+    "Push in": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "İçeri it"
           }
         }
       }
@@ -1744,6 +1824,26 @@
         }
       }
     },
+    "Turn clockwise": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Saat yönünde çevir"
+          }
+        }
+      }
+    },
+    "Turn counterclockwise": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Saat yönünün tersine çevir"
+          }
+        }
+      }
+    },
     "Turn the phone left": {
       "localizations": {
         "tr": {
@@ -1894,6 +1994,16 @@
         }
       }
     },
+    "What happened?": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ne oldu?"
+          }
+        }
+      }
+    },
     "What's wrong?": {
       "localizations": {
         "tr": {
@@ -1950,6 +2060,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Ne olduğu anlaşılıyor…"
+          }
+        }
+      }
+    },
+    "Yes, solved": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Evet, çözüldü"
           }
         }
       }

@@ -17,7 +17,7 @@ struct OnboardingView: View {
         Group {
             switch page {
             case .welcome: WelcomeView(onStart: next, onHow: next)
-            case .how: HowView(buttonTitle: String(localized: "Continue")) { withAnimation { page = .consent } }
+            case .how: HowView(buttonTitle: String(localized: "Continue", bundle: .ui)) { withAnimation { page = .consent } }
             case .consent: ConsentView {
                 withAnimation {
                     model.showWelcome = false  // the user has just seen it
@@ -102,7 +102,7 @@ struct WelcomeView: View {
             }
             .multilineTextAlignment(land ? .leading : .center)
             VStack(alignment: land ? .leading : .center, spacing: 12) {
-                Button(String(localized: "Get Started"), action: onStart)
+                Button(String(localized: "Get Started", bundle: .ui), action: onStart)
                     .buttonStyle(PrimaryButtonStyle())
                 Button(action: onHow) {
                     Text("How it works") + Text(verbatim: " ›")
@@ -124,9 +124,9 @@ struct HowView: View {
     var onContinue: () -> Void
 
     private var cards: [(icon: String, title: String, text: String)] {
-        [("viewfinder", String(localized: "Show"), String(localized: "Point the camera; the right control gets marked.")),
-         ("list.bullet", String(localized: "Follow"), String(localized: "One step at a time, large and read aloud.")),
-         ("checkmark.circle", String(localized: "Verify"), String(localized: "Say “done” and Nova checks with the camera."))]
+        [("viewfinder", String(localized: "Show", bundle: .ui), String(localized: "Point the camera; the right control gets marked.", bundle: .ui)),
+         ("list.bullet", String(localized: "Follow", bundle: .ui), String(localized: "One step at a time, large and read aloud.", bundle: .ui)),
+         ("checkmark.circle", String(localized: "Verify", bundle: .ui), String(localized: "Say “done” and Nova checks with the camera.", bundle: .ui))]
     }
 
     var body: some View {
@@ -161,7 +161,7 @@ struct HowView: View {
                     }
                 }
                 .fixedSize(horizontal: false, vertical: true)
-                Label(String(localized: "You'll be asked for the camera and microphone. The mic opens only when you tap Pulse."),
+                Label(String(localized: "You'll be asked for the camera and microphone. The mic opens only when you tap Pulse.", bundle: .ui),
                       systemImage: "mic")
                     .font(.system(size: land ? 12 : 13))
                     .foregroundStyle(Color.novaText3)
@@ -187,10 +187,10 @@ struct ConsentView: View {
     @State private var glow = false
 
     private var items: [(icon: String, color: Color, text: String)] {
-        [("paperplane", .novaYellow, String(localized: "Frames and your voice go to the Nova server and AI models only when you ask; they aren't kept.")),
-         ("exclamationmark.triangle", .novaOrange, String(localized: "AI-generated guidance. Check before you press. It can be wrong; labels and manuals come first.")),
-         ("nosign", .novaRed, String(localized: "Not for gas, electrical panels, vehicles or medication.")),
-         ("person", .novaCyan, String(localized: "For ages 18 and up."))]
+        [("paperplane", .novaYellow, String(localized: "Frames and your voice go to the Nova server and AI models only when you ask; they aren't kept.", bundle: .ui)),
+         ("exclamationmark.triangle", .novaOrange, String(localized: "AI-generated guidance. Check before you press. It can be wrong; labels and manuals come first.", bundle: .ui)),
+         ("nosign", .novaRed, String(localized: "Not for gas, electrical panels, vehicles or medication.", bundle: .ui)),
+         ("person", .novaCyan, String(localized: "For ages 18 and up.", bundle: .ui))]
     }
 
     var body: some View {
@@ -211,9 +211,9 @@ struct ConsentView: View {
                     Divider().overlay(Color.novaRaised)
                     HStack(spacing: 4) {
                         Text("Full text:")
-                        Link(String(localized: "Privacy"), destination: URL(string: "#privacy", relativeTo: Self.legalURL)!)
+                        Link(String(localized: "Privacy", bundle: .ui), destination: URL(string: "#privacy", relativeTo: Self.legalURL)!)
                         Text(verbatim: "·")
-                        Link(String(localized: "Terms"), destination: URL(string: "#terms", relativeTo: Self.legalURL)!)
+                        Link(String(localized: "Terms", bundle: .ui), destination: URL(string: "#terms", relativeTo: Self.legalURL)!)
                     }
                     .font(.footnote)
                     .foregroundStyle(Color.novaText2)
@@ -240,7 +240,7 @@ struct ConsentView: View {
                     }
                     .accessibilityAddTraits(agreed ? .isSelected : [])
                     if !land { Spacer(minLength: 0) }
-                    Button(String(localized: "Continue"), action: onAgree)
+                    Button(String(localized: "Continue", bundle: .ui), action: onAgree)
                         .buttonStyle(PrimaryButtonStyle(enabled: agreed))
                         .frame(width: 130)
                         .disabled(!agreed)

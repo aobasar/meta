@@ -63,16 +63,16 @@ struct CameraScreen: View {
         }
         .onChange(of: model.isWaiting) { _, waiting in screenRecorder.setPaused(waiting) }
         .onChange(of: model.isWaiting || model.listening != .idle) { _, busy in ar.holdTorch = busy }
-        .alert(String(localized: "Screen recording"), isPresented: Binding(
+        .alert(String(localized: "Screen recording", bundle: .ui), isPresented: Binding(
             get: { screenRecorder.failure != nil }, set: { if !$0 { screenRecorder.failure = nil } })) {
-            Button(String(localized: "OK"), role: .cancel) {}
+            Button(String(localized: "OK", bundle: .ui), role: .cancel) {}
         } message: {
             Text(screenRecorder.failure ?? "")
         }
         .onChange(of: model.phase) { old, phase in
             if phase == .asking { model.greet() }
             // Settings › Screen recording: each task is one video, from the question to the last step.
-            var taskIsRunning = old == .guiding
+            var taskIsRunning = old == .guiding || old == .confirming
             if case .choosing = old { taskIsRunning = true }
             if phase == .thinking && !taskIsRunning && settings.screenRecording {
                 screenRecorder.beginTask(paused: true)
@@ -89,7 +89,7 @@ struct CameraScreen: View {
             if DemoMode.screen != nil { DemoBackdrop().ignoresSafeArea() }
             #endif
             if model.phase == .guiding, let marker = ar.marker {
-                MarkerOverlay(marker: marker, setTo: model.currentStep?.setTo, tint: ringTint)
+                MarkerOverlay(marker: marker, setTo: model.currentStep?.setTo, tint: ringTint, motion: model.currentStep?.motionKind)
                     .id(model.stepIndex)  // each step replays the arrow, then the label tag
                     .ignoresSafeArea()
             }
@@ -179,9 +179,9 @@ struct CameraScreen: View {
 
     private var connectionProblem: String? {
         switch model.connection {
-        case .rejected: String(localized: "Invite code not accepted")
-        case .noKey: String(localized: "The Mac has no API key")
-        case .unreachable: String(localized: "Mac not reachable")
+        case .rejected: String(localized: "Invite code not accepted", bundle: .ui)
+        case .noKey: String(localized: "The Mac has no API key", bundle: .ui)
+        case .unreachable: String(localized: "Mac not reachable", bundle: .ui)
         case .connected, .unknown: nil
         }
     }
@@ -389,10 +389,10 @@ struct PulseButton: View {
 
     private func label(_ pulse: GuideModel.Pulse) -> String {
         switch pulse {
-        case .ready: String(localized: "Tap and talk")
-        case .listening: String(localized: "Listening…")
-        case .thinking: String(localized: "Thinking…")
-        case .guiding: String(localized: "Ask")
+        case .ready: String(localized: "Tap and talk", bundle: .ui)
+        case .listening: String(localized: "Listening…", bundle: .ui)
+        case .thinking: String(localized: "Thinking…", bundle: .ui)
+        case .guiding: String(localized: "Ask", bundle: .ui)
         }
     }
 }

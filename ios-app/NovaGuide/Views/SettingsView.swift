@@ -17,24 +17,24 @@ struct SettingsView: View {
         NavigationStack {
             Form {
                 Section {
-                    Picker(String(localized: "I speak"), selection: $settings.languageName) {
+                    Picker(String(localized: "I speak", bundle: .ui), selection: $settings.languageName) {
                         Text("Automatic").tag(GuideSettings.automaticLanguage)
                         ForEach(UserLanguage.all) { language in
                             Text(language.title).tag(language.serverName)
                         }
                     }
-                    Picker(String(localized: "Interface language"), selection: $settings.interfaceLanguage) {
+                    Picker(String(localized: "Interface language", bundle: .ui), selection: $settings.interfaceLanguage) {
                         ForEach(InterfaceLanguage.allCases) { Text($0.title).tag($0) }
                     }
-                    Toggle(String(localized: "Live transcription"), isOn: $settings.liveTranscription)
-                    Toggle(String(localized: "Speak instructions aloud"), isOn: $settings.speakAloud)
+                    Toggle(String(localized: "Live transcription", bundle: .ui), isOn: $settings.liveTranscription)
+                    Toggle(String(localized: "Speak instructions aloud", bundle: .ui), isOn: $settings.speakAloud)
                 } header: {
                     Text("Language & voice")
                 } footer: {
-                    Text("Automatic: speak Turkish or English and Nova answers in the same language. Words printed on the device are read in their own language. Live transcription: your words appear as you speak, and Nova notices when you finish; turn it off if it cuts you off. A new interface language applies the next time you open Nova.")
+                    Text("Automatic: speak Turkish or English and Nova answers in the same language. Words printed on the device are read in their own language. Live transcription: your words appear as you speak, and Nova notices when you finish; turn it off if it cuts you off.")
                 }
-                Section(String(localized: "Screen")) {
-                    Picker(String(localized: "Screen orientation"), selection: $settings.orientation) {
+                Section(String(localized: "Screen", bundle: .ui)) {
+                    Picker(String(localized: "Screen orientation", bundle: .ui), selection: $settings.orientation) {
                         ForEach(OrientationChoice.allCases) { choice in
                             Text(choice.title).tag(choice)
                         }
@@ -42,34 +42,34 @@ struct SettingsView: View {
                 }
                 Section {
                     if ARGuideController.hasUltraWide {
-                        Picker(String(localized: "Field of view"), selection: $settings.lens) {
+                        Picker(String(localized: "Field of view", bundle: .ui), selection: $settings.lens) {
                             ForEach(LensChoice.allCases) { choice in
                                 Text(choice.title).tag(choice)
                             }
                         }
                     }
-                    Toggle(String(localized: "High detail (small labels)"), isOn: $settings.highDetail)
-                    Picker(String(localized: "Torch"), selection: $settings.torch) {
+                    Toggle(String(localized: "High detail (small labels)", bundle: .ui), isOn: $settings.highDetail)
+                    Picker(String(localized: "Torch", bundle: .ui), selection: $settings.torch) {
                         ForEach(TorchChoice.allCases) { choice in
                             Text(choice.title).tag(choice)
                         }
                     }
-                    LabeledContent(String(localized: "In use"), value: ar.activeCamera)
+                    LabeledContent(String(localized: "In use", bundle: .ui), value: ar.activeCamera)
                 } header: {
                     Text("Camera")
                 } footer: {
                     Text("The default is the widest camera this iPhone can use with the markers: more of the panel is in view, and wide panels fit in one frame. High detail is for small labels. Automatic torch: on in the dark; it goes off for a moment now and then to check the room, and stays off when there is enough light.")
                 }
-                Section(String(localized: "Task guidance")) {
-                    Toggle(String(localized: "Verify each step"), isOn: $settings.verifyEach)
-                    Toggle(String(localized: "Continue 5 s after a check"), isOn: $settings.autoContinue)
+                Section(String(localized: "Task guidance", bundle: .ui)) {
+                    Toggle(String(localized: "Verify each step", bundle: .ui), isOn: $settings.verifyEach)
+                    Toggle(String(localized: "Continue 5 s after a check", bundle: .ui), isOn: $settings.autoContinue)
                         .disabled(!settings.verifyEach)
-                    Toggle(String(localized: "Haptics"), isOn: $settings.haptics)
+                    Toggle(String(localized: "Haptics", bundle: .ui), isOn: $settings.haptics)
                 }
                 Section {
-                    Toggle(String(localized: "Record tasks on screen"), isOn: $settings.screenRecording)
+                    Toggle(String(localized: "Record tasks on screen", bundle: .ui), isOn: $settings.screenRecording)
                     Button { showLastRecording = true } label: {
-                        LabeledContent(String(localized: "Share the last recording"), value: lastRecordingText)
+                        LabeledContent(String(localized: "Share the last recording", bundle: .ui), value: lastRecordingText)
                     }
                     .foregroundStyle(.primary)
                     .disabled(screenRecorder.last == nil)
@@ -79,18 +79,18 @@ struct SettingsView: View {
                     Text("When on, each task is recorded without sound; recording pauses while Nova thinks. The video stays on the phone; save it to Photos or share it from here.")
                 }
                 Section {
-                    TextField(String(localized: "Internet address"), text: $settings.publicURL)
+                    TextField(String(localized: "Internet address", bundle: .ui), text: $settings.publicURL)
                         .keyboardType(.URL)
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
-                    SecureField(String(localized: "Invite code"), text: $settings.inviteCode)
+                    SecureField(String(localized: "Invite code", bundle: .ui), text: $settings.inviteCode)
                         .textInputAutocapitalization(.characters)
                         .autocorrectionDisabled()
-                    TextField(String(localized: "Mac over Tailscale"), text: $settings.serverURL)
+                    TextField(String(localized: "Mac over Tailscale", bundle: .ui), text: $settings.serverURL)
                         .keyboardType(.URL)
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
-                    LabeledContent(String(localized: "Status"), value: connectionText)
+                    LabeledContent(String(localized: "Status", bundle: .ui), value: connectionText)
                 } header: {
                     Text("Connection")
                 } footer: {
@@ -98,15 +98,15 @@ struct SettingsView: View {
                 }
                 #if DEBUG
                 Section {
-                    Picker(String(localized: "Model"), selection: $settings.sparkProvider) {
+                    Picker(String(localized: "Model", bundle: .ui), selection: $settings.sparkProvider) {
                         ForEach(SparkProvider.allCases) { Text($0.title).tag($0) }
                     }
-                    Picker(String(localized: "Thinking"), selection: $settings.sparkEffort) {
+                    Picker(String(localized: "Thinking", bundle: .ui), selection: $settings.sparkEffort) {
                         ForEach(SparkEffort.allCases) { Text($0.title).tag($0) }
                     }
-                    Toggle(String(localized: "Show timings on the camera screen"), isOn: $settings.showTimings)
-                    LabeledContent(String(localized: "Last task"),
-                                   value: model.timings.isEmpty ? String(localized: "none yet") : model.timings.summary)
+                    Toggle(String(localized: "Show timings on the camera screen", bundle: .ui), isOn: $settings.showTimings)
+                    LabeledContent(String(localized: "Last task", bundle: .ui),
+                                   value: model.timings.isEmpty ? String(localized: "none yet", bundle: .ui) : model.timings.summary)
                 } header: {
                     Text("Speed test")
                 } footer: {
@@ -117,15 +117,15 @@ struct SettingsView: View {
                 }
                 #endif
                 Section {
-                    Toggle(String(localized: "Recording mode (for testing)"), isOn: $settings.record)
+                    Toggle(String(localized: "Recording mode (for testing)", bundle: .ui), isOn: $settings.record)
                 } footer: {
                     Text("When on, each frame and answer is saved on the Mac for testing; nothing is kept on the phone. Audio is never saved. Only invite codes allowed to record can use it.")
                 }
                 Section {
-                    Button(String(localized: "How Nova works")) { showHow = true }
-                    Link(String(localized: "Privacy and terms"), destination: ConsentView.legalURL)
-                    LabeledContent(String(localized: "Version"), value: version)
-                    LabeledContent(String(localized: "Depth sensor"), value: ar.hasLiDAR ? String(localized: "LiDAR") : String(localized: "None (less precise)"))
+                    Button(String(localized: "How Nova works", bundle: .ui)) { showHow = true }
+                    Link(String(localized: "Privacy and terms", bundle: .ui), destination: ConsentView.legalURL)
+                    LabeledContent(String(localized: "Version", bundle: .ui), value: version)
+                    LabeledContent(String(localized: "Depth sensor", bundle: .ui), value: ar.hasLiDAR ? String(localized: "LiDAR", bundle: .ui) : String(localized: "None (less precise)", bundle: .ui))
                 } header: {
                     Text("About")
                 } footer: {
@@ -136,11 +136,11 @@ struct SettingsView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
-                    Button(String(localized: "Close")) { dismiss() }
+                    Button(String(localized: "Close", bundle: .ui)) { dismiss() }
                 }
             }
             .fullScreenCover(isPresented: $showHow) {
-                HowView(buttonTitle: String(localized: "Close")) { showHow = false }
+                HowView(buttonTitle: String(localized: "Close", bundle: .ui)) { showHow = false }
             }
             .sheet(isPresented: $showLastRecording) {
                 if let last = screenRecorder.last { RecordingPreview(video: last) }
@@ -149,7 +149,7 @@ struct SettingsView: View {
     }
 
     private var lastRecordingText: String {
-        guard let last = screenRecorder.last else { return String(localized: "none yet") }
+        guard let last = screenRecorder.last else { return String(localized: "none yet", bundle: .ui) }
         guard let seconds = last.seconds else { return "" }
         let whole = Int(seconds.rounded())
         return String(format: "%d:%02d", whole / 60, whole % 60)
@@ -157,12 +157,12 @@ struct SettingsView: View {
 
     private var connectionText: String {
         switch model.connection {
-        case .connected(.internet): String(localized: "Connected over the internet")
-        case .connected(.tailscale): String(localized: "Connected to the Mac (Tailscale)")
-        case .rejected: String(localized: "Invite code not accepted")
-        case .noKey: String(localized: "The Mac has no API key")
-        case .unreachable: String(localized: "Mac not reachable")
-        case .unknown: String(localized: "Checking…")
+        case .connected(.internet): String(localized: "Connected over the internet", bundle: .ui)
+        case .connected(.tailscale): String(localized: "Connected to the Mac (Tailscale)", bundle: .ui)
+        case .rejected: String(localized: "Invite code not accepted", bundle: .ui)
+        case .noKey: String(localized: "The Mac has no API key", bundle: .ui)
+        case .unreachable: String(localized: "Mac not reachable", bundle: .ui)
+        case .unknown: String(localized: "Checking…", bundle: .ui)
         }
     }
 }

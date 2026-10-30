@@ -161,7 +161,7 @@ final class ARGuideController: NSObject, ObservableObject, ARSessionDelegate {
     }
 
     private static func describe(_ format: ARConfiguration.VideoFormat) -> String {
-        let camera = format.captureDeviceType == .builtInUltraWideCamera ? String(localized: "Ultra wide") : String(localized: "Wide")
+        let camera = format.captureDeviceType == .builtInUltraWideCamera ? String(localized: "Ultra wide", bundle: .ui) : String(localized: "Wide", bundle: .ui)
         return "\(camera) · \(Int(format.imageResolution.width))×\(Int(format.imageResolution.height))"
     }
 
@@ -410,10 +410,10 @@ final class ARGuideController: NSObject, ObservableObject, ARSessionDelegate {
         let issue: String?
         switch camera.trackingState {
         case .normal: issue = nil
-        case .notAvailable: issue = String(localized: "Camera tracking is not available.")
-        case .limited(.excessiveMotion): issue = String(localized: "Move the phone more slowly.")
-        case .limited(.insufficientFeatures): issue = String(localized: "Point the camera at the device in better light.")
-        case .limited: issue = String(localized: "Hold the phone steady for a moment.")
+        case .notAvailable: issue = String(localized: "Camera tracking is not available.", bundle: .ui)
+        case .limited(.excessiveMotion): issue = String(localized: "Move the phone more slowly.", bundle: .ui)
+        case .limited(.insufficientFeatures): issue = String(localized: "Point the camera at the device in better light.", bundle: .ui)
+        case .limited: issue = String(localized: "Hold the phone steady for a moment.", bundle: .ui)
         }
         DispatchQueue.main.async { self.trackingIssue = issue }
     }

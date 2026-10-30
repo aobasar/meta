@@ -270,6 +270,20 @@ class PlanTests(unittest.TestCase):
             self.assertIn(text, prompt)
         self.assertIsNone(result["question"])
 
+    def test_motion_comes_through_and_a_strange_one_is_unknown(self):
+        plan = {**PLAN, "steps": [{**PLAN["steps"][0], "motion": "turn_clockwise"}, {**PLAN["steps"][1], "motion": "spin"}]}
+        first, second = guide.plan(tiny_jpeg(), "q", "Turkish", FAKE_KEY, RoutingOpener(plan=plan))["steps"]
+        self.assertEqual((first["motion"], second["motion"]), ("turn_clockwise", "unknown"))
+
+    def test_not_solved_tells_what_was_done_and_may_ask(self):
+        opener = RoutingOpener(plan=self.QUESTION)
+        correction = {"kind": "outcome", "wrongStep": "", "said": "Hâlâ açılmıyor", "done": ["Güç tuşuna bas."]}
+        result = guide.plan(tiny_jpeg(), "Açılmıyor", "Turkish", FAKE_KEY, opener, allow_questions=True, correction=correction)
+        prompt = opener.bodies[0]["messages"][0]["content"][0]["text"]
+        for text in ("not solved", "Hâlâ açılmıyor", "Güç tuşuna bas."):
+            self.assertIn(text, prompt)
+        self.assertEqual(result["question"]["kind"], "choice")
+
     def test_a_refused_plan_is_one_final_part(self):
         refused = {**PLAN, "safe_to_guide": False, "steps": []}
         parts = list(guide.plan_parts(tiny_jpeg(), "Sigortayı aç", "Turkish", FAKE_KEY, RoutingOpener(plan=refused)))
@@ -558,6 +572,7 @@ class HttpTests(unittest.TestCase):
         self.assertEqual(self.opener.bodies, [])
         self.assertEqual(self.last_usage()["correction"], "moved")
         self.assertEqual(self.request("/api/guide/correction", {"kind": "x"})[0], 400)
+        self.assertEqual(self.request("/api/guide/correction", {"kind": "not_solved"})[0], 200)
 
     def test_recording_mode_saves_frame_request_and_response(self):
         status, body = self.request("/api/guide/plan", self.frame_body(record=True, camera={"intrinsics": [1, 0, 0]}))

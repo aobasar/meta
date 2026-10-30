@@ -43,7 +43,7 @@ enum DemoMode {
            "target": "temperature knob", "success": "pointer at warm", "point": {"x": 0.14, "y": 0.43}, "boxMethod": "point",
            "setTo": {"label": "warm", "meaning": "ılık su"}, "verifiable": true},
           {"instruction": "Kir seviyesi düğmesini regular soil konumuna getirin.", "detail": "Sağdaki küçük düğme; “regular” yazısına kadar çevirin.",
-           "target": "soil level knob", "success": "pointer at regular", "point": {"x": 0.75, "y": 0.41}, "boxMethod": "point",
+           "target": "soil level knob", "success": "pointer at regular", "point": {"x": 0.75, "y": 0.41}, "boxMethod": "point", "motion": "turn_clockwise",
            "setTo": {"label": "regular soil", "meaning": "normal kir"}, "verifiable": true},
           {"instruction": "Ana program düğmesini normal konumuna çevirin.", "detail": "Ortadaki büyük düğme; ok “normal” bölümünü göstermeli.",
            "target": "program dial", "success": "arrow inside normal", "point": {"x": 0.5, "y": 0.42}, "boxMethod": "point",

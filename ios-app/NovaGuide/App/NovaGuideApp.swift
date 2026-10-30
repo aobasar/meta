@@ -29,6 +29,8 @@ struct NovaGuideApp: App {
                 .environmentObject(model)
                 .environmentObject(screenRecorder)
                 .preferredColorScheme(.dark)
+                .environment(\.locale, Locale(identifier: settings.interfaceCode))
+                .id(settings.interfaceCode)  // every view reads its strings again in the new language
         }
     }
 }
@@ -49,7 +51,7 @@ struct RootView: View {
                 WelcomeView(onStart: { model.showWelcome = false }, onHow: { showHow = true }, onSettings: { showSettings = true })
                     .sheet(isPresented: $showSettings) { SettingsView() }
                     .fullScreenCover(isPresented: $showHow) {
-                        HowView(buttonTitle: String(localized: "Continue")) {
+                        HowView(buttonTitle: String(localized: "Continue", bundle: .ui)) {
                             showHow = false
                             model.showWelcome = false
                         }

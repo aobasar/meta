@@ -18,16 +18,16 @@ struct TaskTimings: Equatable {
     /// "Voice 1.9 s · Steps 3.4 s · Markers 7.1 s · Check 1.6 s · Meta Minimal"
     var summary: String {
         let parts: [(String, Double?)] = [
-            (liveVoice ? String(localized: "Live voice") : String(localized: "Voice"), transcript),
-            (String(localized: "Steps"), steps),
-            (String(localized: "Markers"), markers),
-            (String(localized: "Check"), check),
-            (String(localized: "Answer"), answer),
+            (liveVoice ? String(localized: "Live voice", bundle: .ui) : String(localized: "Voice", bundle: .ui), transcript),
+            (String(localized: "Steps", bundle: .ui), steps),
+            (String(localized: "Markers", bundle: .ui), markers),
+            (String(localized: "Check", bundle: .ui), check),
+            (String(localized: "Answer", bundle: .ui), answer),
         ]
         let times = parts.compactMap { title, seconds -> String? in
             guard let seconds else { return nil }
             let number = seconds.formatted(.number.precision(.fractionLength(1)))
-            return "\(title) " + String(localized: "\(number) s")
+            return "\(title) " + String(localized: "\(number) s", bundle: .ui)
         }
         return (times + (setting.isEmpty ? [] : [setting])).joined(separator: " · ")
     }
