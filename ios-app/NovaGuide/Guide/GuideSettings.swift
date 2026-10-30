@@ -23,6 +23,29 @@ struct UserLanguage: Identifiable, Hashable {
         return name.flatMap { voices[$0] } ?? "en-US"
     }
 
+    /// A quick guess from the letters and a few common words, only for the instant "Let me look…"; the plan then
+    /// names the language for real. Nil when the words give no hint.
+    static func guess(_ text: String) -> UserLanguage? {
+        let lower = text.lowercased()
+        if lower.rangeOfCharacter(from: CharacterSet(charactersIn: "çğıöşü")) != nil { return all[0] }
+        let words = Set(lower.components(separatedBy: CharacterSet.letters.inverted))
+        let turkish: Set = ["bu", "ne", "nasil", "mi", "ve", "bir", "icin", "istiyorum", "yap", "ac", "kapat", "nerede"]
+        let english: Set = ["the", "how", "what", "i", "to", "do", "this", "is", "want", "turn", "set", "my", "where"]
+        if !words.isDisjoint(with: turkish) { return all[0] }
+        if !words.isDisjoint(with: english) { return all[1] }
+        return nil
+    }
+
+    /// A fixed phrase from the string catalog in this language, whatever the iPhone's language: the screen follows
+    /// the iPhone, the voice follows the user.
+    func phrase(_ key: String) -> String {
+        let code = String(voice.prefix(2))
+        guard let path = Bundle.main.path(forResource: code, ofType: "lproj"), let bundle = Bundle(path: path) else {
+            return key
+        }
+        return bundle.localizedString(forKey: key, value: key, table: nil)
+    }
+
     /// The spoken language that matches the iPhone's language, so the voice and the screen agree by default.
     static func matching(preferred languages: [String]) -> UserLanguage {
         languages.first?.hasPrefix("tr") == true ? all[0] : all[1]

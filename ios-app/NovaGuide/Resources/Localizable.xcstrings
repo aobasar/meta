@@ -282,6 +282,16 @@
         }
       }
     },
+    "Finding the control…": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Düğme bulunuyor…"
+          }
+        }
+      }
+    },
     "Finish": {
       "localizations": {
         "tr": {
@@ -618,6 +628,18 @@
           "stringUnit": {
             "state": "translated",
             "value": "Son kayıt"
+          }
+        }
+      }
+    },
+    "Let me look…": {
+      "comment": "Spoken the moment a question is asked, in the user's language (UserLanguage.phrase).",
+      "extractionState": "manual",
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bakıyorum…"
           }
         }
       }

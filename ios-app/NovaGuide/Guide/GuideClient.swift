@@ -34,6 +34,8 @@ struct GuideClient {
         var autoLanguage: Bool
         var record: Bool
         var camera: CameraInfo?
+        /// One JSON line per part: the steps first, then the located plan.
+        var stream = true
     }
 
     var baseURL: URL?
@@ -58,16 +60,23 @@ struct GuideClient {
         return status.keyLoaded
     }
 
+    /// The located plan. `onSteps` gets the steps as soon as Spark has written them, a few seconds before the
+    /// controls are located, so the first step can be read while the markers are still on their way.
     func plan(jpeg: Data, question: String, language: String, autoLanguage: Bool = false, record: Bool,
-              camera: CameraInfo?) async throws -> GuidePlan {
+              camera: CameraInfo?, onSteps: @MainActor (GuidePlan) -> Void = { _ in }) async throws -> GuidePlan {
         let request = PlanRequest(frame: jpeg.base64EncodedString(), question: question, language: language,
                                   autoLanguage: autoLanguage, record: record, camera: record ? camera : nil)
-        let (data, _) = try await send(path: "api/guide/plan", body: try JSONEncoder().encode(request), timeout: 90)
-        do {
-            return try JSONDecoder().decode(GuidePlan.self, from: data)
-        } catch {
-            throw Failure.unreadable
+        let bytes = try await open(path: "api/guide/plan", body: try JSONEncoder().encode(request), timeout: 90)
+        for try await line in bytes.lines where !line.isEmpty {
+            let data = Data(line.utf8)
+            if let failure = try? JSONDecoder().decode(ServerError.self, from: data) {
+                throw Failure.server(status: 502, message: failure.error.message)
+            }
+            guard let part = try? JSONDecoder().decode(GuidePlan.self, from: data) else { throw Failure.unreadable }
+            if part.isLocated { return part }
+            await onSteps(part)
         }
+        throw Failure.unreadable
     }
 
     private struct VerifyRequest: Encodable {
@@ -143,6 +152,32 @@ struct GuideClient {
 
     private func send(path: String, body: Data?, contentType: String = "application/json",
                       timeout: TimeInterval) async throws -> (Data, HTTPURLResponse) {
+        let (data, response) = try await session.data(for: try request(path: path, body: body, contentType: contentType,
+                                                                       timeout: timeout))
+        guard let http = response as? HTTPURLResponse else { throw Failure.unreadable }
+        guard http.statusCode == 200 else { throw Self.failure(http.statusCode, data) }
+        return (data, http)
+    }
+
+    /// A response read as it arrives (a streamed plan); errors are read whole, as with `send`.
+    private func open(path: String, body: Data, timeout: TimeInterval) async throws -> URLSession.AsyncBytes {
+        let (bytes, response) = try await session.bytes(for: try request(path: path, body: body,
+                                                                         contentType: "application/json", timeout: timeout))
+        guard let http = response as? HTTPURLResponse else { throw Failure.unreadable }
+        guard http.statusCode == 200 else {
+            var data = Data()
+            for try await byte in bytes { data.append(byte) }
+            throw Self.failure(http.statusCode, data)
+        }
+        return bytes
+    }
+
+    private static func failure(_ status: Int, _ data: Data) -> Failure {
+        let message = (try? JSONDecoder().decode(ServerError.self, from: data))?.error.message
+        return .server(status: status, message: message ?? String(localized: "The Mac answered with HTTP \(status)."))
+    }
+
+    private func request(path: String, body: Data?, contentType: String, timeout: TimeInterval) throws -> URLRequest {
         guard let baseURL else { throw Failure.noServer }
         guard let url = URL(string: path, relativeTo: baseURL.hasDirectoryPath ? baseURL : baseURL.appendingPathComponent("")) else {
             throw Failure.noServer
@@ -159,13 +194,6 @@ struct GuideClient {
             request.setValue(contentType, forHTTPHeaderField: "Content-Type")
             request.httpBody = body
         }
-        let (data, response) = try await session.data(for: request)
-        guard let http = response as? HTTPURLResponse else { throw Failure.unreadable }
-        guard http.statusCode == 200 else {
-            let message = (try? JSONDecoder().decode(ServerError.self, from: data))?.error.message
-            throw Failure.server(status: http.statusCode,
-                                 message: message ?? String(localized: "The Mac answered with HTTP \(http.statusCode)."))
-        }
-        return (data, http)
+        return request
     }
 }

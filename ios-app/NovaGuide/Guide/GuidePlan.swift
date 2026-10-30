@@ -21,9 +21,14 @@ struct GuidePlan: Decodable, Equatable {
     var language: String? = nil
     var labelLanguage: String? = nil
     var frame: FrameSize
+    /// False on the first part of a streamed plan: the steps, before the controls are located (an older server
+    /// sends one located plan without this field).
+    var located: Bool? = nil
     var steps: [GuideStep]
     var served: [String]
     var recording: String?
+
+    var isLocated: Bool { located ?? true }
 
     /// "Maytag · washing machine", or just the type when no brand was read.
     var deviceLabel: String {

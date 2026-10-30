@@ -156,6 +156,27 @@ class PlanTests(unittest.TestCase):
         self.assertFalse(second["verifiable"])
         self.assertEqual(result["served"], ["muse-spark-1.3", "sam-3.1"])
 
+    def test_plan_parts_send_the_steps_before_the_controls_are_located(self):
+        opener = RoutingOpener()
+        parts = guide.plan_parts(tiny_jpeg(1000, 500), "Beyazları yıkamak istiyorum", "Turkish", FAKE_KEY, opener)
+        steps = next(parts)
+        self.assertEqual(len(opener.bodies), 1)  # only Spark's plan so far: no grounding, no SAM
+        self.assertFalse(steps["located"])
+        self.assertEqual([step["instruction"] for step in steps["steps"]], [s["instruction"] for s in PLAN["steps"]])
+        self.assertTrue(all(step["box"] is None and step["boxMethod"] == "pending" for step in steps["steps"]))
+        located = next(parts)
+        self.assertTrue(located["located"])
+        self.assertEqual(located["steps"][0]["boxMethod"], "point")
+        self.assertIsNone(next(parts, None))
+        self.assertEqual(located, guide.plan(tiny_jpeg(1000, 500), "Beyazları yıkamak istiyorum", "Turkish",
+                                             FAKE_KEY, RoutingOpener()) | {"timings": located["timings"]})
+
+    def test_a_refused_plan_is_one_final_part(self):
+        refused = {**PLAN, "safe_to_guide": False, "steps": []}
+        parts = list(guide.plan_parts(tiny_jpeg(), "Sigortayı aç", "Turkish", FAKE_KEY, RoutingOpener(plan=refused)))
+        self.assertEqual(len(parts), 1)
+        self.assertTrue(parts[0]["located"])
+
     def test_plan_prompt_starts_the_device_only_when_the_task_runs_it(self):
         prompt = guide.PLAN_PROMPT.format(question="q", language_rule="", lang="Turkish", max_steps=6, marking="")
         self.assertIn("only when their task is to run it", prompt)
@@ -337,6 +358,39 @@ class HttpTests(unittest.TestCase):
         self.assertNotIn(b"GPS-SECRET", base64.b64decode(sent.split(",", 1)[1]))
         self.assertFalse(self.recordings.exists())
 
+    def stream(self, body):
+        request = urllib.request.Request(
+            f"http://127.0.0.1:{self.port}/api/guide/plan", data=json.dumps(body).encode(), method="POST",
+            headers={"Host": f"mac.example.ts.net:{self.port}", guide.CLIENT_HEADER: guide.CLIENT_NAME,
+                     "Content-Type": "application/json"})
+        with urllib.request.urlopen(request, timeout=10) as response:
+            return response.headers["Content-Type"], [json.loads(line) for line in response.read().splitlines()]
+
+    def test_a_streamed_plan_sends_the_steps_then_the_located_plan(self):
+        content_type, lines = self.stream(self.frame_body(stream=True, record=True))
+        self.assertTrue(content_type.startswith("application/x-ndjson"))
+        self.assertEqual([line["located"] for line in lines], [False, True])
+        self.assertNotIn("recording", lines[0])
+        self.assertTrue((self.recordings / lines[1]["recording"] / "frame.jpg").is_file())
+        record = self.httpd.usage.records(1)[-1]
+        self.assertLessEqual(record["firstSeconds"], record["seconds"])
+
+    def test_an_error_after_the_steps_is_the_last_line(self):
+        def failing_ground(request, timeout=None):
+            body = json.loads(request.data)
+            if "response_format" not in body and body["model"] != guide.SAM_MODEL:
+                raise server.UpstreamError(503, "Meta is busy.")
+            return RoutingOpener()(request, timeout)
+        self.httpd.opener = failing_ground
+        _, lines = self.stream(self.frame_body(stream=True))
+        self.assertEqual(len(lines), 2)
+        self.assertFalse(lines[0]["located"])
+        self.assertEqual(lines[1]["error"]["kind"], "upstream")
+
+    def test_a_bad_streamed_request_still_gets_its_status(self):
+        status, body = self.request("/api/guide/plan", {"frame": "", "question": "", "stream": True})
+        self.assertEqual((status, body["error"]["kind"]), (400, "request"))
+
     def test_recording_mode_saves_frame_request_and_response(self):
         status, body = self.request("/api/guide/plan", self.frame_body(record=True, camera={"intrinsics": [1, 0, 0]}))
         self.assertEqual(status, 200)
@@ -500,6 +554,15 @@ class UsageTests(unittest.TestCase):
             self.assertEqual(models.count("muse-spark-1.3"), 2)  # plan and ground
             self.assertGreaterEqual(models.count("sam-3.1"), 2)  # one per step, more on fallback
             self.assertNotIn("frame", json.dumps(record))  # counts only, no content
+
+    def test_durations_give_median_and_slowest_tenth_and_the_time_to_the_first_step(self):
+        records = [{"endpoint": "plan", "status": 200, "seconds": seconds, "firstSeconds": seconds - 6}
+                   for seconds in range(10, 20)]
+        records += [{"endpoint": "verify", "status": 200, "seconds": 4}, {"endpoint": "verify", "status": 502, "seconds": 30}]
+        spreads = guide.durations(records)
+        self.assertEqual(spreads["plan"], {"count": 10, "median": 14.5, "p90": 19})
+        self.assertEqual(spreads["plan (first step)"]["median"], 8.5)
+        self.assertEqual(spreads["verify"], {"count": 1, "median": 4, "p90": 4})
 
     def test_summary_averages_per_task_and_prices_calls(self):
         records = [

@@ -29,6 +29,7 @@ import os
 import re
 import secrets
 import socket
+import statistics
 import sys
 import threading
 import time
@@ -354,6 +355,21 @@ def summarize(records: list[dict], prices: dict | None = None) -> dict:
             "unpriced_calls": sum(t["unpriced"] for t in tasks.values())}
 
 
+def durations(records: list[dict]) -> dict:
+    """Median and slowest-10% seconds per endpoint, and for plans the time until the steps were sent."""
+    def spread(values: list[float]) -> dict:
+        values = sorted(values)
+        return {"count": len(values), "median": round(statistics.median(values), 1),
+                "p90": round(values[min(len(values) - 1, int(len(values) * 0.9))], 1)}
+    groups: dict[str, list[float]] = {}
+    for record in records:
+        if record.get("status") == 200 and isinstance(record.get("seconds"), (int, float)):
+            groups.setdefault(record["endpoint"], []).append(record["seconds"])
+            if isinstance(record.get("firstSeconds"), (int, float)):
+                groups.setdefault("plan (first step)", []).append(record["firstSeconds"])
+    return {name: spread(values) for name, values in sorted(groups.items())}
+
+
 # ---------------------------------------------------------------------------
 # Meta calls
 
@@ -502,6 +518,43 @@ def normalized_box(box: dict, width: int, height: int) -> dict:
 
 def plan(frame: bytes, question: str, language: str, api_key: str, opener, auto_language: bool = False) -> dict:
     """One frame and a question in, steps with normalized points and boxes out."""
+    for result in plan_parts(frame, question, language, api_key, opener, auto_language):
+        pass
+    return result
+
+
+def step_entry(step: dict, target: str, label: str, point: tuple[int, int], width: int, height: int,
+               box: dict | None = None, method: str = "pending", grounded: dict | None = None) -> dict:
+    entry = {
+        "instruction": str(step.get("instruction", "")),
+        "detail": str(step.get("detail", "")),
+        "target": target,
+        "success": str(step.get("success_condition", "")),
+        "point": normalized_point(*point, width, height),
+        "box": normalized_box(box, width, height) if box else None,
+        "boxMethod": method,
+        "verifiable": bool(step.get("visible_result", True)),
+        "setTo": None,
+    }
+    if label:
+        label_point = (grounded or {}).get(label)
+        entry["setTo"] = {
+            "label": label,
+            "meaning": str(step.get("set_to_meaning", "")),
+            "point": normalized_point(*to_px(label_point, width, height), width, height) if label_point else None,
+        }
+    return entry
+
+
+def spark_point(step: dict) -> dict:
+    point = {"x": step.get("x", 500), "y": step.get("y", 500)}
+    return point if all(isinstance(point[axis], (int, float)) for axis in ("x", "y")) else {"x": 500, "y": 500}
+
+
+def plan_parts(frame: bytes, question: str, language: str, api_key: str, opener, auto_language: bool = False):
+    """The plan in two parts, so the app can read the first step while the controls are still being found:
+    the steps with Spark's rough points ("located": false), then the steps with grounded points and SAM boxes.
+    A refusal or an empty plan is a single, final part."""
     width, height = jpeg_size(frame)
     image_url = "data:image/jpeg;base64," + base64.b64encode(frame).decode()
     served: list[str] = []
@@ -525,16 +578,22 @@ def plan(frame: bytes, question: str, language: str, api_key: str, opener, auto_
         "language": spoken_language(raw.get("question_language"), language),
         "labelLanguage": str(raw.get("label_language", "")) or "English",
         "frame": {"width": width, "height": height},
+        "located": True,
         "steps": [],
         "timings": timings,
         "served": served,
     }
     if not result["safe"] or not raw_steps:
         result["served"] = sorted(set(served))
-        return result
+        yield result
+        return
 
     targets = [str(step.get("target_phrase", "")) for step in raw_steps]
     labels = [str(step.get("set_to_label", "")) for step in raw_steps]
+    yield {**result, "located": False, "served": sorted(set(served)), "timings": dict(timings),
+           "steps": [step_entry(step, target, label, to_px(spark_point(step), width, height), width, height)
+                     for step, target, label in zip(raw_steps, targets, labels)]}
+
     names = [name for name in dict.fromkeys(targets + labels) if name]
     started = time.monotonic()
     text, model = spark(GROUND_PROMPT.format(names=", ".join(json.dumps(name) for name in names)),
@@ -546,10 +605,7 @@ def plan(frame: bytes, question: str, language: str, api_key: str, opener, auto_
 
     points = []
     for step, target in zip(raw_steps, targets):
-        fallback = {"x": step.get("x", 500), "y": step.get("y", 500)}
-        if not all(isinstance(fallback[axis], (int, float)) for axis in ("x", "y")):
-            fallback = {"x": 500, "y": 500}
-        points.append(to_px(grounded.get(target) or fallback, width, height))
+        points.append(to_px(grounded.get(target) or spark_point(step), width, height))
 
     started = time.monotonic()
     calls = CALLS.get()
@@ -562,28 +618,10 @@ def plan(frame: bytes, question: str, language: str, api_key: str, opener, auto_
         located = list(pool.map(locate_in_worker, zip(targets, points)))
     timings["locate"] = round(time.monotonic() - started, 2)
 
-    for step, target, label, (px, py), (box, method) in zip(raw_steps, targets, labels, points, located):
-        entry = {
-            "instruction": str(step.get("instruction", "")),
-            "detail": str(step.get("detail", "")),
-            "target": target,
-            "success": str(step.get("success_condition", "")),
-            "point": normalized_point(px, py, width, height),
-            "box": normalized_box(box, width, height) if box else None,
-            "boxMethod": method,
-            "verifiable": bool(step.get("visible_result", True)),
-            "setTo": None,
-        }
-        if label:
-            label_point = grounded.get(label)
-            entry["setTo"] = {
-                "label": label,
-                "meaning": str(step.get("set_to_meaning", "")),
-                "point": normalized_point(*to_px(label_point, width, height), width, height) if label_point else None,
-            }
-        result["steps"].append(entry)
+    result["steps"] = [step_entry(step, target, label, point, width, height, box, method, grounded)
+                       for step, target, label, point, (box, method) in zip(raw_steps, targets, labels, points, located)]
     result["served"] = sorted(set(served))
-    return result
+    yield result
 
 
 def verify(crop: bytes, instruction: str, success: str, language: str, api_key: str, opener) -> dict:
@@ -816,6 +854,9 @@ class GuideHandler(BaseHTTPRequestHandler):
     server_version = "NovaGuide/0.1"
     invite: dict | None = None
     status_sent = 0
+    started = 0.0
+    # Seconds until the first part of a streamed plan was sent (the steps), for the usage log.
+    first_seconds: float | None = None
 
     # The Host check blocks DNS rebinding; the client header blocks web pages (they can't set it without a preflight).
     def _allowed(self) -> bool:
@@ -862,12 +903,12 @@ class GuideHandler(BaseHTTPRequestHandler):
             return
         calls: list = []
         token = CALLS.set(calls)
-        started = time.monotonic()
+        self.started = time.monotonic()
         try:
             self._dispatch()
         finally:
             CALLS.reset(token)
-            self._log_usage(calls, round(time.monotonic() - started, 2))
+            self._log_usage(calls, round(time.monotonic() - self.started, 2))
 
     def _log_usage(self, calls: list, seconds: float) -> None:
         ids = {name: self.headers.get(f"X-Nova-{name.title()}", "") for name in ("session", "task")}
@@ -879,6 +920,7 @@ class GuideHandler(BaseHTTPRequestHandler):
             "invite": self.invite["id"] if self.invite else None,
             **{name: value if ID_PATTERN.match(value) else None for name, value in ids.items()},
             "seconds": seconds,
+            **({"firstSeconds": self.first_seconds} if self.first_seconds is not None else {}),
             "calls": calls,
         })
 
@@ -886,7 +928,14 @@ class GuideHandler(BaseHTTPRequestHandler):
         try:
             path = self.path.split("?", 1)[0]
             if path == "/api/guide/plan":
-                self._json(200, self._plan())
+                body = self._read_json()
+                parts = self._plan(body)
+                if body.get("stream") is True:
+                    self._stream(parts)
+                else:
+                    for result in parts:
+                        pass
+                    self._json(200, result)
             elif path == "/api/guide/verify":
                 self._json(200, self._verify())
             elif path == "/api/guide/ask":
@@ -895,16 +944,41 @@ class GuideHandler(BaseHTTPRequestHandler):
                 self._json(200, self._transcribe())
             else:
                 self._json(404, {"error": {"kind": "request", "message": "Not found."}})
-        except ConfigError as exc:
-            self._json(503, {"error": {"kind": "setup", "message": str(exc)}})
-        except BadRequest as exc:
-            self._json(400, {"error": {"kind": "request", "message": str(exc)}})
-        except UpstreamError as exc:
-            self._json(502, {"error": {"kind": "upstream", "status": exc.status, "message": exc.message}})
-        except LimitReached as exc:
-            self._json(429, {"error": {"kind": "limit", "message": f"Today's limit for {exc} is used up. Try again tomorrow."}})
+        except (ConfigError, BadRequest, UpstreamError, LimitReached) as exc:
+            self._json(*self._error(exc))
         except (BrokenPipeError, ConnectionResetError):
             pass  # the app canceled the request
+
+    @staticmethod
+    def _error(exc: Exception) -> tuple[int, dict]:
+        if isinstance(exc, ConfigError):
+            return 503, {"error": {"kind": "setup", "message": str(exc)}}
+        if isinstance(exc, BadRequest):
+            return 400, {"error": {"kind": "request", "message": str(exc)}}
+        if isinstance(exc, UpstreamError):
+            return 502, {"error": {"kind": "upstream", "status": exc.status, "message": exc.message}}
+        return 429, {"error": {"kind": "limit", "message": f"Today's limit for {exc} is used up. Try again tomorrow."}}
+
+    def _stream(self, parts) -> None:
+        """One JSON line per plan part. Headers go out with the first part, so an error before it still gets its
+        status code; an error after it is sent as a last line with the same shape as an error response."""
+        first = next(parts)
+        self.first_seconds = round(time.monotonic() - self.started, 2)
+        self.status_sent = 200
+        self.send_response(200)
+        self.send_header("Content-Type", "application/x-ndjson; charset=utf-8")
+        self.send_header("Cache-Control", "no-store")
+        self.end_headers()  # HTTP/1.0: no length, the connection closes after the last line
+        self._line(first)
+        try:
+            for result in parts:
+                self._line(result)
+        except (ConfigError, BadRequest, UpstreamError, LimitReached) as exc:
+            self._line(self._error(exc)[1])
+
+    def _line(self, payload: dict) -> None:
+        self.wfile.write(json.dumps(payload, ensure_ascii=False).encode() + b"\n")
+        self.wfile.flush()
 
     def _read_json(self) -> dict:
         if self.headers.get("Content-Type") != "application/json":
@@ -930,8 +1004,8 @@ class GuideHandler(BaseHTTPRequestHandler):
             raise BadRequest("Unsupported language.")
         return language
 
-    def _plan(self) -> dict:
-        body = self._read_json()
+    def _plan(self, body: dict):
+        """The plan's parts (see plan_parts); the request is checked before the first part is computed."""
         question = body.get("question")
         if not isinstance(question, str) or not question.strip() or len(question) > MAX_QUESTION_CHARS:
             raise BadRequest("Ask a question of at most 500 characters.")
@@ -939,10 +1013,11 @@ class GuideHandler(BaseHTTPRequestHandler):
         frame = strip_metadata(decode_frame(body.get("frame")))
         api_key = nova.load_api_key(self.server.env_file)
         self._spend("plan")
-        result = plan(frame, question.strip(), language, api_key, self.server.opener, body.get("autoLanguage") is True)
-        if self._may_record(body):
-            result["recording"] = record(self.server.recordings, frame, body, result)
-        return result
+        for result in plan_parts(frame, question.strip(), language, api_key, self.server.opener,
+                                 body.get("autoLanguage") is True):
+            if result["located"] and self._may_record(body):
+                result["recording"] = record(self.server.recordings, frame, body, result)
+            yield result
 
     def _verify(self) -> dict:
         body = self._read_json()
@@ -1097,6 +1172,9 @@ def main() -> None:
         else:
             print(f"Cost: {summary['unpriced_calls']} calls have no price. Put prices in {prices_file} as "
                   '{"<model>": {"input_per_million": .., "output_per_million": .., "per_image": .., "per_minute": ..}}')
+        print("Seconds (median / slowest 10%):")
+        for name, spread in durations(UsageLog(data_dir / "usage").records(args.days)).items():
+            print(f"  {name:<18} {spread['median']:>5} / {spread['p90']:<5} ({spread['count']} requests)")
     elif args.command == "revoke":
         print("Revoked." if invites.revoke(args.id) else "No code with that id.")
     else:

@@ -256,13 +256,13 @@ private struct StepCard: View {
                     .accessibilityLabel(Text("Repeat"))
                     Button { model.primary() } label: {
                         HStack(spacing: 8) {
-                            if model.feedback == .checking { ProgressView().tint(.black) }
+                            if model.feedback == .checking || model.isLocating { ProgressView().tint(.black) }
                             Text(primaryTitle)
                         }
                     }
                     .buttonStyle(PrimaryButtonStyle(fill: model.feedback == .correct ? .novaGreen : .novaYellow))
                     .scaleEffect(nudge ? 1.03 : 1)
-                    .disabled(model.feedback == .checking)
+                    .disabled(model.feedback == .checking || model.isLocating)
                 }
                 if let secondary = secondaryTitle {
                     Button(secondary) { model.secondary() }.buttonStyle(OutlineButtonStyle())
@@ -305,6 +305,7 @@ private struct StepCard: View {
     }
 
     private var primaryTitle: String {
+        if model.isLocating { return String(localized: "Finding the control…") }
         switch model.feedback {
         case .checking: return String(localized: "Checking…")
         case .correct: return model.isLastStep ? String(localized: "Finish") : String(localized: "Continue →")

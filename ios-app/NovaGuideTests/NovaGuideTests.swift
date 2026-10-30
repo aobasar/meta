@@ -77,6 +77,17 @@ final class GuidePlanTests: XCTestCase {
         XCTAssertEqual(plan.steps[0].detail, "Soldaki düğme.")
         XCTAssertNil(plan.steps[1].detail)  // an older server sends none
         XCTAssertEqual(plan.steps[1].markerPoint, NormalizedPoint(x: 0.8, y: 0.4))  // no box: Spark's point
+        XCTAssertTrue(plan.isLocated)  // an older server sends one located plan
+    }
+
+    func testTheStepsPartIsNotLocated() throws {
+        let json = """
+        {"device": {"type": "oven", "brand": ""}, "safe": true, "safetyNote": "", "uncertainty": "", "located": false,
+         "frame": {"width": 1600, "height": 1200}, "served": ["muse-spark-1.3"],
+         "steps": [{"instruction": "Turn the knob.", "target": "knob", "success": "", "point": {"x": 0.5, "y": 0.5},
+                    "box": null, "boxMethod": "pending", "setTo": null}]}
+        """
+        XCTAssertFalse(try JSONDecoder().decode(GuidePlan.self, from: Data(json.utf8)).isLocated)
     }
 
     func testAWeakFallbackBoxIsNotUsedForTheMarker() {
@@ -326,6 +337,13 @@ final class AutoLanguageTests: XCTestCase {
         XCTAssertEqual(VoiceCommand.matchWithLanguage("Done.")?.language, "English")
         XCTAssertEqual(VoiceCommand.matchWithLanguage("say again")?.command, .repeatStep)
         XCTAssertNil(VoiceCommand.matchWithLanguage("What does extra rinse mean?"))
+    }
+
+    func testAQuestionsLanguageIsGuessedForTheFirstReply() {
+        XCTAssertEqual(UserLanguage.guess("Çamaşırları nasıl yıkarım?")?.serverName, "Turkish")
+        XCTAssertEqual(UserLanguage.guess("bu makineyi ac")?.serverName, "Turkish")
+        XCTAssertEqual(UserLanguage.guess("How do I set the clock?")?.serverName, "English")
+        XCTAssertNil(UserLanguage.guess("Bosch"))
     }
 }
 

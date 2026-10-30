@@ -109,6 +109,9 @@ final class GuideModel: ObservableObject {
 
     var isLastStep: Bool { plan.map { stepIndex + 1 == $0.steps.count } ?? false }
 
+    /// The steps are on screen, the controls are still being located: no marker yet, and nothing to check against.
+    var isLocating: Bool { phase == .guiding && plan?.isLocated == false }
+
     /// True while Nova waits for a model: screen recording pauses so the video holds only the action.
     var isWaiting: Bool {
         phase == .thinking || feedback == .checking || listening == .transcribing || listening == .answering
@@ -162,13 +165,13 @@ final class GuideModel: ObservableObject {
             phase = .failed(String(localized: "The camera isn't ready yet. Point it at the device and try again."))
             return
         }
-        speaker.stop()
         ar.clear()
         plan = nil
         taskID = UUID().uuidString  // a new plan is a new task
         startedAt = startedAt ?? Date()
         finishedAt = nil
         phase = .thinking
+        acknowledge(text)
         let settings = self.settings
         task = Task {
             let status = Task { await self.cycleStatus() }
@@ -177,19 +180,48 @@ final class GuideModel: ObservableObject {
                 let language = self.language.serverName, auto = settings.isAutomaticLanguage, record = settings.record
                 let plan = try await send {
                     try await $0.plan(jpeg: capture.jpeg, question: text, language: language, autoLanguage: auto,
-                                      record: record, camera: capture.cameraInfo)
+                                      record: record, camera: capture.cameraInfo) { steps in
+                        status.cancel()
+                        self.heardLanguage(steps.language)
+                        self.show(steps, capture: capture)
+                    }
                 }
                 connection = Self.connection(await router.state)
-                heardLanguage(plan.language)
-                show(plan, capture: capture)
+                if phase == .guiding, self.plan?.isLocated == false {
+                    located(plan, capture: capture)
+                } else {
+                    heardLanguage(plan.language)
+                    show(plan, capture: capture)
+                }
             } catch is CancellationError {
                 phase = .asking
+            } catch where Task.isCancelled {
+                // Home or a new task canceled the request (URLSession reports it as its own error).
             } catch {
                 phase = .failed(error.localizedDescription)
             }
         }
     }
 
+    /// Said the moment a question is asked, in the language it was asked in, so the wait isn't silent.
+    private func acknowledge(_ question: String) {
+        if settings.isAutomaticLanguage { heardLanguage(UserLanguage.guess(question)?.serverName) }
+        guard settings.speakAloud else { return }
+        speaker.speak(language.phrase("Let me look…"), voice: language.voice)
+    }
+
+    /// The located plan, after its steps are already on screen: the markers appear and "I've done it" works.
+    private func located(_ plan: GuidePlan, capture: CapturedFrame) {
+        guard plan.steps.count == self.plan?.steps.count else {
+            show(plan, capture: capture)
+            return
+        }
+        self.plan = plan
+        ar.place(plan, from: capture)
+        ar.currentStep = stepIndex
+    }
+
+    /// A plan, or the steps of a plan whose controls are still being located (no markers until `located`).
     private func show(_ plan: GuidePlan, capture: CapturedFrame) {
         self.plan = plan
         if !plan.device.type.isEmpty { knownDevice = plan.deviceLabel }
@@ -205,7 +237,7 @@ final class GuideModel: ObservableObject {
             speak(note)
             return
         }
-        ar.place(plan, from: capture)
+        if plan.isLocated { ar.place(plan, from: capture) }
         records = plan.steps.map { StepRecord(expected: $0.success) }
         phase = .guiding
         go(to: 0)
@@ -228,6 +260,7 @@ final class GuideModel: ObservableObject {
 
     /// The step card's main button; its meaning follows the last check.
     func primary() {
+        guard !isLocating else { return }
         switch feedback {
         case .checking: return
         case .correct: next()
@@ -247,7 +280,7 @@ final class GuideModel: ObservableObject {
 
     /// The user says the step is done: check it on a close-up of the control, unless a close-up can't show it.
     func done() {
-        guard let step = currentStep, feedback != .checking else { return }
+        guard let step = currentStep, feedback != .checking, !isLocating else { return }
         guard settings.verifyEach else {
             mark(.confirmed)
             return
