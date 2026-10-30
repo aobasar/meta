@@ -11,9 +11,10 @@ struct CameraScreen: View {
     @Environment(\.scenePhase) private var scenePhase
     @State private var panel: Panel?
     @State private var markerShown = 0
+    @State private var showStoppedVideo = false
 
     enum Panel: String, Identifiable {
-        case more, settings
+        case more, settings, recording
         var id: String { rawValue }
     }
 
@@ -37,6 +38,8 @@ struct CameraScreen: View {
                     .presentationDetents([.large])  // every action in view, with the camera out of the way
             case .settings:
                 SettingsView()
+            case .recording:
+                if let last = screenRecorder.last { RecordingPreview(video: last) }
             }
         }
         .onAppear {
@@ -60,6 +63,12 @@ struct CameraScreen: View {
             }
         }
         .onChange(of: model.isWaiting) { _, waiting in screenRecorder.setPaused(waiting) }
+        .onChange(of: screenRecorder.state) { _, state in
+            if state == .off && showStoppedVideo {
+                showStoppedVideo = false
+                if screenRecorder.last != nil { panel = .recording }
+            }
+        }
         .onChange(of: model.isWaiting || model.listening != .idle) { _, busy in ar.holdTorch = busy }
         .alert(String(localized: "Screen recording", bundle: .ui), isPresented: Binding(
             get: { screenRecorder.failure != nil }, set: { if !$0 { screenRecorder.failure = nil } })) {
@@ -78,6 +87,13 @@ struct CameraScreen: View {
                 screenRecorder.finishTask()
             }
         }
+    }
+
+    /// The user stops the video: it is kept and shown, and the next task isn't recorded until Settings turns it on again.
+    private func stopRecording() {
+        settings.screenRecording = false
+        showStoppedVideo = true
+        screenRecorder.finishTask()
     }
 
     private func cameraArea(land: Bool) -> some View {
@@ -107,7 +123,7 @@ struct CameraScreen: View {
                     .allowsHitTesting(false)
             }
             VStack(spacing: 8) {
-                TopBar { panel = .more }
+                TopBar(openMore: { panel = .more }, stopRecording: stopRecording)
                 #if DEBUG
                 if settings.showTimings && !model.timings.isEmpty {
                     Text(model.timings.summary)
@@ -192,7 +208,16 @@ private struct TopBar: View {
     @EnvironmentObject private var model: GuideModel
     @EnvironmentObject private var ar: ARGuideController
     var openMore: () -> Void
+    var stopRecording: () -> Void
     @EnvironmentObject private var settings: GuideSettings
+    @EnvironmentObject private var screenRecorder: ScreenRecorder
+
+    private var isRecordingScreen: Bool {
+        #if DEBUG
+        if UserDefaults.standard.bool(forKey: "NovaDemoRecording") { return true }  // simulator screenshots
+        #endif
+        return screenRecorder.isActive
+    }
 
     var body: some View {
         HStack(spacing: 6) {
@@ -200,6 +225,16 @@ private struct TopBar: View {
                 Text(verbatim: "REC").font(.caption2.weight(.heavy)).foregroundStyle(.white)
                     .padding(.horizontal, 7).padding(.vertical, 3)
                     .background(Color.novaRed, in: Capsule())
+            }
+            if isRecordingScreen {
+                Button(action: stopRecording) {
+                    Label(String(localized: "Stop recording", bundle: .ui), systemImage: "stop.fill")
+                        .font(.footnote.weight(.bold))
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 12)
+                        .frame(minHeight: 44)
+                        .background(Color.novaRed, in: Capsule())
+                }
             }
             Spacer(minLength: 6)
             if ar.torchOn {

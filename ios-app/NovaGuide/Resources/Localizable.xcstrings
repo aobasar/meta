@@ -1829,6 +1829,17 @@
         }
       }
     },
+    "Stop recording": {
+      "extractionState": "manual",
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kaydı durdur"
+          }
+        }
+      }
+    },
     "Sound effects": {
       "localizations": {
         "tr": {
