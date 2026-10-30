@@ -3,6 +3,7 @@ asks for, because SAM calls run in parallel and arrive in any order."""
 
 import base64
 import io
+import http.client
 import json
 import sys
 import tempfile
@@ -760,6 +761,15 @@ class InternetListenerTests(unittest.TestCase):
         self.assertEqual(status, 200)
         self.assertTrue(body["internet"])
         self.assertFalse(body["mayRecord"])
+
+    def test_a_browser_opening_the_address_goes_to_the_home_page(self):
+        connection = http.client.HTTPConnection("127.0.0.1", self.port, timeout=10)
+        connection.request("GET", "/")
+        response = connection.getresponse()
+        response.read()
+        connection.close()
+        self.assertEqual((response.status, response.getheader("Location")), (302, guide.HOME_PAGE))
+        self.assertEqual(self.request("/api/guide/status")[0], 401)  # the API itself stays closed
 
     def test_the_public_name_is_accepted_without_a_port_and_others_are_not(self):
         self.assertEqual(self.request("/api/guide/status", code=self.code, host="guide.example.com:443")[0], 200)

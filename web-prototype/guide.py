@@ -56,6 +56,7 @@ SPARK_EFFORTS = ("low", "minimal")
 MAX_FRAME_BYTES = 12 * 1024 * 1024  # base64 JPEG inside JSON
 MAX_QUESTION_CHARS = 500
 MAX_STEPS = 6
+HOME_PAGE = "https://www.aobasar.com/projects/kokobubu/"
 # Restricted Territories in the Meta Model API policy, by Cloudflare's country code (HACKATHON.md).
 RESTRICTED_COUNTRIES = frozenset({"AF","BY","KH","CN","HK","MO","CU","ER","ET","HT","IR","IQ","LY","MM","NI","KP","PK","RU","SO","SY","VE","EH"})
 CLIENT_HEADER = "X-Nova-Client"  # a custom header: browsers can't send it cross-origin without a preflight we never answer
@@ -1215,6 +1216,12 @@ class GuideHandler(BaseHTTPRequestHandler):
         self.spark_label = route.label
 
     def do_GET(self) -> None:
+        if self.server.invites is not None and self.path.split("?", 1)[0] == "/":  # someone opened the address in a browser
+            self.send_response(302)
+            self.send_header("Location", HOME_PAGE)
+            self.send_header("Content-Length", "0")
+            self.end_headers()
+            return
         if not self._allowed():
             return
         if self.path.split("?", 1)[0] == "/api/guide/listen":
