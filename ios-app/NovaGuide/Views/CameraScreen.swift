@@ -10,6 +10,7 @@ struct CameraScreen: View {
     @EnvironmentObject private var screenRecorder: ScreenRecorder
     @Environment(\.scenePhase) private var scenePhase
     @State private var panel: Panel?
+    @State private var markerShown = 0
 
     enum Panel: String, Identifiable {
         case more, settings
@@ -89,8 +90,13 @@ struct CameraScreen: View {
             if DemoMode.screen != nil { DemoBackdrop().ignoresSafeArea() }
             #endif
             if model.phase == .guiding, let marker = ar.marker {
-                MarkerOverlay(marker: marker, setTo: model.currentStep?.setTo, tint: ringTint, motion: model.currentStep?.motionKind)
-                    .id(model.stepIndex)  // each step replays the arrow, then the label tag
+                // A tap on the camera, or a new step, shows the ring and the motion again.
+                Color.clear
+                    .contentShape(Rectangle())
+                    .ignoresSafeArea()
+                    .onTapGesture { markerShown += 1 }
+                MarkerOverlay(marker: marker, tint: ringTint, motion: model.currentStep?.motionKind)
+                    .id("\(model.stepIndex)-\(markerShown)")
                     .ignoresSafeArea()
             }
             if model.correcting == .moving {

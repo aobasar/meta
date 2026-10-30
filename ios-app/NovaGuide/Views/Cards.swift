@@ -389,10 +389,17 @@ private struct StepCard: View {
             Text(GuideText.display(step.instruction))
                 .font(.headline)
                 .fixedSize(horizontal: false, vertical: true)
-            if let motion = step.motionKind {
-                Label(motion.title, systemImage: motion.symbol)
-                    .font(.footnote.weight(.bold))
-                    .foregroundStyle(.blue)
+            if step.motionKind != nil || step.setTo != nil {
+                VStack(alignment: .leading, spacing: 2) {
+                    if let motion = step.motionKind {
+                        Label(motion.title, systemImage: motion.symbol)
+                    }
+                    if let setTo = step.setTo {
+                        Text(verbatim: setTo.meaning.isEmpty ? setTo.label : "\(setTo.label) = \(setTo.meaning)")
+                    }
+                }
+                .font(.footnote.weight(.bold))
+                .foregroundStyle(.blue)
             }
             if let detail = step.detail, !detail.isEmpty, resultBox == nil, model.reply == nil {
                 Text(GuideText.display(detail)).font(.footnote).foregroundStyle(Color.sheetMuted).fixedSize(horizontal: false, vertical: true)
