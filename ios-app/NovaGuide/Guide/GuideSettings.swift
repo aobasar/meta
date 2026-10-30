@@ -193,7 +193,7 @@ final class GuideSettings: ObservableObject {
         torch = TorchChoice(rawValue: defaults.string(forKey: "torchMode") ?? "") ?? .automatic
         screenRecording = defaults.bool(forKey: "screenRecording")
         sparkProvider = SparkProvider(rawValue: defaults.string(forKey: "sparkProvider") ?? "") ?? .meta
-        sparkEffort = SparkEffort(rawValue: defaults.string(forKey: "sparkEffort") ?? "") ?? .low
+        sparkEffort = SparkEffort(rawValue: defaults.string(forKey: "sparkEffort") ?? "") ?? .minimal
         showTimings = defaults.bool(forKey: "showTimings")
         acceptedTerms = defaults.string(forKey: "acceptedTerms") ?? ""
     }
@@ -205,10 +205,10 @@ final class GuideSettings: ObservableObject {
         isAutomaticLanguage ? UserLanguage.matching(preferred: preferredLanguages) : UserLanguage.named(languageName)
     }
 
-    /// The speed test setting to send; nil for the default (Meta, low), and always nil outside the maintainer's builds.
+    /// The speed test setting to send; nil for the default (Meta, minimal), and always nil outside the maintainer's builds.
     var sparkChoice: GuideClient.SparkChoice? {
         #if DEBUG
-        sparkProvider == .meta && sparkEffort == .low
+        sparkProvider == .meta && sparkEffort == .minimal
             ? nil : GuideClient.SparkChoice(provider: sparkProvider.rawValue, effort: sparkEffort.rawValue)
         #else
         nil

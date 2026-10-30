@@ -9,8 +9,8 @@ are not changed: each configuration only rewrites the Spark chat calls made by t
     python3 scripts/prototypes/speed_test.py --page web-prototype/data/speed-tests/<time>   # rebuild the page
 
 Configurations:
-    meta-low      Meta Model API, muse-spark-1.3, reasoning_effort "low" (what the app uses today)
-    meta-minimal  the same with reasoning_effort "minimal"
+    meta-low      Meta Model API, muse-spark-1.3, reasoning_effort "low"
+    meta-minimal  the same with reasoning_effort "minimal" (what the app uses since 2026-10-29)
     baseten          Baseten Model APIs, meta-models/muse-spark-open-1026 (open weights, a pinned version), the
                      provider's default reasoning
     baseten-minimal  the same with reasoning_effort "minimal"

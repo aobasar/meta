@@ -354,10 +354,10 @@ final class SpeedTestTests: XCTestCase {
         defer { defaults.removePersistentDomain(forName: suite) }
         let settings = GuideSettings(defaults: defaults)
         XCTAssertNil(settings.sparkChoice)
-        settings.sparkEffort = .minimal
-        XCTAssertEqual(settings.sparkChoice, GuideClient.SparkChoice(provider: "meta", effort: "minimal"))
+        settings.sparkEffort = .low
+        XCTAssertEqual(settings.sparkChoice, GuideClient.SparkChoice(provider: "meta", effort: "low"))
         settings.sparkProvider = .baseten
-        XCTAssertEqual(GuideSettings(defaults: defaults).sparkChoice, GuideClient.SparkChoice(provider: "baseten", effort: "minimal"))
+        XCTAssertEqual(GuideSettings(defaults: defaults).sparkChoice, GuideClient.SparkChoice(provider: "baseten", effort: "low"))
     }
 
     func testTheSummaryListsOnlyWhatWasMeasured() {

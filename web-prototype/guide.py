@@ -45,7 +45,7 @@ import server as nova
 from server import BadRequest, ConfigError, UpstreamError
 
 SAM_MODEL = "sam-3.1"
-REASONING_EFFORT = "low"
+REASONING_EFFORT = "minimal"  # chosen from scripts/prototypes/speed_test.py (2026-10-29): about 35% faster than "low"
 BASETEN_BASE = "https://inference.baseten.co/v1"
 BASETEN_MODEL = "meta-models/muse-spark-open-1026"  # a pinned version of the open weights
 BASETEN_KEY_NAME = "BASETEN_API_KEY"
@@ -371,7 +371,7 @@ def durations(records: list[dict]) -> dict:
     groups: dict[str, list[float]] = {}
     for record in records:
         if record.get("status") == 200 and isinstance(record.get("seconds"), (int, float)):
-            label = record.get("spark") or SparkRoute().label
+            label = record.get("spark") or "meta-low"  # records older than this field were all on low
             suffix = "" if label == SparkRoute().label else f" · {label}"
             groups.setdefault(record["endpoint"] + suffix, []).append(record["seconds"])
             if isinstance(record.get("firstSeconds"), (int, float)):

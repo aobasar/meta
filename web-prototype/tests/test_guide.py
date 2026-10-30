@@ -556,9 +556,11 @@ class UsageTests(unittest.TestCase):
             self.assertNotIn("frame", json.dumps(record))  # counts only, no content
 
     def test_durations_give_median_and_slowest_tenth_and_the_time_to_the_first_step(self):
-        records = [{"endpoint": "plan", "status": 200, "seconds": seconds, "firstSeconds": seconds - 6}
+        default = guide.SparkRoute().label
+        records = [{"endpoint": "plan", "status": 200, "seconds": seconds, "firstSeconds": seconds - 6, "spark": default}
                    for seconds in range(10, 20)]
-        records += [{"endpoint": "verify", "status": 200, "seconds": 4}, {"endpoint": "verify", "status": 502, "seconds": 30}]
+        records += [{"endpoint": "verify", "status": 200, "seconds": 4, "spark": default},
+                    {"endpoint": "verify", "status": 502, "seconds": 30, "spark": default}]
         spreads = guide.durations(records)
         self.assertEqual(spreads["plan"], {"count": 10, "median": 14.5, "p90": 19})
         self.assertEqual(spreads["plan (first step)"]["median"], 8.5)
@@ -646,27 +648,27 @@ class SparkRouteTests(unittest.TestCase):
             self.assertEqual(authorization, f"Bearer {FAKE_KEY}")
         self.assertEqual(self.httpd.usage.records(1)[-1]["spark"], "baseten-minimal")
 
-    def test_meta_minimal_changes_only_the_effort(self):
-        self.assertEqual(self.plan(self.owner, {"provider": "meta", "effort": "minimal"})[0], 200)
+    def test_meta_low_changes_only_the_effort(self):
+        self.assertEqual(self.plan(self.owner, {"provider": "meta", "effort": "low"})[0], 200)
         url, authorization, payload = self.opener.sent[0]
         self.assertTrue(url.startswith(server.API_BASE))
         self.assertEqual(authorization, f"Bearer {FAKE_KEY}")
-        self.assertEqual((payload["model"], payload["reasoning_effort"]), (server.REASONING_MODEL, "minimal"))
+        self.assertEqual((payload["model"], payload["reasoning_effort"]), (server.REASONING_MODEL, "low"))
 
     def test_without_a_setting_nothing_changes_and_the_route_does_not_leak(self):
         self.plan(self.owner, {"provider": "baseten", "effort": "minimal"})
         self.opener.sent.clear()
         self.assertEqual(self.plan(self.tester)[0], 200)
         self.assertEqual((self.opener.sent[0][2]["model"], self.opener.sent[0][2]["reasoning_effort"]),
-                         (server.REASONING_MODEL, guide.REASONING_EFFORT))
-        self.assertEqual(self.httpd.usage.records(1)[-1]["spark"], "meta-low")
+                         (server.REASONING_MODEL, "minimal"))
+        self.assertEqual(self.httpd.usage.records(1)[-1]["spark"], "meta-minimal")
 
     def test_only_the_maintainer_may_change_the_setting(self):
         status, body = self.plan(self.tester, {"provider": "baseten", "effort": "low"})
         self.assertEqual((status, body["error"]["kind"]), (400, "request"))
         self.assertEqual(self.opener.sent, [])
-        self.assertEqual(self.plan(self.tester, {"provider": "meta", "effort": "minimal"})[0], 400)
-        self.assertEqual(self.plan(self.tester, {"provider": "meta", "effort": "low"})[0], 200)  # the default is fine
+        self.assertEqual(self.plan(self.tester, {"provider": "meta", "effort": "low"})[0], 400)
+        self.assertEqual(self.plan(self.tester, {"provider": "meta", "effort": "minimal"})[0], 200)  # the default is fine
         self.assertEqual(self.invites._load(self.invites.usage_path, {})["codes"].get(
             self.invites.find(self.tester)["id"], {}).get("plan"), 1)  # refused requests spend nothing
 
@@ -682,13 +684,13 @@ class SparkRouteTests(unittest.TestCase):
         self.assertIn(guide.BASETEN_KEY_NAME, body["error"]["message"])
 
     def test_durations_keep_each_setting_apart(self):
-        records = [{"endpoint": "plan", "status": 200, "seconds": 10, "firstSeconds": 5},
+        records = [{"endpoint": "plan", "status": 200, "seconds": 10, "firstSeconds": 5},  # older than the field: low
                    {"endpoint": "plan", "status": 200, "seconds": 12, "spark": "meta-low"},
                    {"endpoint": "plan", "status": 200, "seconds": 7, "firstSeconds": 3, "spark": "meta-minimal"}]
         spreads = guide.durations(records)
-        self.assertEqual(spreads["plan"]["count"], 2)
-        self.assertEqual(spreads["plan · meta-minimal"]["median"], 7)
-        self.assertEqual(spreads["plan (first step) · meta-minimal"]["median"], 3)
+        self.assertEqual(spreads["plan · meta-low"]["count"], 2)
+        self.assertEqual(spreads["plan"]["median"], 7)
+        self.assertEqual(spreads["plan (first step)"]["median"], 3)
 
 
 class StartTests(unittest.TestCase):
