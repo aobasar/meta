@@ -345,6 +345,13 @@ class PlanTests(unittest.TestCase):
         self.assertEqual(len(opener.bodies), 1)
 
 
+class RestrictedRegionTests(unittest.TestCase):
+    def test_every_code_is_two_letters_and_china_is_listed(self):
+        self.assertTrue(all(len(code) == 2 and code.isupper() for code in guide.RESTRICTED_COUNTRIES))
+        self.assertLessEqual({"CN", "HK", "MO", "RU"}, guide.RESTRICTED_COUNTRIES)
+        self.assertNotIn("US", guide.RESTRICTED_COUNTRIES)
+
+
 class ShowRequestTests(unittest.TestCase):
     SHOW = {**PLAN, "steps": [], "show_request": {"what": "Fareyi göster.", "why": "Işığına bakacağım."}, "finding": "only a monitor",
             "clarify": {"kind": "state", "question": "Kablolu mu?", "options": [{"label": "", "meaning": "Evet"}]}}

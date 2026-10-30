@@ -56,6 +56,8 @@ SPARK_EFFORTS = ("low", "minimal")
 MAX_FRAME_BYTES = 12 * 1024 * 1024  # base64 JPEG inside JSON
 MAX_QUESTION_CHARS = 500
 MAX_STEPS = 6
+# Restricted Territories in the Meta Model API policy, by Cloudflare's country code (HACKATHON.md).
+RESTRICTED_COUNTRIES = frozenset({"AF","BY","KH","CN","HK","MO","CU","ER","ET","HT","IR","IQ","LY","MM","NI","KP","PK","RU","SO","SY","VE","EH"})
 CLIENT_HEADER = "X-Nova-Client"  # a custom header: browsers can't send it cross-origin without a preflight we never answer
 CLIENT_NAME = "guide-ios"
 TAILSCALE_NETWORK = ipaddress.ip_network("100.64.0.0/10")
@@ -1164,6 +1166,9 @@ class GuideHandler(BaseHTTPRequestHandler):
 
     # The Host check blocks DNS rebinding; the client header blocks web pages (they can't set it without a preflight).
     def _allowed(self) -> bool:
+        if self.server.invites is not None and self.headers.get("CF-IPCountry", "").upper() in RESTRICTED_COUNTRIES:
+            self._json(451, {"error": {"kind": "region", "message": "Kokobubu is not available in your region."}})
+            return False
         if self.headers.get("Host") not in self.server.allowed_hosts:
             self._json(403, {"error": {"kind": "request", "message": "Unexpected Host header."}})
             return False
@@ -1554,10 +1559,11 @@ def start(port: int, env_file: Path, data_dir: Path) -> Listeners:
     public_host = env_value(env_file, "NOVA_PUBLIC_HOST")
     if public_host:
         public_port = int(env_value(env_file, "NOVA_GUIDE_PUBLIC_PORT") or 9015)
+        bind = env_value(env_file, "NOVA_GUIDE_PUBLIC_BIND") or "127.0.0.1"  # a reverse proxy in Docker needs the bridge address
         try:
-            servers.append(serve(GuideServer("127.0.0.1", public_port, [public_host], env_file, data_dir / "recordings",
+            servers.append(serve(GuideServer(bind, public_port, [public_host], env_file, data_dir / "recordings",
                                              invites=Invites(data_dir))))
-            print(f"Nova guide: https://{public_host}/api/guide/ via a tunnel to 127.0.0.1:{public_port} "
+            print(f"Nova guide: https://{public_host}/api/guide/ via a proxy to {bind}:{public_port} "
                   "(invite codes required)", flush=True)
         except OSError as exc:
             print(f"Nova guide is off for the internet: port {public_port}: {exc.strerror}", file=sys.stderr, flush=True)
@@ -1574,11 +1580,17 @@ def main() -> None:
     revoke = commands.add_parser("revoke", help="stop a code from working")
     revoke.add_argument("id")
     commands.add_parser("list", help="list codes (never the codes themselves) and today's usage")
+    commands.add_parser("serve", help="run only the guide listeners, for a server without the notes app")
     usage = commands.add_parser("usage", help="model calls per task and per session, for cost analysis")
     usage.add_argument("--days", type=int, default=7)
     args = parser.parse_args()
     data_dir = Path(os.environ.get("NOVA_DATA_DIR", nova.DEFAULT_DATA_DIR)).expanduser()
     invites = Invites(data_dir)
+    if args.command == "serve":
+        env_file = Path(os.environ.get("NOVA_ENV_FILE", nova.DEFAULT_ENV_FILE)).expanduser()
+        if not start(0, env_file, data_dir):
+            raise SystemExit("No guide listener could start.")
+        threading.Event().wait()
     if args.command == "invite":
         code, created = invites.create(args.name, args.record)
         print(f"Invite code for {created['name']} (id {created['id']}): {code}")
