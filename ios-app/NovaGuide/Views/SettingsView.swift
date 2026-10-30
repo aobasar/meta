@@ -6,7 +6,6 @@ struct SettingsView: View {
     @EnvironmentObject private var model: GuideModel
     @EnvironmentObject private var screenRecorder: ScreenRecorder
     @Environment(\.dismiss) private var dismiss
-    @Environment(\.openURL) private var openURL
     @State private var showHow = false
     @State private var showLastRecording = false
 
