@@ -11,7 +11,6 @@ struct CameraScreen: View {
     @Environment(\.scenePhase) private var scenePhase
     @State private var panel: Panel?
     @State private var markerShown = 0
-    @State private var cardFrame = CGRect.zero
 
     enum Panel: String, Identifiable {
         case more, settings
@@ -23,19 +22,11 @@ struct CameraScreen: View {
             let land = geometry.size.width > geometry.size.height
             ZStack(alignment: land ? .bottomTrailing : .bottom) {
                 cameraArea(land: land)
-                if settings.showMascot {
-                    CameraMascot(card: cardFrame, bounds: geometry.size)
-                }
                 SidePanel(land: land)
                     .frame(maxWidth: land ? 300 : .infinity)
-                    .background(GeometryReader { card in
-                        Color.clear.preference(key: CardFrameKey.self, value: card.frame(in: .named("camera")))
-                    })
                     .padding(.horizontal, 8)
                     .padding(.bottom, 8)
             }
-            .coordinateSpace(.named("camera"))
-            .onPreferenceChange(CardFrameKey.self) { cardFrame = $0 }
         }
         .background(Color.black.ignoresSafeArea())
         .preferredColorScheme(.dark)

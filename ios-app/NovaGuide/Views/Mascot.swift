@@ -16,8 +16,8 @@ struct KokobubuMascot: View {
     var mood: Mood = .idle
     /// A small hop now and then while idle; on the Home screen it stays calm.
     var hops = false
-    /// Over the camera: a yellow body with a dark outline, which reads on dark and light scenes alike.
-    var onCamera = false
+    /// Where the phone is moving, from -1 to 1 on each axis (y down): the eye looks that way.
+    var look = CGPoint.zero
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var settled = false
@@ -34,25 +34,21 @@ struct KokobubuMascot: View {
 
     var body: some View {
         let unit = size / 1024
-        let body = onCamera ? Color.novaYellow : Self.ink
-        let face = onCamera ? Self.ink : Color.novaYellow
-        let outline = onCamera ? Self.ink : Color.clear
+        let body = Self.ink, face = Color.novaYellow
         ZStack {
-            Circle().fill(onCamera ? Color.white : Color.novaYellow)
+            RoundedRectangle(cornerRadius: size * 0.225, style: .continuous).fill(Color.novaYellow)  // like the app icon
+            Circle().fill(Color.white)
                 .frame(width: 128 * unit, height: 128 * unit)
                 .scaleEffect(glowing ? 1.25 : 0.8)
                 .opacity(glowing ? 0.65 : 0.1)
                 .position(x: 514 * unit, y: 68 * unit)
             Rectangle().fill(body)
-                .overlay(Rectangle().stroke(outline, lineWidth: 2))
                 .frame(width: 25 * unit, height: 110 * unit)
                 .position(x: 514 * unit, y: 140 * unit)
             Circle().fill(body)
-                .overlay(Circle().stroke(outline, lineWidth: 2))
                 .frame(width: 64 * unit, height: 64 * unit)
                 .position(x: 514 * unit, y: 68 * unit)
             Circle().fill(body)
-                .overlay(Circle().stroke(outline, lineWidth: 3))
                 .frame(width: 806 * unit, height: 806 * unit)
                 .position(x: 514 * unit, y: 565 * unit)
             ZStack {
@@ -60,7 +56,8 @@ struct KokobubuMascot: View {
                     .frame(width: 296 * unit, height: 296 * unit)
                 Circle().fill(body)
                     .frame(width: 174 * unit, height: 174 * unit)
-                    .offset(x: glance * unit)
+                    .offset(x: (glance + look.x * 34) * unit, y: look.y * 34 * unit)
+                    .animation(.easeOut(duration: 0.2), value: look)
             }
             .scaleEffect(x: eyeScale, y: eyeScale * (blinking ? 0.08 : 1))
             .position(x: 514 * unit, y: 498 * unit)
@@ -73,7 +70,7 @@ struct KokobubuMascot: View {
                 .position(x: 514 * unit, y: 498 * unit)
         }
         .frame(width: size, height: size)
-        .shadow(color: .black.opacity(onCamera ? 0.35 : 0), radius: 5, y: 2)
+        .clipShape(RoundedRectangle(cornerRadius: size * 0.225, style: .continuous))
         .rotationEffect(.degrees(tilt), anchor: .bottom)
         .offset(y: hop)
         .scaleEffect(settled ? 1 : 0.86)
@@ -131,7 +128,7 @@ struct KokobubuMascot: View {
             await blink()
             round += 1
             if hops && round % 2 == 0 {
-                await hopOnce(height: 8)
+                await hopOnce(height: size * 0.12)
             } else if round % 3 == 0 {  // now and then a look to one side, then back
                 try? await Task.sleep(for: .seconds(0.6))
                 withAnimation(.easeInOut(duration: 0.3)) { glance = round % 6 == 0 ? -26 : 26 }
@@ -143,7 +140,7 @@ struct KokobubuMascot: View {
 
     private func hopping(every seconds: Double) async {
         while !Task.isCancelled {
-            await hopOnce(height: 8)
+            await hopOnce(height: size * 0.12)
             try? await Task.sleep(for: .seconds(seconds))
         }
     }
@@ -159,7 +156,7 @@ struct KokobubuMascot: View {
     }
 
     private func jump() async {
-        await hopOnce(height: 22)
+        await hopOnce(height: size * 0.3)
         withAnimation(.easeInOut(duration: 0.4)) { smileScale = 1 }
     }
 
@@ -202,19 +199,16 @@ private struct MascotSmile: Shape {
     }
 }
 
-/// The mascot on the camera screen. It stands on the card with its whole face showing, comes to the middle while looking
-/// at the photo, and steps away once a step is on screen, so the marker and the control stay clear.
-struct CameraMascot: View {
+/// The mascot inside the card, so it never covers the camera or reads as something to tap.
+/// Its mood says what the app is doing.
+struct CardMascot: View {
     @EnvironmentObject private var model: GuideModel
     @EnvironmentObject private var ar: ARGuideController
-    var card: CGRect
-    var bounds: CGSize
-    @State private var away = false
+    @EnvironmentObject private var settings: GuideSettings
 
-    private static let size: CGFloat = 76
+    static let size: CGFloat = 34
 
-    private var mood: KokobubuMascot.Mood? {
-        if model.correcting == .moving { return nil }
+    private var mood: KokobubuMascot.Mood {
         switch model.listening {
         case .listening, .transcribing: return .listening
         case .answering: return .looking
@@ -230,8 +224,8 @@ struct CameraMascot: View {
             case .correct: return .yes
             case .notDone, .unsure, .error: return .no
             case nil:
-                let target = ar.marker?.center.x ?? bounds.width / 2
-                return .lean(target < spot.x ? -1 : 1)
+                guard let target = ar.marker?.center.x else { return .idle }
+                return .lean(target < ar.arView.bounds.midX ? -1 : 1)
             }
         case .finished:
             return model.unsolved ? .no : .yes
@@ -240,44 +234,33 @@ struct CameraMascot: View {
         }
     }
 
-    private var isCentered: Bool {
-        model.phase == .thinking || model.reassessing || card == .zero
-    }
-
-    private var spot: CGPoint {
-        if isCentered { return CGPoint(x: bounds.width / 2, y: bounds.height * 0.28) }
-        let half = Self.size / 2
-        return CGPoint(x: min(card.maxX - half - 18, bounds.width - half - 6), y: card.minY - Self.size * 0.42)
-    }
-
-    /// Only a step that just appeared sends the mascot away; a tap on the camera does not bring it back.
-    private var stepping: Bool {
-        guard case .lean = mood else { return false }
-        return true
-    }
-
     var body: some View {
-        KokobubuMascot(size: Self.size, mood: mood ?? .idle, hops: true, onCamera: true)
-            .position(spot)
-            .opacity(mood == nil || (stepping && away) ? 0 : 1)
-            .animation(.spring(response: 0.45, dampingFraction: 0.75), value: spot)
-            .animation(.easeInOut(duration: 0.25), value: away)
-            .frame(width: bounds.width, height: bounds.height)
-            .allowsHitTesting(false)
-            .task(id: "\(model.stepIndex)-\(stepping)") {
-                away = false
-                guard stepping else { return }
-                try? await Task.sleep(for: .seconds(2.6))
-                if !Task.isCancelled { away = true }
-            }
+        if settings.showMascot {
+            Watching(gaze: ar.gaze, mood: mood)
+        }
+    }
+
+    /// Its own view, so only the mascot redraws while the phone moves.
+    private struct Watching: View {
+        @ObservedObject var gaze: CameraGaze
+        var mood: KokobubuMascot.Mood
+        @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+        var body: some View {
+            KokobubuMascot(size: CardMascot.size, mood: mood, hops: true, look: reduceMotion ? .zero : gaze.look)
+        }
     }
 }
 
-/// Where the card is, so the mascot can sit behind it.
-struct CardFrameKey: PreferenceKey {
-    static let defaultValue = CGRect.zero
-    static func reduce(value: inout CGRect, nextValue: () -> CGRect) {
-        let next = nextValue()
-        if next != .zero { value = next }
+extension View {
+    /// Keeps a card's top line clear of the mascot in the corner.
+    func clearsMascot() -> some View { modifier(MascotClearance()) }
+}
+
+private struct MascotClearance: ViewModifier {
+    @EnvironmentObject private var settings: GuideSettings
+
+    func body(content: Content) -> some View {
+        content.padding(.trailing, settings.showMascot ? CardMascot.size + 6 : 0)
     }
 }

@@ -53,7 +53,26 @@ struct CameraOptions: Equatable {
 
 /// Owns the AR session. ARKit is used only for tracking and geometry (depth, raycasts); every recognition task
 /// stays with Meta's models on the Mac (HACKATHON.md, Approved Exceptions, 2026-10-27).
+/// Where the phone is moving, for the mascot's eye. Separate from the controller, so a moving phone redraws only the eye.
+final class CameraGaze: ObservableObject {
+    @Published var look = CGPoint.zero
+
+    /// How far a point straight ahead has slid across the screen (in points, y down) since the last sample, as a look
+    /// direction: the phone moves the opposite way to the picture. Small shakes count as still.
+    static func look(forSlide slide: CGPoint, screenWidth: CGFloat) -> CGPoint {
+        func axis(_ value: CGFloat) -> CGFloat {
+            let share = -value / max(screenWidth, 1)
+            guard abs(share) >= 0.015 else { return 0 }
+            return (max(-1, min(1, share / 0.08)) * 2).rounded() / 2
+        }
+        return CGPoint(x: axis(slide.x), y: axis(slide.y))
+    }
+}
+
 final class ARGuideController: NSObject, ObservableObject, ARSessionDelegate {
+    let gaze = CameraGaze()
+    private var gazePoint: simd_float3?
+    private var gazeTime: TimeInterval = 0
     static let maxImageSide: CGFloat = 1600
     static let guessDistance: Float = 0.6
 
@@ -401,9 +420,29 @@ final class ARGuideController: NSObject, ObservableObject, ARSessionDelegate {
     // MARK: ARSessionDelegate
 
     func session(_ session: ARSession, didUpdate frame: ARFrame) {
+        updateGaze(frame)
         guard options.torch == .automatic, let lumens = frame.lightEstimate?.ambientIntensity else { return }
         let was = autoTorch.isLit
         if autoTorch.update(lumens: Double(lumens), at: frame.timestamp, hold: holdTorch) != was { applyTorch() }
+    }
+
+    /// About ten times a second: where did the point that was straight ahead go on the screen?
+    private func updateGaze(_ frame: ARFrame) {
+        guard frame.timestamp - gazeTime >= 0.1 else { return }
+        gazeTime = frame.timestamp
+        let camera = frame.camera
+        let size = arView.bounds.size
+        let orientation = arView.window?.windowScene?.effectiveGeometry.interfaceOrientation ?? .portrait
+        var look = CGPoint.zero
+        if let point = gazePoint, size.width > 0 {
+            let seen = camera.projectPoint(point, orientation: orientation, viewportSize: size)
+            look = CameraGaze.look(forSlide: CGPoint(x: seen.x - size.width / 2, y: seen.y - size.height / 2), screenWidth: size.width)
+        }
+        let transform = camera.transform
+        let position = simd_float3(transform.columns.3.x, transform.columns.3.y, transform.columns.3.z)
+        let forward = -simd_float3(transform.columns.2.x, transform.columns.2.y, transform.columns.2.z)
+        gazePoint = position + forward
+        if look != gaze.look { gaze.look = look }
     }
 
     func session(_ session: ARSession, cameraDidChangeTrackingState camera: ARCamera) {

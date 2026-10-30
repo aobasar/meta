@@ -10,9 +10,15 @@ struct SidePanel: View {
     var body: some View {
         Group {
             if model.phase == .thinking {
-                ThinkingCard().padding(.horizontal, 14).padding(.vertical, 10).sheetStyle()
+                HStack(spacing: 10) {
+                    CardMascot()
+                    ThinkingCard()
+                }
+                .padding(.horizontal, 14).padding(.vertical, 10).sheetStyle()
             } else if model.phase == .finished {
-                CompletionCard().padding(14).sheetStyle()
+                CompletionCard().padding(14)
+                    .overlay(alignment: .topLeading) { CardMascot().padding(10) }
+                    .sheetStyle()
             } else {
                 if folded, let line = foldedLine {
                     FoldedBar(prefix: line.prefix, title: line.title) { folded = false }
@@ -28,6 +34,7 @@ struct SidePanel: View {
                     }
                     .padding(.horizontal, 12)
                     .padding(.bottom, 10)
+                    .overlay(alignment: .topTrailing) { CardMascot().padding(.top, 8).padding(.trailing, 12) }
                     .sheetStyle()
                 }
             }
@@ -275,7 +282,7 @@ private struct QuestionCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 7) {
-            Text(GuideText.display(asked.text)).font(.headline).fixedSize(horizontal: false, vertical: true)
+            Text(GuideText.display(asked.text)).font(.headline).fixedSize(horizontal: false, vertical: true).clearsMascot()
             ForEach(asked.options) { option in
                 ChoiceRow(title: option.title, subtitle: option.subtitle) { model.answerQuestion(option.answer) }
             }
@@ -294,7 +301,7 @@ private struct ConfirmCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Did this solve it?").font(.headline)
+            Text("Did this solve it?").font(.headline).clearsMascot()
             if let reply = model.reply {
                 Text(GuideText.display(reply)).font(.footnote).foregroundStyle(Color.sheetMuted).fixedSize(horizontal: false, vertical: true)
             }
@@ -386,6 +393,7 @@ private struct StepCard: View {
                         Capsule().fill(segmentColor(i)).frame(height: 4)
                     }
                 }
+                .clearsMascot()
                 .accessibilityHidden(true)
             }
             Text(GuideText.display(step.instruction))

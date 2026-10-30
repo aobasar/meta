@@ -511,6 +511,14 @@ final class InterfaceLanguageTests: XCTestCase {
 }
 
 final class GreetingTests: XCTestCase {
+    func testEyeLooksWhereThePhoneMoves() {
+        // The picture slides left when the phone moves right, and down when it moves up.
+        XCTAssertEqual(CameraGaze.look(forSlide: CGPoint(x: -40, y: 0), screenWidth: 400).x, 1)
+        XCTAssertEqual(CameraGaze.look(forSlide: CGPoint(x: 40, y: 0), screenWidth: 400).x, -1)
+        XCTAssertEqual(CameraGaze.look(forSlide: CGPoint(x: 0, y: 40), screenWidth: 400).y, -1)
+        XCTAssertEqual(CameraGaze.look(forSlide: CGPoint(x: 2, y: -2), screenWidth: 400), .zero)
+    }
+
     @MainActor func testDoneLineSaysWhatChangedAndHowFarToGo() {
         let phrase: (String) -> String = { $0 }
         XCTAssertEqual(GuideModel.doneLine(confirmation: "Orange is set.", ready: "Okay.", stepsLeft: 1, goesOn: false, phrase: phrase),
