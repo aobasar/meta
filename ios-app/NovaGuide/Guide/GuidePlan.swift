@@ -24,6 +24,9 @@ struct GuidePlan: Decodable, Equatable {
     /// False on the first part of a streamed plan: the steps, before the controls are located (an older server
     /// sends one located plan without this field).
     var located: Bool? = nil
+    /// The task goes on past what this photo shows (the next screen, a panel that opens), and the way as Spark expects it.
+    var continues: Bool? = nil
+    var remaining: String? = nil
     /// Nova asks this before it plans; such a plan has no steps.
     var question: Question? = nil
     var steps: [GuideStep]
@@ -31,6 +34,7 @@ struct GuidePlan: Decodable, Equatable {
     var recording: String?
 
     var isLocated: Bool { located ?? true }
+    var goesOn: Bool { continues ?? false }
 
     /// One thing Nova needs to know: a setting to pick, the device to confirm, or a fact the photo can't show.
     struct Question: Decodable, Equatable {

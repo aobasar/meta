@@ -60,6 +60,10 @@ final class GuideModel: ObservableObject {
     static let maxStepCorrections = 2
     /// "Not solved" gets this many new tries; then Nova says it couldn't solve it.
     static let maxOutcomeTries = 2
+    /// A task moves on to a new screen at most this often before Nova stops and asks.
+    static let maxScreens = 6
+    /// The next screen needs a moment to settle before the new frame.
+    static let screenSettleSeconds = 1.0
 
     @Published var phase: Phase = .asking
     @Published var question = ""
@@ -123,6 +127,7 @@ final class GuideModel: ObservableObject {
     private var greeted = false
     private var askingAloud = false
     private var outcomeTries = 0
+    private var screensPassed = 0
     private var pendingCorrection: GuideClient.Correction?
     private var skipWords = false
     private var discardRecording = false
@@ -158,7 +163,8 @@ final class GuideModel: ObservableObject {
 
     var canCorrectStep: Bool { (stepCorrections[stepIndex] ?? 0) < Self.maxStepCorrections }
 
-    var isLastStep: Bool { plan.map { stepIndex + 1 == $0.steps.count } ?? false }
+    /// Nothing comes after this step: the plan's last one, and the task doesn't go on past this screen.
+    var isLastStep: Bool { plan.map { stepIndex + 1 == $0.steps.count && !$0.goesOn } ?? false }
 
     /// The steps are on screen, the controls are still being located: no marker yet, and nothing to check against.
     var isLocating: Bool { phase == .guiding && plan?.isLocated == false }
@@ -226,6 +232,7 @@ final class GuideModel: ObservableObject {
         awaitingFirstTap = false
         askingAloud = false
         outcomeTries = 0
+        screensPassed = 0
         pendingCorrection = nil
         unsolved = false
         taskQuestion = text
@@ -395,6 +402,45 @@ final class GuideModel: ObservableObject {
         records = Array(records.prefix(start)) + plan.steps.dropFirst(start).map { StepRecord(expected: $0.success) }
         phase = .guiding
         go(to: start)
+    }
+
+    // MARK: The next screen
+
+    /// The steps this photo could show are done, and the task goes on: look at where the user is now.
+    private func nextScreen() {
+        guard let plan else { return }
+        guard screensPassed < Self.maxScreens else {
+            // Stops here: "No" on the card looks again from where they are.
+            screensPassed = 0
+            let note = String(localized: "We've come a long way. Did this solve it, or shall I keep going?", bundle: .ui)
+            checkTask?.cancel()
+            feedback = nil
+            reply = note
+            phase = .confirming
+            speak(note)
+            return
+        }
+        screensPassed += 1
+        checkTask?.cancel()
+        feedback = nil
+        reply = nil
+        phase = .thinking
+        timings = TaskTimings(setting: settings.sparkLabel)
+        acknowledge("")
+        let start = plan.steps.count
+        let correction = GuideClient.Correction(kind: "continue", wrongStep: "", said: plan.remaining ?? "",
+                                                 done: plan.steps.map(\.instruction))
+        task = Task {
+            try? await Task.sleep(for: .seconds(Self.screenSettleSeconds))
+            if Task.isCancelled { return }
+            guard let capture = ar.capture() else {  // tracking is lost, for example the screen went dark
+                phase = .guiding
+                show(message: String(localized: "The camera isn't ready yet. Point it at the device and try again.", bundle: .ui))
+                return
+            }
+            planCapture = capture
+            requestPlan(capture: capture, correction: correction, from: start)
+        }
     }
 
     // MARK: Is the problem solved?
@@ -735,6 +781,8 @@ final class GuideModel: ObservableObject {
         guard let plan else { return }
         if stepIndex + 1 < plan.steps.count {
             go(to: stepIndex + 1)
+        } else if plan.goesOn {
+            nextScreen()
         } else {
             checkTask?.cancel()
             feedback = nil
@@ -772,6 +820,7 @@ final class GuideModel: ObservableObject {
         awaitingFirstTap = true
         askingAloud = false
         outcomeTries = 0
+        screensPassed = 0
         pendingCorrection = nil
         unsolved = false
         correcting = nil
@@ -1118,6 +1167,10 @@ final class GuideModel: ObservableObject {
         startedAt = Date().addingTimeInterval(-192)
         timings = TaskTimings(transcript: 1.9, steps: 3.4, markers: 7.1, check: 1.6, setting: settings.sparkLabel)
         switch screen {
+        case "screens":
+            stepIndex = 0
+            records = plan.steps.map { StepRecord(expected: $0.success) }
+            phase = .guiding
         case "confirm":
             phase = .confirming
             stepIndex = plan.steps.count - 1

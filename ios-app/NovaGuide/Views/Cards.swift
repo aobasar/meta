@@ -335,7 +335,7 @@ private struct StepCard: View {
                     arrow("chevron.left", label: index == 0 ? String(localized: "Back to the question", bundle: .ui) : String(localized: "Previous step", bundle: .ui)) {
                         model.back()
                     }
-                    Text(verbatim: "\(index + 1)/\(total)")
+                    Text(verbatim: model.plan?.goesOn == true ? "\(index + 1)" : "\(index + 1)/\(total)")  // the total isn't known yet
                         .font(.footnote.weight(.bold).monospacedDigit())
                         .foregroundStyle(Color.novaYellow)
                         .frame(minWidth: 34)
@@ -353,6 +353,12 @@ private struct StepCard: View {
             Text(GuideText.display(step.instruction))
                 .font(.system(size: land ? 17 : 22, weight: .bold))
                 .fixedSize(horizontal: false, vertical: true)
+            if let remaining = model.plan?.remaining, !remaining.isEmpty, index + 1 == total {
+                Text("Next: \(GuideText.display(remaining))")
+                    .font(.caption)
+                    .foregroundStyle(Color.novaText2)
+                    .lineLimit(2)
+            }
             if let motion = step.motionKind {
                 Label(motion.title, systemImage: motion.symbol)
                     .font(.footnote.weight(.bold))

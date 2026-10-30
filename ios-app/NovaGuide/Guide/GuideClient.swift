@@ -82,7 +82,7 @@ struct GuideClient {
 
     /// "This step is wrong" or "Start over": what went wrong, so the next plan doesn't repeat it.
     struct Correction: Encodable, Equatable {
-        var kind: String  // "step", "restart", or "outcome" (all done, and the problem isn't solved)
+        var kind: String  // "step", "restart", "outcome" (all done, not solved), or "continue" (the next screen)
         var wrongStep: String
         var said: String
         var done: [String]

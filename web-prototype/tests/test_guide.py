@@ -284,6 +284,21 @@ class PlanTests(unittest.TestCase):
             self.assertIn(text, prompt)
         self.assertEqual(result["question"]["kind"], "choice")
 
+    def test_a_plan_says_when_the_task_goes_on(self):
+        plan = {**PLAN, "task_continues": True, "remaining_path": "«General» › «Language»"}
+        result = guide.plan(tiny_jpeg(), "Dili değiştir", "Turkish", FAKE_KEY, RoutingOpener(plan=plan))
+        self.assertEqual((result["continues"], result["remaining"]), (True, "«General» › «Language»"))
+        self.assertEqual(guide.plan(tiny_jpeg(), "q", "Turkish", FAKE_KEY, RoutingOpener())["continues"], False)
+
+    def test_the_next_screen_is_planned_from_where_they_are(self):
+        opener = RoutingOpener(plan=self.QUESTION)
+        correction = {"kind": "continue", "wrongStep": "", "said": "«General» › «Language»", "done": ["«Settings» aç."]}
+        result = guide.plan(tiny_jpeg(), "Dili değiştir", "Turkish", FAKE_KEY, opener, allow_questions=True, correction=correction)
+        prompt = opener.bodies[0]["messages"][0]["content"][0]["text"]
+        for text in ("in the middle of this task", "«General» › «Language»", "«Settings» aç."):
+            self.assertIn(text, prompt)
+        self.assertIsNone(result["question"])
+
     def test_a_refused_plan_is_one_final_part(self):
         refused = {**PLAN, "safe_to_guide": False, "steps": []}
         parts = list(guide.plan_parts(tiny_jpeg(), "Sigortayı aç", "Turkish", FAKE_KEY, RoutingOpener(plan=refused)))
@@ -514,6 +529,12 @@ class HttpTests(unittest.TestCase):
         self.assertEqual(self.opener.bodies[0]["reasoning_effort"], "low")
         record = self.last_usage()
         self.assertEqual((record["spark"], record["correction"]), ("meta-low", "restart"))
+
+    def test_the_next_screen_is_not_a_second_look(self):
+        correction = {"kind": "continue", "wrongStep": "", "said": "", "done": []}
+        self.assertEqual(self.request("/api/guide/plan", self.frame_body(correction=correction))[0], 200)
+        self.assertEqual(self.opener.bodies[0]["reasoning_effort"], "minimal")
+        self.assertEqual(self.last_usage()["correction"], "continue")
 
     def test_bad_answers_or_corrections_are_refused(self):
         for extra in ({"answers": "x"}, {"answers": [{"question": "q"}]}, {"answers": [{"question": "q", "answer": "a"}] * 3},

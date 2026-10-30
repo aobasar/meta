@@ -24,15 +24,28 @@ enum DemoMode {
         }
         if settings.needsConsent { settings.acceptTerms() }
         model.showWelcome = false
-        model.loadDemo(screen, plan: plan, correction: "Düğme hâlâ “light” konumunda. Biraz daha sağa, “regular” yazısına çevirin.")
+        model.loadDemo(screen, plan: screen == "screens" ? screensPlan : plan, correction: "Düğme hâlâ “light” konumunda. Biraz daha sağa, “regular” yazısına çevirin.")
     }
 
     static func placeMarker(in size: CGSize, ar: ARGuideController) {
-        guard let screen, ["guiding", "verified", "correction"].contains(screen), size.width > 0 else { return }
+        guard let screen, ["guiding", "verified", "correction", "screens"].contains(screen), size.width > 0 else { return }
         ar.showDemoMarker(MarkerState(center: CGPoint(x: size.width * 0.72, y: size.height * 0.4), radius: 22, onScreen: true,
                                       direction: CGVector(dx: 0, dy: -1),
                                       label: CGPoint(x: size.width * 0.8, y: size.height * 0.24), precise: true))
     }
+
+    /// A task that goes on past this screen.
+    static let screensPlan: GuidePlan = {
+        let json = """
+        {"device": {"type": "iPhone", "brand": ""}, "safe": true, "safetyNote": "", "uncertainty": "", "continues": true,
+         "remaining": "«General» › «Language & Region» › «Türkçe»", "frame": {"width": 1600, "height": 900}, "served": [],
+         "steps": [
+          {"instruction": "«Settings» uygulamasını açın.", "detail": "Gri dişli simgesi.", "target": "Settings icon", "success": "",
+           "point": {"x": 0.5, "y": 0.42}, "boxMethod": "point", "motion": "press", "verifiable": false}
+         ]}
+        """
+        return try! JSONDecoder().decode(GuidePlan.self, from: Data(json.utf8))
+    }()
 
     static let plan: GuidePlan = {
         let json = """

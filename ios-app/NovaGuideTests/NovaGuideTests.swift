@@ -391,8 +391,8 @@ final class SpeedTestTests: XCTestCase {
         let timings = TaskTimings(steps: 3.44, markers: 7.1, setting: "Meta Minimal")
         let number = { (value: Double) in value.formatted(.number.precision(.fractionLength(1))) }
         XCTAssertFalse(timings.isEmpty)
-        XCTAssertEqual(timings.summary, "\(String(localized: "Steps")) \(String(localized: "\(number(3.44)) s")) · "
-            + "\(String(localized: "Markers")) \(String(localized: "\(number(7.1)) s")) · Meta Minimal")
+        XCTAssertEqual(timings.summary, "\(String(localized: "Steps", bundle: .ui)) \(String(localized: "\(number(3.44)) s", bundle: .ui)) · "
+            + "\(String(localized: "Markers", bundle: .ui)) \(String(localized: "\(number(7.1)) s", bundle: .ui)) · Meta Minimal")
     }
 }
 
@@ -471,8 +471,8 @@ final class LiveTranscriberTests: XCTestCase {
     }
 
     func testTheTimingsSayWhichRouteWasUsed() {
-        XCTAssertTrue(TaskTimings(transcript: 0.4, liveVoice: true).summary.hasPrefix(String(localized: "Live voice")))
-        XCTAssertTrue(TaskTimings(transcript: 1.9).summary.hasPrefix(String(localized: "Voice")))
+        XCTAssertTrue(TaskTimings(transcript: 0.4, liveVoice: true).summary.hasPrefix(String(localized: "Live voice", bundle: .ui)))
+        XCTAssertTrue(TaskTimings(transcript: 1.9).summary.hasPrefix(String(localized: "Voice", bundle: .ui)))
     }
 }
 
@@ -493,6 +493,7 @@ final class ReviewTests: XCTestCase {
 final class InterfaceLanguageTests: XCTestCase {
     func testTheChoiceIsKeptAndTheIPhoneLanguageClearsIt() throws {
         let suite = "interface-\(UUID().uuidString)"
+        addTeardownBlock { Bundle.ui = .main }
         let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
         defer { defaults.removePersistentDomain(forName: suite) }
         let settings = GuideSettings(defaults: defaults)
@@ -534,5 +535,19 @@ final class OutcomeTests: XCTestCase {
         XCTAssertEqual(step.motionKind, .turnCounterclockwise)
         step.motion = "unknown"
         XCTAssertNil(step.motionKind)
+    }
+}
+
+final class ContinuingPlanTests: XCTestCase {
+    func testAPlanSaysWhenTheTaskGoesOn() throws {
+        let json = """
+        {"device": {"type": "iPhone", "brand": ""}, "safe": true, "safetyNote": "", "uncertainty": "", "continues": true,
+         "remaining": "«General»", "frame": {"width": 1, "height": 1}, "served": [], "steps": []}
+        """
+        let plan = try JSONDecoder().decode(GuidePlan.self, from: Data(json.utf8))
+        XCTAssertTrue(plan.goesOn)
+        XCTAssertEqual(plan.remaining, "«General»")
+        let older = #"{"device": {"type": "x", "brand": ""}, "safe": true, "safetyNote": "", "uncertainty": "", "frame": {"width": 1, "height": 1}, "served": [], "steps": []}"#
+        XCTAssertFalse(try JSONDecoder().decode(GuidePlan.self, from: Data(older.utf8)).goesOn)
     }
 }

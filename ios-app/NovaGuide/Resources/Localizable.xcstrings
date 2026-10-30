@@ -1004,6 +1004,16 @@
         }
       }
     },
+    "Next: %@": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sırada: %@"
+          }
+        }
+      }
+    },
     "No need to hold the phone still.": {
       "localizations": {
         "tr": {
@@ -1980,6 +1990,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Takıldık gibi. Tekrar değerlendireyim mi?"
+          }
+        }
+      }
+    },
+    "We've come a long way. Did this solve it, or shall I keep going?": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Epey ilerledik. Sorun çözüldü mü, devam edeyim mi?"
           }
         }
       }
