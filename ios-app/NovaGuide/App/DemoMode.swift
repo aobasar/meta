@@ -61,7 +61,7 @@ enum DemoMode {
           {"instruction": "Ana program düğmesini normal konumuna çevirin.", "detail": "Ortadaki büyük düğme; ok “normal” bölümünü göstermeli.",
            "target": "program dial", "success": "arrow inside normal", "point": {"x": 0.5, "y": 0.42}, "boxMethod": "point",
            "setTo": {"label": "normal", "meaning": "normal yıkama"}, "verifiable": true},
-          {"instruction": "Başlatmak için aynı düğmeyi dışarı doğru çekin.", "detail": "Bu adımın sonucu fotoğrafta görünmez; Koko kontrol etmez.",
+          {"instruction": "Başlatmak için aynı düğmeyi dışarı doğru çekin.", "detail": "Bu adımın sonucu fotoğrafta görünmez; Kokobubu kontrol etmez.",
            "target": "program dial", "success": "no visible change", "point": {"x": 0.5, "y": 0.42}, "boxMethod": "point", "verifiable": false}
          ]}
         """

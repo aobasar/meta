@@ -5,7 +5,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>Koko Guide</string>
+	<string>Kokobubu</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -41,13 +41,13 @@
 		</dict>
 	</dict>
 	<key>NSCameraUsageDescription</key>
-	<string>Koko Guide uses the camera to see the device in front of you and show you which control to touch.</string>
+	<string>Kokobubu uses the camera to see the device in front of you and show you which control to touch.</string>
 	<key>NSLocalNetworkUsageDescription</key>
-	<string>Koko Guide connects to the Koko server on your own Mac.</string>
+	<string>Kokobubu connects to the Kokobubu server on your own Mac.</string>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>Koko Guide listens only after you tap the microphone, so you can ask and answer by voice.</string>
+	<string>Kokobubu listens only after you tap the microphone, so you can ask and answer by voice.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
-	<string>Koko Guide saves a screen recording to Photos only when you tap Save to Photos.</string>
+	<string>Kokobubu saves a screen recording to Photos only when you tap Save to Photos.</string>
 	<key>NovaPublicURL</key>
 	<string>$(NOVA_PUBLIC_URL)</string>
 	<key>NovaServerURL</key>

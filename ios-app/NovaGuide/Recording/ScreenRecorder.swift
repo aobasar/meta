@@ -19,7 +19,7 @@ final class ScreenRecorder: ObservableObject {
     }
 
     static let lastURL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-        .appendingPathComponent("Koko last recording.mp4")
+        .appendingPathComponent("Kokobubu last recording.mp4")
 
     @Published private(set) var state: State = .off
     @Published private(set) var last: RecordedVideo?

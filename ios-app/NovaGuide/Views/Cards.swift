@@ -69,7 +69,7 @@ struct SidePanel: View {
     private var foldedLine: (prefix: String, title: String)? {
         switch model.phase {
         case .asking:
-            return ("", String(localized: "Koko is ready to help.", bundle: .ui))
+            return ("", String(localized: "Kokobubu is ready to help.", bundle: .ui))
         case .choosing(let asked):
             return ("", GuideText.display(asked.text))
         case .guiding:
@@ -190,7 +190,7 @@ private struct ReadyCard: View {
 
     var body: some View {
         VStack(spacing: 8) {
-            Text(model.awaitingFirstTap ? "Koko is ready to help." : "How can I help you?")
+            Text(model.awaitingFirstTap ? "Kokobubu is ready to help." : "How can I help you?")
                 .font(.headline)
                 .multilineTextAlignment(.center)
             MicButton(large: true)

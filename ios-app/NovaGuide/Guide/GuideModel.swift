@@ -258,7 +258,7 @@ final class GuideModel: ObservableObject {
     func greet() {
         guard phase == .asking, plan == nil, !greeted else { return }
         greeted = true
-        speak(language.phrase("Koko is ready to help."))
+        speak(language.phrase("Kokobubu is ready to help."))
     }
 
     /// The task's first tap: Nova asks, and the microphone opens when it has finished, so it doesn't hear itself.
@@ -429,13 +429,13 @@ final class GuideModel: ObservableObject {
             return
         }
         guard plan.safe else {
-            let note = plan.safetyNote.isEmpty ? String(localized: "Koko can't guide this safely.", bundle: .ui) : plan.safetyNote
+            let note = plan.safetyNote.isEmpty ? String(localized: "Kokobubu can't guide this safely.", bundle: .ui) : plan.safetyNote
             phase = .refused(note)
             speak(note)
             return
         }
         guard !plan.steps.isEmpty else {
-            let note = plan.uncertainty.isEmpty ? String(localized: "Koko couldn't find the controls for this.", bundle: .ui) : plan.uncertainty
+            let note = plan.uncertainty.isEmpty ? String(localized: "Kokobubu couldn't find the controls for this.", bundle: .ui) : plan.uncertainty
             phase = .refused(note)
             speak(note)
             return
@@ -933,7 +933,7 @@ final class GuideModel: ObservableObject {
         speaker.stop()
         voiceTask = Task {
             guard await VoiceRecorder.requestPermission() else {
-                show(message: String(localized: "Allow the microphone in Settings to talk to Koko.", bundle: .ui))
+                show(message: String(localized: "Allow the microphone in Settings to talk to Kokobubu.", bundle: .ui))
                 return
             }
             if settings.soundEffects {  // over before the microphone opens, so it isn't taken for speech

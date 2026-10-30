@@ -536,7 +536,7 @@ final class GreetingTests: XCTestCase {
 
     func testBothSpokenLinesExistInTurkish() {
         let turkish = UserLanguage.named("Turkish")
-        XCTAssertEqual(turkish.phrase("Koko is ready to help."), "Koko yardıma hazır.")
+        XCTAssertEqual(turkish.phrase("Kokobubu is ready to help."), "Kokobubu yardıma hazır.")
         XCTAssertEqual(turkish.phrase("How can I help you?"), "Sana nasıl yardımcı olabilirim?")
     }
 }

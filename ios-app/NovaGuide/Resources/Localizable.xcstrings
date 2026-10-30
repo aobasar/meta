@@ -62,22 +62,22 @@
         }
       }
     },
-    "Allow Koko Guide to add to Photos in Settings, then try again.": {
+    "Allow Kokobubu to add to Photos in Settings, then try again.": {
       "localizations": {
         "tr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ayarlar'da Koko Guide'ın Fotoğraflar'a eklemesine izin ver, sonra tekrar dene."
+            "value": "Ayarlar'da Kokobubu'nun Fotoğraflar'a eklemesine izin ver, sonra tekrar dene."
           }
         }
       }
     },
-    "Allow the microphone in Settings to talk to Koko.": {
+    "Allow the microphone in Settings to talk to Kokobubu.": {
       "localizations": {
         "tr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Koko ile konuşmak için Ayarlar'dan mikrofona izin verin."
+            "value": "Kokobubu ile konuşmak için Ayarlar'dan mikrofona izin verin."
           }
         }
       }
@@ -112,32 +112,32 @@
         }
       }
     },
-    "Automatic: speak Turkish or English and Koko answers in the same language. Words printed on the device are read in their own language.": {
+    "Automatic: speak Turkish or English and Kokobubu answers in the same language. Words printed on the device are read in their own language.": {
       "localizations": {
         "tr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Otomatik: Türkçe ya da İngilizce konuş, Koko aynı dilde cevap verir. Cihazda yazan kelimeler kendi dilinde okunur. Canlı yazıya çevirme: sen konuşurken kelimeler ekranda görünür ve Koko konuşmanın bittiğini anlar; sözünü kesiyorsa kapat."
+            "value": "Otomatik: Türkçe ya da İngilizce konuş, Kokobubu aynı dilde cevap verir. Cihazda yazan kelimeler kendi dilinde okunur. Canlı yazıya çevirme: sen konuşurken kelimeler ekranda görünür ve Kokobubu konuşmanın bittiğini anlar; sözünü kesiyorsa kapat."
           }
         }
       }
     },
-    "Automatic: speak Turkish or English and Koko answers in the same language. Words printed on the device are read in their own language. Live transcription: your words appear as you speak, and Koko notices when you finish; turn it off if it cuts you off.": {
+    "Automatic: speak Turkish or English and Kokobubu answers in the same language. Words printed on the device are read in their own language. Live transcription: your words appear as you speak, and Kokobubu notices when you finish; turn it off if it cuts you off.": {
       "localizations": {
         "tr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Otomatik: Türkçe ya da İngilizce konuş, Koko aynı dilde cevap verir. Cihazda yazan kelimeler kendi dilinde okunur. Canlı yazıya çevirme: sen konuşurken kelimeler ekranda görünür ve Koko konuşmanın bittiğini anlar; sözünü kesiyorsa kapat."
+            "value": "Otomatik: Türkçe ya da İngilizce konuş, Kokobubu aynı dilde cevap verir. Cihazda yazan kelimeler kendi dilinde okunur. Canlı yazıya çevirme: sen konuşurken kelimeler ekranda görünür ve Kokobubu konuşmanın bittiğini anlar; sözünü kesiyorsa kapat."
           }
         }
       }
     },
-    "Automatic: speak Turkish or English and Koko answers in the same language. Words printed on the device are read in their own language. Live transcription: your words appear as you speak, and Koko notices when you finish; turn it off if it cuts you off. For a more natural voice, download a Premium or Enhanced one in the iPhone's Settings › Accessibility › Read & Speak (or Spoken Content) › Voices; Koko uses the best one it finds.": {
+    "Automatic: speak Turkish or English and Kokobubu answers in the same language. Words printed on the device are read in their own language. Live transcription: your words appear as you speak, and Kokobubu notices when you finish; turn it off if it cuts you off. For a more natural voice, download a Premium or Enhanced one in the iPhone's Settings › Accessibility › Read & Speak (or Spoken Content) › Voices; Kokobubu uses the best one it finds.": {
       "localizations": {
         "tr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Otomatik: Türkçe ya da İngilizce konuş, Koko aynı dilde cevap verir. Cihazda yazan kelimeler kendi dilinde okunur. Canlı yazıya çevirme: sen konuşurken kelimeler ekranda görünür ve Koko konuşmanın bittiğini anlar; sözünü kesiyorsa kapat. Daha doğal bir ses için iPhone Ayarlar › Erişilebilirlik › Okuma ve Konuşma (ya da Seslendirilen İçerik) › Sesler bölümünden Premium ya da Gelişmiş bir ses indir; Koko bulduğu en iyisini kullanır."
+            "value": "Otomatik: Türkçe ya da İngilizce konuş, Kokobubu aynı dilde cevap verir. Cihazda yazan kelimeler kendi dilinde okunur. Canlı yazıya çevirme: sen konuşurken kelimeler ekranda görünür ve Kokobubu konuşmanın bittiğini anlar; sözünü kesiyorsa kapat. Daha doğal bir ses için iPhone Ayarlar › Erişilebilirlik › Okuma ve Konuşma (ya da Seslendirilen İçerik) › Sesler bölümünden Premium ya da Gelişmiş bir ses indir; Kokobubu bulduğu en iyisini kullanır."
           }
         }
       }
@@ -568,12 +568,12 @@
         }
       }
     },
-    "For a more natural voice, download a Premium or Enhanced one in the iPhone's Settings › Accessibility › Read & Speak (or Spoken Content) › Voices; Koko uses the best one it finds.": {
+    "For a more natural voice, download a Premium or Enhanced one in the iPhone's Settings › Accessibility › Read & Speak (or Spoken Content) › Voices; Kokobubu uses the best one it finds.": {
       "localizations": {
         "tr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Daha doğal bir ses için iPhone Ayarlar › Erişilebilirlik › Okuma ve Konuşma (ya da Seslendirilen İçerik) › Sesler bölümünden Premium ya da Gelişmiş bir ses indir; Koko bulduğu en iyisini kullanır."
+            "value": "Daha doğal bir ses için iPhone Ayarlar › Erişilebilirlik › Okuma ve Konuşma (ya da Seslendirilen İçerik) › Sesler bölümünden Premium ya da Gelişmiş bir ses indir; Kokobubu bulduğu en iyisini kullanır."
           }
         }
       }
@@ -628,12 +628,12 @@
         }
       }
     },
-    "Frames and your voice go to the Koko server and the Meta Model API only when you ask. Koko's server doesn't keep them; Meta's terms apply.": {
+    "Frames and your voice go to the Kokobubu server and the Meta Model API only when you ask. Kokobubu's server doesn't keep them; Meta's terms apply.": {
       "localizations": {
         "tr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Kareler ve sesin yalnızca sorduğunda Koko sunucusuna ve Meta Model API'ye gider. Koko sunucusu saklamaz; Meta'nın koşulları geçerlidir."
+            "value": "Kareler ve sesin yalnızca sorduğunda Kokobubu sunucusuna ve Meta Model API'ye gider. Kokobubu sunucusu saklamaz; Meta'nın koşulları geçerlidir."
           }
         }
       }
@@ -728,12 +728,12 @@
         }
       }
     },
-    "How Koko works": {
+    "How Kokobubu works": {
       "localizations": {
         "tr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Koko nasıl çalışır"
+            "value": "Kokobubu nasıl çalışır"
           }
         }
       }
@@ -1011,7 +1011,7 @@
       }
     },
     "Let me see…": {
-      "comment": "A spoken variation of Let me look, said while Koko looks at the frame.",
+      "comment": "A spoken variation of Let me look, said while Kokobubu looks at the frame.",
       "extractionState": "manual",
       "localizations": {
         "tr": {
@@ -1023,7 +1023,7 @@
       }
     },
     "One moment…": {
-      "comment": "A spoken variation of Let me look, said while Koko looks at the frame.",
+      "comment": "A spoken variation of Let me look, said while Kokobubu looks at the frame.",
       "extractionState": "manual",
       "localizations": {
         "tr": {
@@ -1035,7 +1035,7 @@
       }
     },
     "Looking at it now…": {
-      "comment": "A spoken variation of Let me look, said while Koko looks at the frame.",
+      "comment": "A spoken variation of Let me look, said while Kokobubu looks at the frame.",
       "extractionState": "manual",
       "localizations": {
         "tr": {
@@ -1047,7 +1047,7 @@
       }
     },
     "Give me a second…": {
-      "comment": "A spoken variation of Let me look, said while Koko looks at the frame.",
+      "comment": "A spoken variation of Let me look, said while Kokobubu looks at the frame.",
       "extractionState": "manual",
       "localizations": {
         "tr": {
@@ -1338,32 +1338,32 @@
         }
       }
     },
-    "Koko can't guide this safely.": {
+    "Kokobubu can't guide this safely.": {
       "localizations": {
         "tr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Koko bu konuda güvenle yol gösteremez."
+            "value": "Kokobubu bu konuda güvenle yol gösteremez."
           }
         }
       }
     },
-    "Koko couldn't find the controls for this.": {
+    "Kokobubu couldn't find the controls for this.": {
       "localizations": {
         "tr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Koko bunun için gereken düğmeleri bulamadı."
+            "value": "Kokobubu bunun için gereken düğmeleri bulamadı."
           }
         }
       }
     },
-    "Koko is ready to help.": {
+    "Kokobubu is ready to help.": {
       "localizations": {
         "tr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Koko yardıma hazır."
+            "value": "Kokobubu yardıma hazır."
           }
         }
       }
@@ -1618,12 +1618,12 @@
         }
       }
     },
-    "Say “done” and Koko checks with the camera.": {
+    "Say “done” and Kokobubu checks with the camera.": {
       "localizations": {
         "tr": {
           "stringUnit": {
             "state": "translated",
-            "value": "“Yaptım” de, Koko kameradan bakar."
+            "value": "“Yaptım” de, Kokobubu kameradan bakar."
           }
         }
       }
@@ -2389,12 +2389,12 @@
         }
       }
     },
-    "When on, each task is recorded without sound; recording pauses while Koko thinks. The video stays on the phone; save it to Photos or share it from here.": {
+    "When on, each task is recorded without sound; recording pauses while Kokobubu thinks. The video stays on the phone; save it to Photos or share it from here.": {
       "localizations": {
         "tr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Açıkken her görev sessiz olarak kaydedilir; Koko düşünürken kayıt durur. Video sadece telefonda kalır; buradan Fotoğraflar'a kaydedebilir ya da paylaşabilirsin."
+            "value": "Açıkken her görev sessiz olarak kaydedilir; Kokobubu düşünürken kayıt durur. Video sadece telefonda kalır; buradan Fotoğraflar'a kaydedebilir ya da paylaşabilirsin."
           }
         }
       }

@@ -108,9 +108,9 @@ final class ARGuideController: NSObject, ObservableObject, ARSessionDelegate {
         applyTorch()
         #if DEBUG
         for format in ARWorldTrackingConfiguration.supportedVideoFormats {
-            print("Koko camera format:", format.captureDeviceType.rawValue, Self.describe(format), format.framesPerSecond, "fps")
+            print("Kokobubu camera format:", format.captureDeviceType.rawValue, Self.describe(format), format.framesPerSecond, "fps")
         }
-        print("Koko camera in use:", activeCamera)
+        print("Kokobubu camera in use:", activeCamera)
         #endif
         if displayLink == nil {
             let link = CADisplayLink(target: self, selector: #selector(tick))
