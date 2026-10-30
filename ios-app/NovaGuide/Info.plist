@@ -36,12 +36,12 @@
 	</array>
 	<key>CFBundleVersion</key>
 	<string>$(CURRENT_PROJECT_VERSION)</string>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>NSCameraUsageDescription</key>
 	<string>Kokobubu uses the camera to see the device in front of you and show you which control to touch.</string>
-	<key>NSLocalNetworkUsageDescription</key>
-	<string>Kokobubu connects to the Kokobubu server on your own Mac.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Kokobubu listens only after you tap the microphone, so you can ask and answer by voice.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>

@@ -37,6 +37,7 @@ targets:
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         CFBundleLocalizations: [en, tr]
+        ITSAppUsesNonExemptEncryption: false
         LSRequiresIPhoneOS: true
         CFBundleURLTypes:
           - CFBundleURLName: com.aobasar.nova.guide.invite
@@ -49,7 +50,6 @@ targets:
         NSCameraUsageDescription: "Kokobubu uses the camera to see the device in front of you and show you which control to touch."
         NSMicrophoneUsageDescription: "Kokobubu listens only after you tap the microphone, so you can ask and answer by voice."
         NSPhotoLibraryAddUsageDescription: "Kokobubu saves a screen recording to Photos only when you tap Save to Photos."
-        NSLocalNetworkUsageDescription: "Kokobubu connects to the Kokobubu server on your own Mac."
         NovaPublicURL: $(NOVA_PUBLIC_URL)
   NovaGuideTests:
     type: bundle.unit-test
