@@ -28,10 +28,11 @@ struct SettingsView: View {
                     }
                     Toggle(String(localized: "Live transcription", bundle: .ui), isOn: $settings.liveTranscription)
                     Toggle(String(localized: "Speak instructions aloud", bundle: .ui), isOn: $settings.speakAloud)
+                    LabeledContent(String(localized: "Voice", bundle: .ui), value: Speaker.voiceDescription(for: model.language.voice))
                 } header: {
                     Text("Language & voice")
                 } footer: {
-                    Text("Automatic: speak Turkish or English and Nova answers in the same language. Words printed on the device are read in their own language. Live transcription: your words appear as you speak, and Nova notices when you finish; turn it off if it cuts you off.")
+                    Text("Automatic: speak Turkish or English and Nova answers in the same language. Words printed on the device are read in their own language. Live transcription: your words appear as you speak, and Nova notices when you finish; turn it off if it cuts you off. For a more natural voice, download a Premium or Enhanced one in the iPhone's Settings › Accessibility › Read & Speak (or Spoken Content) › Voices; Nova uses the best one it finds.")
                 }
                 Section(String(localized: "Screen", bundle: .ui)) {
                     Picker(String(localized: "Screen orientation", bundle: .ui), selection: $settings.orientation) {

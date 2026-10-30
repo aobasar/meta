@@ -94,6 +94,8 @@ final class GuideModel: ObservableObject {
     @Published private(set) var stepCorrections: [Int: Int] = [:]
     /// The welcome screen opens every launch and comes back with Home; "Get Started" goes to the camera.
     @Published var showWelcome = true
+    /// The first launch shows how Nova works right after the consent screen.
+    @Published var showHowNext = false
 
     enum Listening: Equatable {
         case idle, listening, transcribing, answering
@@ -449,7 +451,7 @@ final class GuideModel: ObservableObject {
         guard phase == .confirming else { return }
         finish()
         note("solved")
-        speak(String(localized: "Task completed.", bundle: .ui))
+        speak(language.phrase("Task completed."))
     }
 
     func notSolved() {
@@ -766,7 +768,7 @@ final class GuideModel: ObservableObject {
         switch feedback {
         case .correct:
             haptic(.success)
-            speak(String(localized: "Correct.", bundle: .ui))
+            speak(language.phrase("Correct."))
         case .notDone(let text):
             haptic(.error)
             speak(text)

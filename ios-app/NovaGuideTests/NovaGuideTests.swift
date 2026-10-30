@@ -551,3 +551,12 @@ final class ContinuingPlanTests: XCTestCase {
         XCTAssertFalse(try JSONDecoder().decode(GuidePlan.self, from: Data(older.utf8)).goesOn)
     }
 }
+
+final class VoiceChoiceTests: XCTestCase {
+    func testAVoiceIsFoundInTheLanguageAndNeverANoveltyOne() throws {
+        let voice = try XCTUnwrap(Speaker.bestVoice(for: "en-US"))
+        XCTAssertTrue(voice.language.hasPrefix("en"))
+        XCTAssertFalse(voice.voiceTraits.contains(.isNoveltyVoice))
+        XCTAssertFalse(Speaker.voiceDescription(for: "en-US").isEmpty)
+    }
+}

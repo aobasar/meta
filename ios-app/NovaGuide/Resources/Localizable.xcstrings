@@ -112,6 +112,16 @@
         }
       }
     },
+    "Automatic: speak Turkish or English and Nova answers in the same language. Words printed on the device are read in their own language. Live transcription: your words appear as you speak, and Nova notices when you finish; turn it off if it cuts you off. For a more natural voice, download a Premium or Enhanced one in the iPhone's Settings › Accessibility › Read & Speak (or Spoken Content) › Voices; Nova uses the best one it finds.": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Otomatik: Türkçe ya da İngilizce konuş, Nova aynı dilde cevap verir. Cihazda yazan kelimeler kendi dilinde okunur. Canlı yazıya çevirme: sen konuşurken kelimeler ekranda görünür ve Nova konuşmanın bittiğini anlar; sözünü kesiyorsa kapat. Daha doğal bir ses için iPhone Ayarlar › Erişilebilirlik › Okuma ve Konuşma (ya da Seslendirilen İçerik) › Sesler bölümünden Premium ya da Gelişmiş bir ses indir; Nova bulduğu en iyisini kullanır."
+          }
+        }
+      }
+    },
     "Back to the last step": {
       "localizations": {
         "tr": {
@@ -300,7 +310,8 @@
             "value": "Doğru."
           }
         }
-      }
+      },
+      "extractionState": "manual"
     },
     "Delete": {
       "localizations": {
@@ -338,6 +349,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Doğru yap."
+          }
+        }
+      }
+    },
+    "Enhanced": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gelişmiş"
           }
         }
       }
@@ -1224,6 +1245,16 @@
         }
       }
     },
+    "Premium": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Premium"
+          }
+        }
+      }
+    },
     "Press": {
       "localizations": {
         "tr": {
@@ -1554,6 +1585,16 @@
         }
       }
     },
+    "Standard": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Standart"
+          }
+        }
+      }
+    },
     "Start over": {
       "localizations": {
         "tr": {
@@ -1642,7 +1683,8 @@
             "value": "Görev tamamlandı."
           }
         }
-      }
+      },
+      "extractionState": "manual"
     },
     "Task guidance": {
       "localizations": {

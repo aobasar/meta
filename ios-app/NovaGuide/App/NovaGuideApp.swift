@@ -35,7 +35,7 @@ struct NovaGuideApp: App {
     }
 }
 
-/// Onboarding until the current terms are accepted, then the camera. Later launches and Home open the welcome screen;
+/// Onboarding until the current terms are accepted, then how Nova works and the camera. Later launches and Home open the welcome screen;
 /// its Get Started goes straight to the camera.
 struct RootView: View {
     @EnvironmentObject private var settings: GuideSettings
@@ -47,6 +47,8 @@ struct RootView: View {
         Group {
             if settings.needsConsent {
                 OnboardingView()
+            } else if model.showHowNext {
+                HowView(buttonTitle: String(localized: "Continue", bundle: .ui)) { model.showHowNext = false }
             } else if model.showWelcome {
                 WelcomeView(onStart: { model.showWelcome = false }, onHow: { showHow = true }, onSettings: { showSettings = true })
                     .sheet(isPresented: $showSettings) { SettingsView() }

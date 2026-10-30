@@ -1,7 +1,7 @@
 import SwiftUI
 
-/// First launch: Welcome, How Nova works, then the consent screen (App Review Guideline 5.1.2(i)). Nothing leaves the
-/// phone before the user agrees.
+/// First launch: Welcome, the consent screen (App Review Guideline 5.1.2(i)), then How Nova works and the camera.
+/// Nothing leaves the phone before the user agrees.
 struct OnboardingView: View {
     enum Page { case welcome, how, consent }
 
@@ -12,15 +12,21 @@ struct OnboardingView: View {
     #else
     @State private var page: Page = .welcome
     #endif
+    @State private var sawHow = false
 
     var body: some View {
         Group {
             switch page {
-            case .welcome: WelcomeView(onStart: next, onHow: next)
+            case .welcome:
+                WelcomeView(onStart: { withAnimation { page = .consent } }, onHow: {
+                    sawHow = true
+                    withAnimation { page = .how }
+                })
             case .how: HowView(buttonTitle: String(localized: "Continue", bundle: .ui)) { withAnimation { page = .consent } }
             case .consent: ConsentView {
                 withAnimation {
                     model.showWelcome = false  // the user has just seen it
+                    model.showHowNext = !sawHow
                     settings.acceptTerms()
                 }
             }
@@ -28,8 +34,6 @@ struct OnboardingView: View {
         }
         .transition(.opacity)
     }
-
-    private func next() { withAnimation { page = .how } }
 }
 
 /// Lays a screen out side by side when the phone is sideways.
