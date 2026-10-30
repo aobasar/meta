@@ -39,13 +39,15 @@ struct RootView: View {
     @EnvironmentObject private var settings: GuideSettings
     @EnvironmentObject private var model: GuideModel
     @State private var showHow = false
+    @State private var showSettings = false
 
     var body: some View {
         Group {
             if settings.needsConsent {
                 OnboardingView()
             } else if model.showWelcome {
-                WelcomeView(onStart: { model.showWelcome = false }, onHow: { showHow = true })
+                WelcomeView(onStart: { model.showWelcome = false }, onHow: { showHow = true }, onSettings: { showSettings = true })
+                    .sheet(isPresented: $showSettings) { SettingsView() }
                     .fullScreenCover(isPresented: $showHow) {
                         HowView(buttonTitle: String(localized: "Continue")) {
                             showHow = false

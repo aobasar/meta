@@ -41,11 +41,13 @@ private struct Orientation {
 struct WelcomeView: View {
     var onStart: () -> Void
     var onHow: () -> Void
+    /// Later launches and Home only: on first launch Settings waits until the terms are accepted.
+    var onSettings: (() -> Void)? = nil
 
     var body: some View {
         GeometryReader { geometry in
             let land = Orientation(geometry.size).landscape
-            ZStack {
+            ZStack(alignment: .topTrailing) {
                 RadialGradient(colors: [Color(red: 0.165, green: 0.149, blue: 0.094), .novaGround],
                                center: land ? UnitPoint(x: 0.28, y: 0.5) : UnitPoint(x: 0.5, y: 0.3),
                                startRadius: 0, endRadius: max(geometry.size.width, geometry.size.height) * 0.62)
@@ -64,6 +66,13 @@ struct WelcomeView: View {
                     }
                     .padding(.horizontal, 28)
                     .padding(.vertical, 36)
+                }
+                if let onSettings {
+                    RoundIconButton(action: onSettings, accessibility: Text("Settings")) {
+                        Image(systemName: "gearshape").font(.system(size: 18, weight: .medium)).foregroundStyle(.white)
+                    }
+                    .padding(.trailing, 14)
+                    .padding(.top, 8)
                 }
             }
         }
