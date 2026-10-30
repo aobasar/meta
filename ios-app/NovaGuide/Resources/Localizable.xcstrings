@@ -112,6 +112,16 @@
         }
       }
     },
+    "Automatic: speak Turkish or English and Nova answers in the same language. Words printed on the device are read in their own language. Live transcription: your words appear as you speak, and Nova notices when you finish; turn it off if it cuts you off. A new interface language applies the next time you open Nova.": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Otomatik: Türkçe ya da İngilizce konuş, Nova aynı dilde cevap verir. Cihazda yazan kelimeler kendi dilinde okunur. Canlı yazıya çevirme: sen konuşurken kelimeler ekranda görünür ve Nova konuşmanın bittiğini anlar; sözünü kesiyorsa kapat. Yeni arayüz dili, Nova'yı bir sonraki açışında geçerli olur."
+          }
+        }
+      }
+    },
     "Back to the question": {
       "localizations": {
         "tr": {

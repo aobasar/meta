@@ -452,3 +452,18 @@ final class ReviewTests: XCTestCase {
         XCTAssertEqual(try JSONDecoder().decode(GuideClient.Review.self, from: Data(wrong.utf8)).verdict, .wrongStep)
     }
 }
+
+final class InterfaceLanguageTests: XCTestCase {
+    func testTheChoiceIsKeptAndTheIPhoneLanguageClearsIt() throws {
+        let suite = "interface-\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let settings = GuideSettings(defaults: defaults)
+        XCTAssertEqual(settings.interfaceLanguage, .iPhone)
+        settings.interfaceLanguage = .turkish
+        XCTAssertEqual(defaults.persistentDomain(forName: suite)?["AppleLanguages"] as? [String], ["tr"])
+        XCTAssertEqual(GuideSettings(defaults: defaults).interfaceLanguage, .turkish)
+        settings.interfaceLanguage = .iPhone
+        XCTAssertNil(defaults.persistentDomain(forName: suite)?["AppleLanguages"])
+    }
+}

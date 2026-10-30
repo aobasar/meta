@@ -52,6 +52,30 @@ struct UserLanguage: Identifiable, Hashable {
     }
 }
 
+/// Settings › Interface language: the iPhone's language, or one chosen for this app. iOS reads the choice at launch.
+enum InterfaceLanguage: String, CaseIterable, Identifiable {
+    case iPhone, turkish, english
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .iPhone: String(localized: "iPhone language")
+        case .turkish: "Türkçe"
+        case .english: "English"
+        }
+    }
+
+    /// The value for iOS's per-app language key; nil follows the iPhone.
+    var appleLanguages: [String]? {
+        switch self {
+        case .iPhone: nil
+        case .turkish: ["tr"]
+        case .english: ["en"]
+        }
+    }
+}
+
 /// Which way the screen may turn: Settings › Screen orientation.
 enum OrientationChoice: String, CaseIterable, Identifiable {
     case automatic, portrait, landscape
@@ -151,6 +175,16 @@ final class GuideSettings: ObservableObject {
     @Published var languageName: String { didSet { defaults.set(languageName, forKey: "language") } }
     /// Recording mode: the Mac saves each frame, the camera details and the answer (git-ignored, on the Mac only).
     @Published var record: Bool { didSet { defaults.set(record, forKey: "record") } }
+    @Published var interfaceLanguage: InterfaceLanguage {
+        didSet {
+            defaults.set(interfaceLanguage.rawValue, forKey: "interfaceLanguage")
+            if let languages = interfaceLanguage.appleLanguages {
+                defaults.set(languages, forKey: "AppleLanguages")
+            } else {
+                defaults.removeObject(forKey: "AppleLanguages")
+            }
+        }
+    }
     /// Words appear while the user speaks, and Meta finds the end of the sentence.
     @Published var liveTranscription: Bool { didSet { defaults.set(liveTranscription, forKey: "liveTranscription") } }
     @Published var speakAloud: Bool { didSet { defaults.set(speakAloud, forKey: "speakAloud") } }
@@ -185,6 +219,7 @@ final class GuideSettings: ObservableObject {
         inviteCode = Keychain.read("invite")
         languageName = defaults.string(forKey: "language") ?? Self.automaticLanguage
         record = defaults.bool(forKey: "record")
+        interfaceLanguage = InterfaceLanguage(rawValue: defaults.string(forKey: "interfaceLanguage") ?? "") ?? .iPhone
         liveTranscription = defaults.object(forKey: "liveTranscription") as? Bool ?? true
         speakAloud = defaults.object(forKey: "speakAloud") as? Bool ?? true
         verifyEach = defaults.object(forKey: "verifyEach") as? Bool ?? true

@@ -24,19 +24,15 @@ struct SettingsView: View {
                             Text(language.title).tag(language.serverName)
                         }
                     }
-                    // The screen follows the iPhone's language; iOS keeps a per-app choice in the Settings app.
-                    Button {
-                        if let url = URL(string: UIApplication.openSettingsURLString) { openURL(url) }
-                    } label: {
-                        LabeledContent(String(localized: "Interface language"), value: String(localized: "iPhone language"))
+                    Picker(String(localized: "Interface language"), selection: $settings.interfaceLanguage) {
+                        ForEach(InterfaceLanguage.allCases) { Text($0.title).tag($0) }
                     }
-                    .foregroundStyle(.primary)
                     Toggle(String(localized: "Live transcription"), isOn: $settings.liveTranscription)
                     Toggle(String(localized: "Speak instructions aloud"), isOn: $settings.speakAloud)
                 } header: {
                     Text("Language & voice")
                 } footer: {
-                    Text("Automatic: speak Turkish or English and Nova answers in the same language. Words printed on the device are read in their own language. Live transcription: your words appear as you speak, and Nova notices when you finish; turn it off if it cuts you off.")
+                    Text("Automatic: speak Turkish or English and Nova answers in the same language. Words printed on the device are read in their own language. Live transcription: your words appear as you speak, and Nova notices when you finish; turn it off if it cuts you off. A new interface language applies the next time you open Nova.")
                 }
                 Section(String(localized: "Screen")) {
                     Picker(String(localized: "Screen orientation"), selection: $settings.orientation) {
