@@ -42,6 +42,7 @@ struct CameraScreen: View {
             SettingsView()
         }
         .onAppear {
+            model.greet()
             ar.apply(cameraOptions)
             ar.start()
             UIApplication.shared.isIdleTimerDisabled = true  // the screen stays on while the camera is in use
@@ -68,8 +69,11 @@ struct CameraScreen: View {
             Text(screenRecorder.failure ?? "")
         }
         .onChange(of: model.phase) { old, phase in
+            if phase == .asking { model.greet() }
             // Settings › Screen recording: each task is one video, from the question to the last step.
-            if phase == .thinking && old != .guiding && settings.screenRecording {
+            var taskIsRunning = old == .guiding
+            if case .choosing = old { taskIsRunning = true }
+            if phase == .thinking && !taskIsRunning && settings.screenRecording {
                 screenRecorder.beginTask(paused: true)
             } else if phase == .finished || phase == .asking {
                 screenRecorder.finishTask()
@@ -87,6 +91,12 @@ struct CameraScreen: View {
                 MarkerOverlay(marker: marker, setTo: model.currentStep?.setTo, tint: ringTint)
                     .id(model.stepIndex)  // each step replays the arrow, then the label tag
                     .ignoresSafeArea()
+            }
+            if model.correcting == .moving {
+                Color.clear
+                    .contentShape(Rectangle())
+                    .ignoresSafeArea()
+                    .onTapGesture(coordinateSpace: .local) { model.markerTapped(at: $0) }
             }
             if model.phase == .thinking {
                 ScanOverlay().padding(.horizontal, 20).padding(.top, land ? 60 : 110).padding(.bottom, land ? 60 : 300)

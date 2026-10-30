@@ -16,8 +16,12 @@ struct SidePanel: View {
             case .thinking:
                 ThinkingCard().cardStyle(land: land)
                 if land { Spacer(minLength: 0) }
+            case .choosing(let asked):
+                scrolling { QuestionCard(asked: asked) }
             case .guiding:
-                if let plan = model.plan, let step = model.currentStep {
+                if let correcting = model.correcting {
+                    scrolling { CorrectionCard(correcting: correcting) }
+                } else if let plan = model.plan, let step = model.currentStep {
                     StepCard(step: step, total: plan.steps.count, land: land)
                         .cardStyle(land: land)
                         .frame(maxHeight: land ? .infinity : nil)
@@ -78,7 +82,7 @@ private struct ReadyCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             VStack(alignment: .leading, spacing: 4) {
-                Text("What do you want to do?").font(.title3.weight(.bold))
+                Text("How can I help you?").font(.title3.weight(.bold))
                 Text("Tap Pulse and say it, or pick one.").font(.footnote).foregroundStyle(Color.novaText3)
             }
             VStack(spacing: 10) {
@@ -168,6 +172,95 @@ private struct MessageCard: View {
     }
 }
 
+// MARK: Nova's question
+
+/// One big row: what the device says, and what it means.
+private struct ChoiceRow: View {
+    var title: String
+    var subtitle: String?
+    var action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title).font(.subheadline.weight(.semibold)).foregroundStyle(Color.novaYellow)
+                    if let subtitle {
+                        Text(subtitle).font(.caption).foregroundStyle(Color.novaText2)
+                    }
+                }
+                .multilineTextAlignment(.leading)
+                Spacer(minLength: 8)
+                Image(systemName: "chevron.right").font(.footnote.weight(.bold)).foregroundStyle(Color.novaYellow)
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 8)
+            .frame(minHeight: 48)
+            .background(Color.novaYellow.opacity(0.06), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(Color.novaLine))
+        }
+    }
+}
+
+private struct QuestionCard: View {
+    @EnvironmentObject private var model: GuideModel
+    var asked: GuidePlan.Question
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(GuideText.display(asked.text)).font(.title3.weight(.bold)).fixedSize(horizontal: false, vertical: true)
+            ScrollView {
+                VStack(spacing: 8) {
+                    ForEach(asked.options) { option in
+                        ChoiceRow(title: option.title, subtitle: option.subtitle) { model.answerQuestion(option.answer) }
+                    }
+                }
+            }
+            .frame(maxHeight: 280)
+            HStack(spacing: 8) {
+                Button(String(localized: "You choose")) { model.letNovaChoose() }.buttonStyle(OutlineButtonStyle())
+                Button(String(localized: "Something else")) { model.microphoneTapped() }.buttonStyle(OutlineButtonStyle())
+            }
+        }
+    }
+}
+
+// MARK: This is wrong
+
+private struct CorrectionCard: View {
+    @EnvironmentObject private var model: GuideModel
+    var correcting: GuideModel.Correcting
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            switch correcting {
+            case .menu:
+                Text("What's wrong?").font(.title3.weight(.bold))
+                ChoiceRow(title: String(localized: "It's pointing at the wrong place"), subtitle: nil) { model.startMovingMarker() }
+                ChoiceRow(title: String(localized: "Explain it in more detail"), subtitle: nil) { model.explainMore() }
+                if model.canCorrectStep {
+                    ChoiceRow(title: String(localized: "This step is wrong"), subtitle: nil) { model.tellWhatIsWrong(kind: "step") }
+                } else {
+                    Text("I'm not sure about this step. Check the device's manual, or skip it.")
+                        .font(.footnote).foregroundStyle(Color.novaText2).fixedSize(horizontal: false, vertical: true)
+                    ChoiceRow(title: String(localized: "Skip this step"), subtitle: nil) {
+                        model.closeCorrection()
+                        model.skip()
+                    }
+                }
+                ChoiceRow(title: String(localized: "Start over"), subtitle: nil) { model.tellWhatIsWrong(kind: "restart") }
+            case .moving:
+                Text("Tap the right control on the screen.").font(.headline).fixedSize(horizontal: false, vertical: true)
+            case .telling:
+                Text("Tell me what's wrong.").font(.title3.weight(.bold))
+                Text("For example: there is no such button.").font(.footnote).foregroundStyle(Color.novaText2)
+                Button(String(localized: "Just look again")) { model.lookAgainWithoutWords() }.buttonStyle(PrimaryButtonStyle())
+            }
+            Button(String(localized: "Cancel")) { model.closeCorrection() }.buttonStyle(OutlineButtonStyle())
+        }
+    }
+}
+
 // MARK: Thinking
 
 private struct ThinkingCard: View {
@@ -242,11 +335,18 @@ private struct StepCard: View {
             }
             if land { Spacer(minLength: 0) }
             VStack(spacing: 8) {
-                Text("AI-generated guidance. Check before you press.")
-                    .font(.caption2)
-                    .foregroundStyle(Color.novaText3)
-                    .lineLimit(2)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                HStack(spacing: 8) {
+                    Text("AI-generated guidance. Check before you press.")
+                        .font(.caption2)
+                        .foregroundStyle(Color.novaText3)
+                        .lineLimit(2)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    Button(String(localized: "This is wrong")) { model.openCorrection() }
+                        .font(.caption.weight(.bold))
+                        .foregroundStyle(Color.novaOrange)
+                        .frame(minHeight: 32)
+                        .disabled(model.feedback == .checking)
+                }
                 HStack(spacing: 8) {
                     Button { model.repeatStep() } label: {
                         Image(systemName: "speaker.wave.2").font(.system(size: 18)).foregroundStyle(.white)

@@ -7,6 +7,7 @@ import json
 import sys
 import tempfile
 import threading
+import time
 import unittest
 import urllib.error
 import urllib.request
@@ -171,6 +172,55 @@ class PlanTests(unittest.TestCase):
         self.assertEqual(located, guide.plan(tiny_jpeg(1000, 500), "Beyazları yıkamak istiyorum", "Turkish",
                                              FAKE_KEY, RoutingOpener()) | {"timings": located["timings"]})
 
+    QUESTION = {**PLAN, "steps": [], "clarify": {"kind": "choice", "question": "Hangi program?", "options": [
+        {"label": "normal", "meaning": "normal yıkama"}, {"label": "delicate", "meaning": "hassas"}]}}
+
+    def test_a_question_comes_alone_and_costs_one_call(self):
+        opener = RoutingOpener(plan=self.QUESTION)
+        parts = list(guide.plan_parts(tiny_jpeg(), "Yıkayacağım", "Turkish", FAKE_KEY, opener, allow_questions=True))
+        self.assertEqual(len(parts), 1)
+        self.assertEqual(len(opener.bodies), 1)  # no grounding, no SAM
+        self.assertEqual(parts[0]["question"]["kind"], "choice")
+        self.assertEqual(parts[0]["question"]["options"][1], {"label": "delicate", "meaning": "hassas"})
+        self.assertIn('kind "choice"', opener.bodies[0]["messages"][0]["content"][0]["text"])
+
+    def test_nova_asks_only_when_allowed_and_at_most_twice(self):
+        def prompt_and_question(**options):
+            opener = RoutingOpener(plan={**PLAN, "clarify": self.QUESTION["clarify"]})
+            result = guide.plan(tiny_jpeg(), "Yıkayacağım", "Turkish", FAKE_KEY, opener, **options)
+            return opener.bodies[0]["messages"][0]["content"][0]["text"], result
+        prompt, result = prompt_and_question()
+        self.assertIn("Do not ask them anything", prompt)
+        self.assertIsNone(result["question"])
+        self.assertEqual(len(result["steps"]), 2)
+        answers = [{"question": "Hangi program?", "answer": "normal"}, {"question": "Sıcaklık?", "answer": "warm"}]
+        prompt, result = prompt_and_question(allow_questions=True, answers=answers)
+        self.assertIn("Do not ask them anything", prompt)
+        self.assertIn('with "warm"', prompt)
+        self.assertIsNone(result["question"])
+
+    def test_a_question_without_options_is_ignored(self):
+        plan = {**PLAN, "clarify": {"kind": "choice", "question": "Hangi?", "options": []}}
+        result = guide.plan(tiny_jpeg(), "q", "Turkish", FAKE_KEY, RoutingOpener(plan=plan), allow_questions=True)
+        self.assertIsNone(result["question"])
+        self.assertEqual(len(result["steps"]), 2)
+
+    def test_the_plan_prompt_forbids_leaving_a_setting_open(self):
+        self.assertIn('never write\n     "to your choice"', guide.PLAN_PROMPT)
+        plan = {**PLAN, "steps": [{**PLAN["steps"][0], "own_suggestion": True}, PLAN["steps"][1]]}
+        first, second = guide.plan(tiny_jpeg(), "q", "Turkish", FAKE_KEY, RoutingOpener(plan=plan))["steps"]
+        self.assertEqual(first["success"], guide.ANY_POSITION)
+        self.assertEqual(second["success"], "no visible change")
+
+    def test_a_correction_tells_what_went_wrong_and_never_asks(self):
+        opener = RoutingOpener(plan={**PLAN, "clarify": self.QUESTION["clarify"]})
+        correction = {"kind": "step", "wrongStep": "Saat tuşuna bas.", "said": "Böyle bir tuş yok", "done": ["Kapağı aç."]}
+        result = guide.plan(tiny_jpeg(), "Saati ayarla", "Turkish", FAKE_KEY, opener, allow_questions=True, correction=correction)
+        prompt = opener.bodies[0]["messages"][0]["content"][0]["text"]
+        for text in ("Saat tuşuna bas.", "Böyle bir tuş yok", "Kapağı aç.", "only the steps that remain"):
+            self.assertIn(text, prompt)
+        self.assertIsNone(result["question"])
+
     def test_a_refused_plan_is_one_final_part(self):
         refused = {**PLAN, "safe_to_guide": False, "steps": []}
         parts = list(guide.plan_parts(tiny_jpeg(), "Sigortayı aç", "Turkish", FAKE_KEY, RoutingOpener(plan=refused)))
@@ -178,7 +228,8 @@ class PlanTests(unittest.TestCase):
         self.assertTrue(parts[0]["located"])
 
     def test_plan_prompt_starts_the_device_only_when_the_task_runs_it(self):
-        prompt = guide.PLAN_PROMPT.format(question="q", language_rule="", lang="Turkish", max_steps=6, marking="")
+        prompt = guide.PLAN_PROMPT.format(question="q", language_rule="", lang="Turkish", max_steps=6, marking="",
+                                          ask_rule="", context="")
         self.assertIn("only when their task is to run it", prompt)
         self.assertIn("detail", guide.PLAN_SCHEMA["json_schema"]["schema"]["properties"]["steps"]["items"]["required"])
 
@@ -390,6 +441,34 @@ class HttpTests(unittest.TestCase):
     def test_a_bad_streamed_request_still_gets_its_status(self):
         status, body = self.request("/api/guide/plan", {"frame": "", "question": "", "stream": True})
         self.assertEqual((status, body["error"]["kind"]), (400, "request"))
+
+    def last_usage(self):
+        """The usage record is written just after the response goes out."""
+        for _ in range(100):
+            records = self.httpd.usage.records(1)
+            if records:
+                return records[-1]
+            time.sleep(0.02)
+        self.fail("No usage record.")
+
+    def test_a_correction_thinks_longer_and_is_counted(self):
+        correction = {"kind": "restart", "wrongStep": "x", "said": "", "done": []}
+        self.assertEqual(self.request("/api/guide/plan", self.frame_body(correction=correction))[0], 200)
+        self.assertEqual(self.opener.bodies[0]["reasoning_effort"], "low")
+        record = self.last_usage()
+        self.assertEqual((record["spark"], record["correction"]), ("meta-low", "restart"))
+
+    def test_bad_answers_or_corrections_are_refused(self):
+        for extra in ({"answers": "x"}, {"answers": [{"question": "q"}]}, {"answers": [{"question": "q", "answer": "a"}] * 3},
+                      {"correction": {"kind": "other"}}, {"correction": {"kind": "step", "wrongStep": 1}}):
+            self.assertEqual(self.request("/api/guide/plan", self.frame_body(**extra))[0], 400, extra)
+        self.assertEqual(self.opener.bodies, [])
+
+    def test_a_moved_marker_is_only_counted(self):
+        self.assertEqual(self.request("/api/guide/correction", {"kind": "moved"}), (200, {"ok": True}))
+        self.assertEqual(self.opener.bodies, [])
+        self.assertEqual(self.last_usage()["correction"], "moved")
+        self.assertEqual(self.request("/api/guide/correction", {"kind": "x"})[0], 400)
 
     def test_recording_mode_saves_frame_request_and_response(self):
         status, body = self.request("/api/guide/plan", self.frame_body(record=True, camera={"intrinsics": [1, 0, 0]}))

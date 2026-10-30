@@ -90,6 +90,30 @@ final class GuidePlanTests: XCTestCase {
         XCTAssertFalse(try JSONDecoder().decode(GuidePlan.self, from: Data(json.utf8)).isLocated)
     }
 
+    func testAQuestionComesWithItsOptions() throws {
+        let json = """
+        {"device": {"type": "washer", "brand": ""}, "safe": true, "safetyNote": "", "uncertainty": "", "located": true,
+         "frame": {"width": 1600, "height": 1200}, "served": [], "steps": [],
+         "question": {"kind": "choice", "text": "Hangi program?", "options": [
+           {"label": "delicate", "meaning": "hassas"}, {"label": "", "meaning": "Evet"}]}}
+        """
+        let options = try XCTUnwrap(JSONDecoder().decode(GuidePlan.self, from: Data(json.utf8)).question).options
+        XCTAssertEqual(options[0].title, "delicate")
+        XCTAssertEqual(options[0].subtitle, "hassas")
+        XCTAssertEqual(options[0].answer, "delicate (hassas)")
+        XCTAssertEqual(options[1].title, "Evet")
+        XCTAssertNil(options[1].subtitle)
+        XCTAssertEqual(options[1].answer, "Evet")
+    }
+
+    func testAPlanFromAnOlderServerHasNoQuestion() throws {
+        let json = """
+        {"device": {"type": "washer", "brand": ""}, "safe": true, "safetyNote": "", "uncertainty": "",
+         "frame": {"width": 1, "height": 1}, "served": [], "steps": []}
+        """
+        XCTAssertNil(try JSONDecoder().decode(GuidePlan.self, from: Data(json.utf8)).question)
+    }
+
     func testAWeakFallbackBoxIsNotUsedForTheMarker() {
         let step = GuideStep(instruction: "", target: "", success: "", point: NormalizedPoint(x: 0.1, y: 0.1),
                              box: NormalizedBox(x1: 0.5, y1: 0.5, x2: 0.7, y2: 0.7), boxMethod: "fallback_weak", setTo: nil)
@@ -337,6 +361,8 @@ final class AutoLanguageTests: XCTestCase {
         XCTAssertEqual(VoiceCommand.matchWithLanguage("Done.")?.language, "English")
         XCTAssertEqual(VoiceCommand.matchWithLanguage("say again")?.command, .repeatStep)
         XCTAssertNil(VoiceCommand.matchWithLanguage("What does extra rinse mean?"))
+        XCTAssertEqual(VoiceCommand.match("Bu yanlış"), .wrong)
+        XCTAssertEqual(VoiceCommand.match("That's wrong."), .wrong)
     }
 
     func testAQuestionsLanguageIsGuessedForTheFirstReply() {

@@ -44,6 +44,10 @@ struct GuideClient {
         var spark: SparkChoice?
         /// One JSON line per part: the steps first, then the located plan.
         var stream = true
+        /// Nova may answer with a question instead of steps.
+        var allowQuestions = true
+        var answers: [Answer] = []
+        var correction: Correction?
     }
 
     var baseURL: URL?
@@ -70,11 +74,26 @@ struct GuideClient {
 
     /// The located plan. `onSteps` gets the steps as soon as Spark has written them, a few seconds before the
     /// controls are located, so the first step can be read while the markers are still on their way.
+    /// The user's answer to a question Nova asked before planning.
+    struct Answer: Encodable, Equatable {
+        var question: String
+        var answer: String
+    }
+
+    /// "This step is wrong" or "Start over": what went wrong, so the next plan doesn't repeat it.
+    struct Correction: Encodable, Equatable {
+        var kind: String  // "step" or "restart"
+        var wrongStep: String
+        var said: String
+        var done: [String]
+    }
+
     func plan(jpeg: Data, question: String, language: String, autoLanguage: Bool = false, record: Bool,
-              camera: CameraInfo?, spark: SparkChoice? = nil,
+              camera: CameraInfo?, spark: SparkChoice? = nil, answers: [Answer] = [], correction: Correction? = nil,
               onSteps: @MainActor (GuidePlan) -> Void = { _ in }) async throws -> GuidePlan {
         let request = PlanRequest(frame: jpeg.base64EncodedString(), question: question, language: language,
-                                  autoLanguage: autoLanguage, record: record, camera: record ? camera : nil, spark: spark)
+                                  autoLanguage: autoLanguage, record: record, camera: record ? camera : nil, spark: spark,
+                                  answers: answers, correction: correction)
         let bytes = try await open(path: "api/guide/plan", body: try JSONEncoder().encode(request), timeout: 90)
         for try await line in bytes.lines where !line.isEmpty {
             let data = Data(line.utf8)
@@ -135,6 +154,7 @@ struct GuideClient {
         enum Kind: String, Decodable {
             case answer
             case newTask = "new_task"
+            case wrong
         }
 
         var kind: Kind
@@ -151,12 +171,21 @@ struct GuideClient {
         var context: TaskContext
         var record: Bool
         var spark: SparkChoice?
+        /// "detail" when this is the "Explain it in more detail" button (counted in the usage log).
+        var correction: String?
+    }
+
+    /// Counts a correction that needs no model (the user moved the marker) in the Mac's usage log.
+    func noteCorrection(kind: String) async throws {
+        struct Note: Encodable { var kind: String }
+        _ = try await send(path: "api/guide/correction", body: try JSONEncoder().encode(Note(kind: kind)), timeout: 10)
     }
 
     func ask(jpeg: Data, question: String, language: String, autoLanguage: Bool = false, context: TaskContext,
-             record: Bool, spark: SparkChoice? = nil) async throws -> Reply {
+             record: Bool, spark: SparkChoice? = nil, correction: String? = nil) async throws -> Reply {
         let request = AskRequest(frame: jpeg.base64EncodedString(), question: question, language: language,
-                                 autoLanguage: autoLanguage, context: context, record: record, spark: spark)
+                                 autoLanguage: autoLanguage, context: context, record: record, spark: spark,
+                                 correction: correction)
         let (data, _) = try await send(path: "api/guide/ask", body: try JSONEncoder().encode(request), timeout: 30)
         guard let reply = try? JSONDecoder().decode(Reply.self, from: data) else { throw Failure.unreadable }
         return reply

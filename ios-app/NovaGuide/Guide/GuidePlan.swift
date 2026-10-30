@@ -24,11 +24,32 @@ struct GuidePlan: Decodable, Equatable {
     /// False on the first part of a streamed plan: the steps, before the controls are located (an older server
     /// sends one located plan without this field).
     var located: Bool? = nil
+    /// Nova asks this before it plans; such a plan has no steps.
+    var question: Question? = nil
     var steps: [GuideStep]
     var served: [String]
     var recording: String?
 
     var isLocated: Bool { located ?? true }
+
+    /// One thing Nova needs to know: a setting to pick, the device to confirm, or a fact the photo can't show.
+    struct Question: Decodable, Equatable {
+        struct Option: Decodable, Equatable, Identifiable {
+            /// Printed on the device; empty for a plain answer such as "Yes".
+            var label: String
+            /// What the label means, or the plain answer, in the user's language.
+            var meaning: String
+
+            var id: String { label + meaning }
+            var title: String { label.isEmpty ? meaning : label }
+            var subtitle: String? { label.isEmpty || meaning.isEmpty ? nil : meaning }
+            var answer: String { label.isEmpty ? meaning : "\(label) (\(meaning))" }
+        }
+
+        var kind: String
+        var text: String
+        var options: [Option]
+    }
 
     /// "Maytag · washing machine", or just the type when no brand was read.
     var deviceLabel: String {

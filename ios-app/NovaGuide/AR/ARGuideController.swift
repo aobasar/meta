@@ -273,8 +273,9 @@ final class ARGuideController: NSObject, ObservableObject, ARSessionDelegate {
     // MARK: Anchoring
 
     /// Turns the plan's 2D points into world positions, using the camera as it was when the frame was captured.
-    func place(_ plan: GuidePlan, from capture: CapturedFrame) {
-        anchors = plan.steps.map { step in
+    /// Steps before `start` keep their markers: they were corrected from a later frame.
+    func place(_ plan: GuidePlan, from capture: CapturedFrame, startingAt start: Int = 0) {
+        anchors = Array(anchors.prefix(start)) + plan.steps.dropFirst(start).map { step in
             let center = step.markerPoint
             let (control, distance, precise) = locate(center, capture)
             var radius: Float = 0.025
@@ -292,6 +293,26 @@ final class ARGuideController: NSObject, ObservableObject, ARSessionDelegate {
     func clear() {
         anchors = []
         currentStep = nil
+    }
+
+    /// A corrected plan: only the steps before `count` stay marked until the new ones are located.
+    func keepAnchors(first count: Int) {
+        anchors = Array(anchors.prefix(count))
+    }
+
+    /// "It's pointing at the wrong place": the user tapped the right control. A surface raycast at the tap, or else the
+    /// marker's own distance along the tap's ray.
+    func moveMarker(step index: Int, toScreen point: CGPoint) -> Bool {
+        guard anchors.indices.contains(index), let ray = arView.ray(through: point) else { return false }
+        if let hit = arView.raycast(from: point, allowing: .estimatedPlane, alignment: .any).first {
+            let column = hit.worldTransform.columns.3
+            anchors[index] = StepAnchor(control: SIMD3(column.x, column.y, column.z), radius: 0.025, label: nil, precise: true)
+        } else {
+            let distance = simd_distance(anchors[index].control, ray.origin)
+            anchors[index] = StepAnchor(control: ray.origin + ray.direction * distance, radius: 0.025, label: nil, precise: false)
+        }
+        updateMarker()
+        return true
     }
 
     /// LiDAR depth at the point first, then a raycast from the capture-time camera, then a fixed-distance guess.

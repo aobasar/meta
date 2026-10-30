@@ -3,7 +3,7 @@ import Foundation
 /// Short spoken commands, matched in the transcript on the phone (plain text search, no model call). Anything else is
 /// a question for Nova.
 enum VoiceCommand: CaseIterable {
-    case newQuestion, back, repeatStep, skip, done
+    case newQuestion, back, repeatStep, skip, wrong, done
 
     /// Phrases per command and language. Checked in `allCases` order, so "yeni soru" wins over anything shorter.
     private var turkish: [String] {
@@ -12,6 +12,7 @@ enum VoiceCommand: CaseIterable {
         case .back: ["geri dön", "geri", "önceki"]
         case .repeatStep: ["tekrarla", "tekrar söyle", "bir daha", "tekrar"]
         case .skip: ["geç", "atla", "sonraki"]
+        case .wrong: ["yanlış", "bu değil", "hatalı"]
         case .done: ["yaptım", "tamam", "bitti", "oldu", "hazır"]
         }
     }
@@ -22,6 +23,7 @@ enum VoiceCommand: CaseIterable {
         case .back: ["go back", "back", "previous"]
         case .repeatStep: ["repeat", "say again", "again"]
         case .skip: ["skip", "next"]
+        case .wrong: ["wrong", "not this", "incorrect"]
         case .done: ["done", "ok", "okay", "finished", "did it"]
         }
     }

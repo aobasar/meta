@@ -8,10 +8,18 @@ final class GuideModel: ObservableObject {
     enum Phase: Equatable {
         case asking
         case thinking
+        /// Nova asked one thing before planning; the user answers on the card or by voice.
+        case choosing(GuidePlan.Question)
         case guiding
         case finished
         case refused(String)
         case failed(String)
+    }
+
+    /// "This is wrong" on the step card: the choices, tapping the right control, or saying what is wrong.
+    enum Correcting: Equatable {
+        case menu, moving
+        case telling(kind: String)  // "step" or "restart"
     }
 
     enum Connection: Equatable {
@@ -46,6 +54,8 @@ final class GuideModel: ObservableObject {
     }
 
     static let autoContinueSeconds = 5.0
+    /// A step is planned again at most this often; after that Nova says it isn't sure instead of guessing again.
+    static let maxStepCorrections = 2
 
     @Published var phase: Phase = .asking
     @Published var question = ""
@@ -60,6 +70,9 @@ final class GuideModel: ObservableObject {
     /// When the task's first question was asked and when its last step was done.
     @Published private(set) var startedAt: Date?
     @Published private(set) var finishedAt: Date?
+    @Published private(set) var correcting: Correcting?
+    /// How often each step was planned again.
+    @Published private(set) var stepCorrections: [Int: Int] = [:]
     /// The welcome screen opens every launch and comes back with Home; "Get Started" goes to the camera.
     @Published var showWelcome = true
 
@@ -88,6 +101,13 @@ final class GuideModel: ObservableObject {
     private var task: Task<Void, Never>?
     private var checkTask: Task<Void, Never>?
     private var voiceTask: Task<Void, Never>?
+    /// The task's first sentence and the frame it was asked about; answers to Nova's questions plan on the same frame.
+    private var taskQuestion = ""
+    private var planCapture: CapturedFrame?
+    private var answers: [GuideClient.Answer] = []
+    private var greeted = false
+    private var skipWords = false
+    private var discardRecording = false
     let recorder = VoiceRecorder()
 
     init(settings: GuideSettings, ar: ARGuideController) {
@@ -111,6 +131,8 @@ final class GuideModel: ObservableObject {
         guard let plan, plan.steps.indices.contains(stepIndex) else { return nil }
         return plan.steps[stepIndex]
     }
+
+    var canCorrectStep: Bool { (stepCorrections[stepIndex] ?? 0) < Self.maxStepCorrections }
 
     var isLastStep: Bool { plan.map { stepIndex + 1 == $0.steps.count } ?? false }
 
@@ -177,7 +199,38 @@ final class GuideModel: ObservableObject {
         finishedAt = nil
         phase = .thinking
         timings = TaskTimings(transcript: heardSeconds, setting: settings.sparkLabel)
+        taskQuestion = text
+        planCapture = capture
+        answers = []
+        stepCorrections = [:]
+        correcting = nil
         acknowledge(text)
+        requestPlan(capture: capture)
+    }
+
+    /// Says the fixed greeting once per task, with no model call.
+    func greet() {
+        guard phase == .asking, plan == nil, !greeted else { return }
+        greeted = true
+        speak(language.phrase("How can I help you?"))
+    }
+
+    /// Answers Nova's question and plans again on the same frame, so the markers stay right.
+    func answerQuestion(_ text: String) {
+        guard case .choosing(let asked) = phase, let capture = planCapture else { return }
+        answers.append(GuideClient.Answer(question: asked.text, answer: text))
+        plan = nil
+        phase = .thinking
+        timings = TaskTimings(setting: settings.sparkLabel)
+        acknowledge("")
+        requestPlan(capture: capture)
+    }
+
+    func letNovaChoose() { answerQuestion("You choose the most common option and tell me which one you chose.") }
+
+    /// Plans from a frame. A correction keeps the steps before `start`, and doesn't ask anything first.
+    private func requestPlan(capture: CapturedFrame, correction: GuideClient.Correction? = nil, from start: Int = 0) {
+        let text = taskQuestion, answers = self.answers
         let settings = self.settings
         task = Task {
             let status = Task { await self.cycleStatus() }
@@ -187,11 +240,12 @@ final class GuideModel: ObservableObject {
                 let spark = settings.sparkChoice, started = Date()
                 let plan = try await send {
                     try await $0.plan(jpeg: capture.jpeg, question: text, language: language, autoLanguage: auto,
-                                      record: record, camera: capture.cameraInfo, spark: spark) { steps in
+                                      record: record, camera: capture.cameraInfo, spark: spark, answers: answers,
+                                      correction: correction) { steps in
                         status.cancel()
                         self.timings.steps = Date().timeIntervalSince(started)
                         self.heardLanguage(steps.language)
-                        self.show(steps, capture: capture)
+                        self.received(steps, capture: capture, from: start, corrected: correction != nil)
                     }
                 }
                 let elapsed = Date().timeIntervalSince(started)
@@ -199,17 +253,22 @@ final class GuideModel: ObservableObject {
                 if !plan.steps.isEmpty { timings.markers = elapsed }
                 connection = Self.connection(await router.state)
                 if phase == .guiding, self.plan?.isLocated == false {
-                    located(plan, capture: capture)
+                    located(merged(plan, from: start), capture: capture, from: start)
                 } else {
                     heardLanguage(plan.language)
-                    show(plan, capture: capture)
+                    received(plan, capture: capture, from: start, corrected: correction != nil)
                 }
             } catch is CancellationError {
                 phase = .asking
             } catch where Task.isCancelled {
                 // Home or a new task canceled the request (URLSession reports it as its own error).
             } catch {
-                phase = .failed(error.localizedDescription)
+                if correction != nil, self.plan?.isLocated == true {
+                    phase = .guiding  // the old steps are still there
+                    reply = error.localizedDescription
+                } else {
+                    phase = .failed(error.localizedDescription)
+                }
             }
         }
     }
@@ -222,20 +281,44 @@ final class GuideModel: ObservableObject {
     }
 
     /// The located plan, after its steps are already on screen: the markers appear and "I've done it" works.
-    private func located(_ plan: GuidePlan, capture: CapturedFrame) {
+    private func located(_ plan: GuidePlan, capture: CapturedFrame, from start: Int) {
         guard plan.steps.count == self.plan?.steps.count else {
-            show(plan, capture: capture)
+            show(plan, capture: capture, from: start)
             return
         }
         self.plan = plan
-        ar.place(plan, from: capture)
+        ar.place(plan, from: capture, startingAt: start)
         ar.currentStep = stepIndex
     }
 
+    private func received(_ part: GuidePlan, capture: CapturedFrame, from start: Int, corrected: Bool) {
+        if corrected, !part.safe || part.steps.isEmpty {
+            phase = .guiding  // a wrong step is worse than none: the steps stay, and Nova says what it can't tell
+            let note = part.uncertainty.isEmpty ? String(localized: "I'm not sure about this step. Check the device's manual, or skip it.") : part.uncertainty
+            reply = note
+            speak(note)
+            return
+        }
+        show(merged(part, from: start), capture: capture, from: start)
+    }
+
+    /// The steps already done, followed by a corrected plan's steps.
+    private func merged(_ part: GuidePlan, from start: Int) -> GuidePlan {
+        guard start > 0, let plan else { return part }
+        var whole = part
+        whole.steps = Array(plan.steps.prefix(start)) + part.steps
+        return whole
+    }
+
     /// A plan, or the steps of a plan whose controls are still being located (no markers until `located`).
-    private func show(_ plan: GuidePlan, capture: CapturedFrame) {
+    private func show(_ plan: GuidePlan, capture: CapturedFrame, from start: Int = 0) {
         self.plan = plan
         if !plan.device.type.isEmpty { knownDevice = plan.deviceLabel }
+        if let asked = plan.question, plan.safe {
+            phase = .choosing(asked)
+            speak(asked.text)
+            return
+        }
         guard plan.safe else {
             let note = plan.safetyNote.isEmpty ? String(localized: "Nova can't guide this safely.") : plan.safetyNote
             phase = .refused(note)
@@ -248,10 +331,102 @@ final class GuideModel: ObservableObject {
             speak(note)
             return
         }
-        if plan.isLocated { ar.place(plan, from: capture) }
-        records = plan.steps.map { StepRecord(expected: $0.success) }
+        ar.keepAnchors(first: start)
+        if plan.isLocated { ar.place(plan, from: capture, startingAt: start) }
+        records = Array(records.prefix(start)) + plan.steps.dropFirst(start).map { StepRecord(expected: $0.success) }
         phase = .guiding
-        go(to: 0)
+        go(to: start)
+    }
+
+    // MARK: Corrections
+
+    func openCorrection() {
+        guard phase == .guiding else { return }
+        checkTask?.cancel()
+        speaker.stop()
+        correcting = .menu
+    }
+
+    func closeCorrection() {
+        correcting = nil
+        if recorder.isRecording {
+            discardRecording = true
+            recorder.finish()
+        }
+    }
+
+    func startMovingMarker() {
+        correcting = .moving
+        speak(language.phrase("Tap the right control on the screen."))
+    }
+
+    /// The user tapped the control the marker should have been on; no model call.
+    func markerTapped(at point: CGPoint) {
+        guard correcting == .moving else { return }
+        correcting = nil
+        guard ar.moveMarker(step: stepIndex, toScreen: point) else {
+            show(message: String(localized: "The camera isn't ready yet. Point it at the device and try again."))
+            return
+        }
+        haptic(.success)
+        reply = String(localized: "Marker moved.")
+        Task { try? await send { try await $0.noteCorrection(kind: "moved") } }
+    }
+
+    func explainMore() {
+        correcting = nil
+        askDuringTask("Explain the current step in more detail: where exactly the control is, how to move it, and what I should see when it is done.",
+                      correction: "detail")
+    }
+
+    /// "This step is wrong" and "Start over": the microphone opens because the user just tapped; words are optional.
+    func tellWhatIsWrong(kind: String) {
+        correcting = .telling(kind: kind)
+        skipWords = false
+        microphoneTapped()
+    }
+
+    func lookAgainWithoutWords() {
+        guard case .telling(let kind) = correcting else { return }
+        if recorder.isRecording {
+            skipWords = true
+            recorder.finish()
+        } else {
+            runCorrection(kind: kind, said: "")
+        }
+    }
+
+    private func runCorrection(kind: String, said: String) {
+        correcting = nil
+        listening = .idle
+        guard let plan, let step = currentStep, let capture = ar.capture() else {
+            show(message: String(localized: "The camera isn't ready yet. Point it at the device and try again."))
+            return
+        }
+        let restart = kind == "restart"
+        if restart {
+            stepCorrections = [:]
+        } else {
+            guard canCorrectStep else {
+                let note = String(localized: "I'm not sure about this step. Check the device's manual, or skip it.")
+                reply = note
+                speak(note)
+                return
+            }
+            stepCorrections[stepIndex, default: 0] += 1
+        }
+        let start = restart ? 0 : stepIndex
+        let done = restart ? [] : plan.steps.prefix(start).map(\.instruction)
+        checkTask?.cancel()
+        feedback = nil
+        reply = nil
+        planCapture = capture
+        phase = .thinking
+        timings = TaskTimings(setting: settings.sparkLabel)
+        acknowledge(said)
+        requestPlan(capture: capture,
+                    correction: GuideClient.Correction(kind: kind, wrongStep: step.instruction, said: said, done: done),
+                    from: start)
     }
 
     private func cycleStatus() async {
@@ -426,6 +601,9 @@ final class GuideModel: ObservableObject {
     func newTask(keepDevice: Bool) {
         task?.cancel()
         checkTask?.cancel()
+        greeted = false
+        correcting = nil
+        answers = []
         feedback = nil
         reply = nil
         records = []
@@ -474,6 +652,16 @@ final class GuideModel: ObservableObject {
     }
 
     private func heardRecording(_ wav: Data?) {
+        if discardRecording {
+            discardRecording = false
+            listening = .idle
+            return
+        }
+        if case .telling(let kind) = correcting, wav == nil || skipWords {
+            skipWords = false
+            runCorrection(kind: kind, said: "")
+            return
+        }
         guard let wav else {
             listening = .idle
             show(message: String(localized: "I didn't hear anything. Tap Pulse and speak."))
@@ -493,12 +681,20 @@ final class GuideModel: ObservableObject {
                 heardSeconds = nil
             } catch {
                 listening = .idle
-                show(message: error.localizedDescription)
+                if case .telling(let kind) = correcting {
+                    runCorrection(kind: kind, said: "")
+                } else {
+                    show(message: error.localizedDescription)
+                }
             }
         }
     }
 
     private func handle(spoken text: String) {
+        if case .telling(let kind) = correcting {
+            runCorrection(kind: kind, said: text)
+            return
+        }
         guard !text.isEmpty else {
             show(message: String(localized: "I didn't catch that. Please say it again."))
             return
@@ -514,6 +710,8 @@ final class GuideModel: ObservableObject {
         switch phase {
         case .thinking:
             return
+        case .choosing:
+            command == .newQuestion ? newQuestion() : answerQuestion(text)
         case .guiding:
             switch command {
             case .done: primary()
@@ -521,6 +719,7 @@ final class GuideModel: ObservableObject {
             case .back: back()
             case .skip: skip()
             case .newQuestion: newQuestion()
+            case .wrong: openCorrection()
             case nil: askDuringTask(text)
             }
         case .asking, .finished, .refused, .failed:
@@ -535,7 +734,7 @@ final class GuideModel: ObservableObject {
     }
 
     /// A question in the middle of the task: answer it and keep the user's place, or start the new task they asked for.
-    private func askDuringTask(_ text: String) {
+    private func askDuringTask(_ text: String, correction: String? = nil) {
         guard let plan, let capture = ar.capture() else {
             show(message: String(localized: "The camera isn't ready yet. Point it at the device and try again."))
             return
@@ -550,11 +749,12 @@ final class GuideModel: ObservableObject {
         let settings = self.settings
         voiceTask = Task {
             do {
-                let language = self.language.serverName, auto = settings.isAutomaticLanguage, record = settings.record
+                // The "more detail" request is written by the app, so its language says nothing about the user's.
+                let language = self.language.serverName, auto = settings.isAutomaticLanguage && correction == nil, record = settings.record
                 let spark = settings.sparkChoice, started = Date()
                 let answer = try await send {
                     try await $0.ask(jpeg: capture.jpeg, question: text, language: language, autoLanguage: auto,
-                                     context: context, record: record, spark: spark)
+                                     context: context, record: record, spark: spark, correction: correction)
                 }
                 timings.answer = Date().timeIntervalSince(started)
                 timings.setting = settings.sparkLabel
@@ -569,6 +769,8 @@ final class GuideModel: ObservableObject {
                     question = text
                     ask()
                     speak(answer.answer)  // after ask(), which silences the voice
+                case .wrong:
+                    runCorrection(kind: "step", said: text)
                 }
             } catch {
                 listening = .idle
@@ -630,6 +832,15 @@ final class GuideModel: ObservableObject {
         startedAt = Date().addingTimeInterval(-192)
         timings = TaskTimings(transcript: 1.9, steps: 3.4, markers: 7.1, check: 1.6, setting: settings.sparkLabel)
         switch screen {
+        case "question":
+            self.plan = nil
+            phase = .choosing(GuidePlan.Question(kind: "choice", text: "Hangi programı kullanmak istersin?", options: [
+                .init(label: "normal", meaning: "Normal günlük çamaşırlar"), .init(label: "delicate", meaning: "Hassas çamaşırlar"),
+                .init(label: "heavy duty", meaning: "Ağır kirli çamaşırlar")]))
+        case "wrong":
+            phase = .guiding
+            stepIndex = 1
+            correcting = .menu
         case "thinking":
             self.plan = nil
             statusLine = String(localized: "Planning the steps…")

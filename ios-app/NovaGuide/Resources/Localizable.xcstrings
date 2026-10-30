@@ -162,6 +162,16 @@
         }
       }
     },
+    "Cancel": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vazgeç"
+          }
+        }
+      }
+    },
     "Check": {
       "localizations": {
         "tr": {
@@ -302,6 +312,16 @@
         }
       }
     },
+    "Explain it in more detail": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Daha detaylı anlat"
+          }
+        }
+      }
+    },
     "Field of view": {
       "localizations": {
         "tr": {
@@ -358,6 +378,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "18 yaş ve üstü içindir."
+          }
+        }
+      }
+    },
+    "For example: there is no such button.": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Örneğin: böyle bir düğme yok."
           }
         }
       }
@@ -482,6 +512,16 @@
         }
       }
     },
+    "How can I help you?": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sana nasıl yardımcı olabilirim?"
+          }
+        }
+      }
+    },
     "How does this work?": {
       "localizations": {
         "tr": {
@@ -558,6 +598,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Normal yıkama yapmak istiyorum"
+          }
+        }
+      }
+    },
+    "I'm not sure about this step. Check the device's manual, or skip it.": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bu adımdan emin değilim. Cihazın kılavuzuna bak ya da adımı atla."
           }
         }
       }
@@ -648,6 +698,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Davet kodu kabul edilmedi"
+          }
+        }
+      }
+    },
+    "It's pointing at the wrong place": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yanlış yeri gösteriyor"
+          }
+        }
+      }
+    },
+    "Just look again": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sadece tekrar bak"
           }
         }
       }
@@ -750,6 +820,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Tailscale üzerinden Mac"
+          }
+        }
+      }
+    },
+    "Marker moved.": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Halka taşındı."
           }
         }
       }
@@ -1254,6 +1334,16 @@
         }
       }
     },
+    "Skip this step": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bu adımı atla"
+          }
+        }
+      }
+    },
     "Skip, I did it": {
       "localizations": {
         "tr": {
@@ -1290,6 +1380,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Hız testi"
+          }
+        }
+      }
+    },
+    "Start over": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Baştan başla"
           }
         }
       }
@@ -1334,6 +1434,16 @@
         }
       }
     },
+    "Tap the right control on the screen.": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ekranda doğru düğmeye dokun."
+          }
+        }
+      }
+    },
     "Task completed": {
       "localizations": {
         "tr": {
@@ -1360,6 +1470,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Görev"
+          }
+        }
+      }
+    },
+    "Tell me what's wrong.": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Neyin yanlış olduğunu söyle."
           }
         }
       }
@@ -1460,6 +1580,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Düşünüyorum…"
+          }
+        }
+      }
+    },
+    "This is wrong": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bu yanlış"
+          }
+        }
+      }
+    },
+    "This step is wrong": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bu adım yanlış"
           }
         }
       }
@@ -1654,6 +1794,16 @@
         }
       }
     },
+    "What's wrong?": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yanlış olan ne?"
+          }
+        }
+      }
+    },
     "When on, each frame and answer is saved on the Mac for testing; nothing is kept on the phone. Audio is never saved. Only invite codes allowed to record can use it.": {
       "localizations": {
         "tr": {
@@ -1700,6 +1850,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Ne olduğu anlaşılıyor…"
+          }
+        }
+      }
+    },
+    "You choose": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sen seç"
           }
         }
       }
