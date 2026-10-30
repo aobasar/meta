@@ -1054,6 +1054,16 @@
         }
       }
     },
+    "Nova is ready to help.": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nova yardıma hazır."
+          }
+        }
+      }
+    },
     "OK": {
       "localizations": {
         "tr": {

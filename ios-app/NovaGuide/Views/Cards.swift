@@ -82,7 +82,7 @@ private struct ReadyCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             VStack(alignment: .leading, spacing: 4) {
-                Text("How can I help you?").font(.title3.weight(.bold))
+                Text(model.awaitingFirstTap ? "Nova is ready to help." : "How can I help you?").font(.title3.weight(.bold))
                 Text("Tap Pulse and say it, or pick one.").font(.footnote).foregroundStyle(Color.novaText3)
             }
             VStack(spacing: 10) {

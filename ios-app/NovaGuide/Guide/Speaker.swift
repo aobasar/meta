@@ -1,17 +1,24 @@
 import AVFoundation
 
 /// Reads steps aloud with the iOS system voice (HACKATHON.md, Approved Exceptions, 2026-10-27).
-final class Speaker {
+final class Speaker: NSObject, AVSpeechSynthesizerDelegate {
     private let synthesizer = AVSpeechSynthesizer()
+    private var lastUtterance: AVSpeechUtterance?
+    private var onFinish: (() -> Void)?
 
-    init() {
+    override init() {
+        super.init()
+        synthesizer.delegate = self
         // Playback, so the steps are heard even with the ring/silent switch on.
         try? AVAudioSession.sharedInstance().setCategory(.playback, mode: .spokenAudio, options: [.duckOthers])
     }
 
     /// Reads `text` in `voice`; words marked as printed on the device («warm») are read in `labelVoice`, so a Turkish
     /// voice doesn't mispronounce an English label. Each switch is a separate utterance, with a very short pause.
-    func speak(_ text: String, voice: String, labelVoice: String? = nil) {
+    /// `onFinish` runs when the last word has been said, not if something else interrupts it.
+    func speak(_ text: String, voice: String, labelVoice: String? = nil, onFinish: (() -> Void)? = nil) {
+        self.onFinish = onFinish
+        lastUtterance = nil
         synthesizer.stopSpeaking(at: .immediate)
         guard !text.isEmpty else { return }
         try? AVAudioSession.sharedInstance().setActive(true)
@@ -24,10 +31,19 @@ final class Speaker {
             utterance.voice = AVSpeechSynthesisVoice(language: language) ?? AVSpeechSynthesisVoice(language: "en-US")
             utterance.rate = AVSpeechUtteranceDefaultSpeechRate * 0.92  // a little slower for older listeners
             synthesizer.speak(utterance)
+            lastUtterance = utterance
         }
     }
 
+    func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didFinish utterance: AVSpeechUtterance) {
+        guard utterance === lastUtterance else { return }
+        let finished = onFinish
+        onFinish = nil
+        DispatchQueue.main.async { finished?() }
+    }
+
     func stop() {
+        onFinish = nil
         synthesizer.stopSpeaking(at: .immediate)
     }
 }

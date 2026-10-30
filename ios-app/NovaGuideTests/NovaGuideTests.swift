@@ -467,3 +467,11 @@ final class InterfaceLanguageTests: XCTestCase {
         XCTAssertNil(defaults.persistentDomain(forName: suite)?["AppleLanguages"])
     }
 }
+
+final class GreetingTests: XCTestCase {
+    func testBothSpokenLinesExistInTurkish() {
+        let turkish = UserLanguage.named("Turkish")
+        XCTAssertEqual(turkish.phrase("Nova is ready to help."), "Nova yardıma hazır.")
+        XCTAssertEqual(turkish.phrase("How can I help you?"), "Sana nasıl yardımcı olabilirim?")
+    }
+}

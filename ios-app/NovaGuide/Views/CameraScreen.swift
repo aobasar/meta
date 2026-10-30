@@ -363,6 +363,7 @@ struct PulseButton: View {
                     }
                 }
                 .frame(width: 68, height: 68)
+                .scaleEffect(model.awaitingFirstTap && pulse == .ready && glow ? 1.08 : 1)
             }
             .disabled(pulse == .thinking)
             .accessibilityLabel(Text(label(pulse)))

@@ -70,6 +70,8 @@ final class GuideModel: ObservableObject {
     /// When the task's first question was asked and when its last step was done.
     @Published private(set) var startedAt: Date?
     @Published private(set) var finishedAt: Date?
+    /// Until the task's first tap: the title says Nova is ready, and Pulse pulses.
+    @Published private(set) var awaitingFirstTap = true
     @Published private(set) var correcting: Correcting?
     /// "Re-evaluate" is running; and afterwards, Nova looked again and stands by the step.
     @Published private(set) var reassessing = false
@@ -113,6 +115,7 @@ final class GuideModel: ObservableObject {
     private var planCapture: CapturedFrame?
     private var answers: [GuideClient.Answer] = []
     private var greeted = false
+    private var askingAloud = false
     private var skipWords = false
     private var discardRecording = false
     private var live: LiveTranscriber?
@@ -212,6 +215,8 @@ final class GuideModel: ObservableObject {
         finishedAt = nil
         phase = .thinking
         timings = TaskTimings(transcript: heardSeconds, liveVoice: heardLive, setting: settings.sparkLabel)
+        awaitingFirstTap = false
+        askingAloud = false
         taskQuestion = text
         planCapture = capture
         answers = []
@@ -226,7 +231,31 @@ final class GuideModel: ObservableObject {
     func greet() {
         guard phase == .asking, plan == nil, !greeted else { return }
         greeted = true
-        speak(language.phrase("How can I help you?"))
+        speak(language.phrase("Nova is ready to help."))
+    }
+
+    /// The task's first tap: Nova asks, and the microphone opens when it has finished, so it doesn't hear itself.
+    private func askBeforeListening() {
+        awaitingFirstTap = false
+        guard settings.speakAloud else {
+            startListening()
+            return
+        }
+        askingAloud = true
+        speaker.speak(language.phrase("How can I help you?"), voice: language.voice) { [weak self] in
+            self?.stopAskingThenListen()
+        }
+        Task {
+            try? await Task.sleep(for: .seconds(4))  // in case the voice never finishes
+            stopAskingThenListen()
+        }
+    }
+
+    private func stopAskingThenListen() {
+        guard askingAloud else { return }
+        askingAloud = false
+        if settings.haptics { UIImpactFeedbackGenerator(style: .light).impactOccurred() }
+        startListening()
     }
 
     /// Answers Nova's question and plans again on the same frame, so the markers stay right.
@@ -672,6 +701,8 @@ final class GuideModel: ObservableObject {
         task?.cancel()
         checkTask?.cancel()
         greeted = false
+        awaitingFirstTap = true
+        askingAloud = false
         correcting = nil
         reassessing = false
         stepDefended = false
@@ -709,6 +740,17 @@ final class GuideModel: ObservableObject {
             return
         }
         guard listening == .idle, phase != .thinking else { return }
+        if askingAloud {  // a tap during the question: no need to hear the rest
+            speaker.stop()
+            stopAskingThenListen()
+        } else if phase == .asking, awaitingFirstTap {
+            askBeforeListening()
+        } else {
+            startListening()
+        }
+    }
+
+    private func startListening() {
         speaker.stop()
         voiceTask = Task {
             guard await VoiceRecorder.requestPermission() else {
