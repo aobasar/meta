@@ -1624,12 +1624,12 @@
         }
       }
     },
-    "The default is the widest camera this iPhone can use with the markers: more of the panel is in view, and wide panels fit in one frame. High detail is for small labels. Automatic torch: on in the dark, off when the task ends.": {
+    "The default is the widest camera this iPhone can use with the markers: more of the panel is in view, and wide panels fit in one frame. High detail is for small labels. Automatic torch: on in the dark; it goes off for a moment now and then to check the room, and stays off when there is enough light.": {
       "localizations": {
         "tr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Varsayılan, telefonun işaretlerle birlikte kullanılabilen en geniş kamerası: daha çok alan görünür, geniş paneller tek karede kalır. Yüksek detay küçük etiketler içindir. Otomatik fener: karanlıkta yanar, görev bitince söner."
+            "value": "Varsayılan, telefonun işaretlerle birlikte kullanılabilen en geniş kamerası: daha çok alan görünür, geniş paneller tek karede kalır. Yüksek detay küçük etiketler içindir. Otomatik fener: karanlıkta açılır; ara sıra çok kısa kapanıp ortamı ölçer, ışık yeterliyse kapalı kalır."
           }
         }
       }

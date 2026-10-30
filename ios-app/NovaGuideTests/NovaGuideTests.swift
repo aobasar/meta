@@ -411,15 +411,52 @@ final class AutoTorchTests: XCTestCase {
         XCTAssertFalse(torch.update(lumens: 60, at: 2.5))
     }
 
-    func testItStaysOnUnlessTheRoomGetsFarBrighter() {
+    private func litTorch() -> AutoTorch {
         var torch = AutoTorch()
-        _ = torch.update(lumens: 60, at: 0)
-        _ = torch.update(lumens: 60, at: 2.5)
-        XCTAssertTrue(torch.update(lumens: 1500, at: 10))  // its own light
-        XCTAssertTrue(torch.update(lumens: 3000, at: 11))
-        XCTAssertFalse(torch.update(lumens: 3000, at: 13.5))  // a bright lamp came on
-        torch.reset()
+        torch.update(lumens: 60, at: 0)
+        torch.update(lumens: 60, at: 2.5)  // on at 2.5, first look at the room at 10.5
+        return torch
+    }
+
+    func testItGoesOffForAMomentAndStaysOffInALitRoom() {
+        var torch = litTorch()
+        XCTAssertTrue(torch.isLit)
+        XCTAssertTrue(torch.update(lumens: 300, at: 10))
+        XCTAssertFalse(torch.update(lumens: 300, at: 10.6))  // measuring
+        XCTAssertTrue(torch.isProbing)
+        XCTAssertFalse(torch.update(lumens: 900, at: 11.3))  // bright enough
         XCTAssertFalse(torch.isOn)
+        XCTAssertFalse(torch.update(lumens: 900, at: 40))
+    }
+
+    func testInTheDarkItComesBackAndLooksLessOften() {
+        var torch = litTorch()
+        torch.update(lumens: 300, at: 10.6)
+        XCTAssertTrue(torch.update(lumens: 60, at: 11.3))  // still dark: on again, next look 16 s later
+        XCTAssertTrue(torch.update(lumens: 300, at: 20))
+        XCTAssertFalse(torch.update(lumens: 300, at: 27.4))
+        XCTAssertTrue(torch.update(lumens: 60, at: 28.1))
+    }
+
+    func testMovingIntoALitRoomTurnsItOffWithoutWaiting() {
+        var torch = litTorch()
+        torch.update(lumens: 300, at: 4.1)  // what the torch itself gives
+        XCTAssertTrue(torch.update(lumens: 800, at: 5))
+        XCTAssertFalse(torch.update(lumens: 800, at: 6.1))
+        XCTAssertFalse(torch.isOn)
+    }
+
+    func testItDoesNotBlinkWhileNovaIsBusy() {
+        var torch = litTorch()
+        XCTAssertTrue(torch.update(lumens: 300, at: 11, hold: true))
+        XCTAssertTrue(torch.update(lumens: 300, at: 30, hold: true))
+        XCTAssertFalse(torch.update(lumens: 300, at: 30.1))  // free again: it looks
+    }
+
+    func testAResetTurnsItOff() {
+        var torch = litTorch()
+        torch.reset()
+        XCTAssertFalse(torch.isLit)
     }
 }
 

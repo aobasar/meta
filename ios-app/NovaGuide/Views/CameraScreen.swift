@@ -62,6 +62,7 @@ struct CameraScreen: View {
             }
         }
         .onChange(of: model.isWaiting) { _, waiting in screenRecorder.setPaused(waiting) }
+        .onChange(of: model.isWaiting || model.listening != .idle) { _, busy in ar.holdTorch = busy }
         .alert(String(localized: "Screen recording"), isPresented: Binding(
             get: { screenRecorder.failure != nil }, set: { if !$0 { screenRecorder.failure = nil } })) {
             Button(String(localized: "OK"), role: .cancel) {}

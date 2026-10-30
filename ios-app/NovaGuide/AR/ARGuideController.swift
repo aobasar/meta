@@ -71,6 +71,8 @@ final class ARGuideController: NSObject, ObservableObject, ARSessionDelegate {
     private var autoTorch = AutoTorch()
     /// The user turned the torch off from the top bar; it stays off until the task ends.
     private var torchSuppressed = false
+    /// Nova is listening or waiting for a model: the automatic torch doesn't blink to measure the room.
+    var holdTorch = false
     private(set) var anchors: [StepAnchor] = []
     private var displayLink: CADisplayLink?
     private let ciContext = CIContext()
@@ -166,7 +168,7 @@ final class ARGuideController: NSObject, ObservableObject, ARSessionDelegate {
     /// The torch belongs to the back camera module; ARKit hands out the device it runs, and the wide camera has the
     /// torch when the ultra wide one doesn't.
     private func applyTorch() {
-        let wanted = running && !torchSuppressed && (options.torch == .on || (options.torch == .automatic && autoTorch.isOn))
+        let wanted = running && !torchSuppressed && (options.torch == .on || (options.torch == .automatic && autoTorch.isLit))
         if torchOn != wanted { DispatchQueue.main.async { self.torchOn = wanted } }
         let candidates = [ARWorldTrackingConfiguration.configurableCaptureDeviceForPrimaryCamera,
                           AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .back)]
@@ -400,8 +402,8 @@ final class ARGuideController: NSObject, ObservableObject, ARSessionDelegate {
 
     func session(_ session: ARSession, didUpdate frame: ARFrame) {
         guard options.torch == .automatic, let lumens = frame.lightEstimate?.ambientIntensity else { return }
-        let was = autoTorch.isOn
-        if autoTorch.update(lumens: Double(lumens), at: frame.timestamp) != was { applyTorch() }
+        let was = autoTorch.isLit
+        if autoTorch.update(lumens: Double(lumens), at: frame.timestamp, hold: holdTorch) != was { applyTorch() }
     }
 
     func session(_ session: ARSession, cameraDidChangeTrackingState camera: ARCamera) {

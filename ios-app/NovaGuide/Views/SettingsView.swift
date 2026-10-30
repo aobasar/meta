@@ -58,7 +58,7 @@ struct SettingsView: View {
                 } header: {
                     Text("Camera")
                 } footer: {
-                    Text("The default is the widest camera this iPhone can use with the markers: more of the panel is in view, and wide panels fit in one frame. High detail is for small labels. Automatic torch: on in the dark, off when the task ends.")
+                    Text("The default is the widest camera this iPhone can use with the markers: more of the panel is in view, and wide panels fit in one frame. High detail is for small labels. Automatic torch: on in the dark; it goes off for a moment now and then to check the room, and stays off when there is enough light.")
                 }
                 Section(String(localized: "Task guidance")) {
                     Toggle(String(localized: "Verify each step"), isOn: $settings.verifyEach)

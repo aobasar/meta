@@ -69,31 +69,90 @@ enum FrameOrientation: String, Equatable {
 /// tell that the room got brighter, unless the frame gets far brighter than the torch alone makes it.
 struct AutoTorch {
     static let darkLumens = 120.0
-    static let brightLumens = 2500.0
     static let holdSeconds = 2.0
+    /// With the torch on, the camera mostly measures the torch. So it goes off for a moment to measure the room.
+    static let probeDelays = [8.0, 16.0, 30.0]
+    static let probeSeconds = 0.6
+    /// The room is bright enough to stay off above this; higher than `darkLumens`, so it doesn't flip back and forth.
+    static let enoughLumens = 200.0
+    /// A much brighter reading than just after the torch came on: the phone moved into a lit room.
+    static let riseFactor = 1.8
+    static let riseFloorLumens = 400.0
+    static let baselineAfterSeconds = 1.5
+    static let riseHoldSeconds = 1.0
 
+    /// Automatic wants the torch on; it can still be off for a moment (`isLit`) while it measures the room.
     private(set) var isOn = false
+    private(set) var isProbing = false
     private var since: Double?
+    private var onAt = 0.0
+    private var baseline: Double?
+    private var nextProbeAt = 0.0
+    private var probeStartedAt = 0.0
+    private var probes = 0
 
-    /// The new state for one frame's estimate at `time` (seconds).
-    mutating func update(lumens: Double, at time: Double) -> Bool {
-        let crossing = isOn ? lumens > Self.brightLumens : lumens < Self.darkLumens
-        guard crossing else {
+    var isLit: Bool { isOn && !isProbing }
+
+    /// The new state for one frame's estimate at `time` (seconds). `hold`: Nova is listening or waiting for a model
+    /// that uses the camera, so the torch stays as it is.
+    @discardableResult
+    mutating func update(lumens: Double, at time: Double, hold: Bool = false) -> Bool {
+        if isOn { updateWhileOn(lumens: lumens, at: time, hold: hold) } else { updateWhileOff(lumens: lumens, at: time) }
+        return isLit
+    }
+
+    private mutating func updateWhileOff(lumens: Double, at time: Double) {
+        guard lumens < Self.darkLumens else {
             since = nil
-            return isOn
+            return
         }
         if let since, time - since >= Self.holdSeconds {
-            isOn.toggle()
+            isOn = true
             self.since = nil
+            onAt = time
+            baseline = nil
+            probes = 0
+            nextProbeAt = time + Self.probeDelays[0]
         } else if since == nil {
             since = time
         }
-        return isOn
+    }
+
+    private mutating func updateWhileOn(lumens: Double, at time: Double, hold: Bool) {
+        if isProbing {
+            guard time - probeStartedAt >= Self.probeSeconds else { return }
+            isProbing = false
+            if lumens >= Self.enoughLumens {
+                reset()
+            } else {
+                probes += 1
+                nextProbeAt = time + Self.probeDelays[min(probes, Self.probeDelays.count - 1)]
+            }
+            return
+        }
+        if baseline == nil, time - onAt >= Self.baselineAfterSeconds { baseline = lumens }
+        if let baseline, lumens > max(baseline * Self.riseFactor, Self.riseFloorLumens) {
+            if let since, time - since >= Self.riseHoldSeconds {
+                reset()
+                return
+            } else if since == nil {
+                since = time
+            }
+        } else {
+            since = nil
+        }
+        if !hold, time >= nextProbeAt {
+            isProbing = true
+            probeStartedAt = time
+        }
     }
 
     mutating func reset() {
         isOn = false
+        isProbing = false
         since = nil
+        baseline = nil
+        probes = 0
     }
 }
 
