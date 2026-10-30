@@ -584,6 +584,113 @@ class UsageTests(unittest.TestCase):
         self.assertEqual(guide.summarize(records)["unpriced_calls"], 4)
 
 
+class SparkRouteTests(unittest.TestCase):
+    """The maintainer's speed test settings: Spark moves, SAM stays on Meta, other testers can't change anything."""
+
+    class SpyOpener(RoutingOpener):
+        def __init__(self):
+            super().__init__()
+            self.sent = []
+
+        def __call__(self, request, timeout=None):
+            with self.lock:
+                self.sent.append((request.full_url, request.get_header("Authorization"), json.loads(request.data)))
+            return super().__call__(request, timeout)
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        folder = Path(self.tmp.name)
+        self.env = folder / ".env.local"
+        self.env.write_text(f"MODEL_API_KEY={FAKE_KEY}\nBASETEN_API_KEY=baseten-test-key\n")
+        self.invites = guide.Invites(folder)
+        self.tester, _ = self.invites.create("tester")
+        self.owner, _ = self.invites.create("maintainer", record=True)
+        self.opener = self.SpyOpener()
+        self.httpd = guide.GuideServer("127.0.0.1", 0, ["guide.example.com"], self.env, folder / "recordings",
+                                       self.opener, invites=self.invites)
+        self.port = self.httpd.server_address[1]
+        threading.Thread(target=self.httpd.serve_forever, daemon=True).start()
+
+    def tearDown(self):
+        self.httpd.shutdown()
+        self.httpd.server_close()
+        self.tmp.cleanup()
+
+    def plan(self, code, spark=None):
+        body = {"frame": base64.b64encode(tiny_jpeg()).decode(), "question": "Nasıl?", "language": "Turkish"}
+        if spark:
+            body["spark"] = spark
+        request = urllib.request.Request(
+            f"http://127.0.0.1:{self.port}/api/guide/plan", data=json.dumps(body).encode(), method="POST",
+            headers={"Host": f"guide.example.com:{self.port}", guide.CLIENT_HEADER: guide.CLIENT_NAME,
+                     "Content-Type": "application/json", "Authorization": f"Bearer {code}"})
+        try:
+            with urllib.request.urlopen(request, timeout=10) as response:
+                return response.status, json.loads(response.read())
+        except urllib.error.HTTPError as exc:
+            return exc.code, json.loads(exc.read())
+
+    def test_baseten_gets_the_spark_calls_and_meta_keeps_sam(self):
+        status, _ = self.plan(self.owner, {"provider": "baseten", "effort": "minimal"})
+        self.assertEqual(status, 200)
+        sparks = [sent for sent in self.opener.sent if sent[2]["model"] != guide.SAM_MODEL]
+        sams = [sent for sent in self.opener.sent if sent[2]["model"] == guide.SAM_MODEL]
+        self.assertEqual(len(sparks), 2)  # plan and ground
+        for url, authorization, payload in sparks:
+            self.assertEqual(url, guide.BASETEN_BASE + "/chat/completions")
+            self.assertEqual(authorization, "Api-Key baseten-test-key")
+            self.assertEqual((payload["model"], payload["reasoning_effort"]), (guide.BASETEN_MODEL, "minimal"))
+        self.assertTrue(sams)
+        for url, authorization, _ in sams:
+            self.assertTrue(url.startswith(server.API_BASE))
+            self.assertEqual(authorization, f"Bearer {FAKE_KEY}")
+        self.assertEqual(self.httpd.usage.records(1)[-1]["spark"], "baseten-minimal")
+
+    def test_meta_minimal_changes_only_the_effort(self):
+        self.assertEqual(self.plan(self.owner, {"provider": "meta", "effort": "minimal"})[0], 200)
+        url, authorization, payload = self.opener.sent[0]
+        self.assertTrue(url.startswith(server.API_BASE))
+        self.assertEqual(authorization, f"Bearer {FAKE_KEY}")
+        self.assertEqual((payload["model"], payload["reasoning_effort"]), (server.REASONING_MODEL, "minimal"))
+
+    def test_without_a_setting_nothing_changes_and_the_route_does_not_leak(self):
+        self.plan(self.owner, {"provider": "baseten", "effort": "minimal"})
+        self.opener.sent.clear()
+        self.assertEqual(self.plan(self.tester)[0], 200)
+        self.assertEqual((self.opener.sent[0][2]["model"], self.opener.sent[0][2]["reasoning_effort"]),
+                         (server.REASONING_MODEL, guide.REASONING_EFFORT))
+        self.assertEqual(self.httpd.usage.records(1)[-1]["spark"], "meta-low")
+
+    def test_only_the_maintainer_may_change_the_setting(self):
+        status, body = self.plan(self.tester, {"provider": "baseten", "effort": "low"})
+        self.assertEqual((status, body["error"]["kind"]), (400, "request"))
+        self.assertEqual(self.opener.sent, [])
+        self.assertEqual(self.plan(self.tester, {"provider": "meta", "effort": "minimal"})[0], 400)
+        self.assertEqual(self.plan(self.tester, {"provider": "meta", "effort": "low"})[0], 200)  # the default is fine
+        self.assertEqual(self.invites._load(self.invites.usage_path, {})["codes"].get(
+            self.invites.find(self.tester)["id"], {}).get("plan"), 1)  # refused requests spend nothing
+
+    def test_an_unknown_setting_is_refused(self):
+        for spark in ({"provider": "openai", "effort": "low"}, {"provider": "meta", "effort": "high"}, "baseten"):
+            self.assertEqual(self.plan(self.owner, spark)[0], 400)
+        self.assertEqual(self.opener.sent, [])
+
+    def test_baseten_without_its_key_is_a_setup_error(self):
+        self.env.write_text(f"MODEL_API_KEY={FAKE_KEY}\n")
+        status, body = self.plan(self.owner, {"provider": "baseten", "effort": "low"})
+        self.assertEqual((status, body["error"]["kind"]), (503, "setup"))
+        self.assertIn(guide.BASETEN_KEY_NAME, body["error"]["message"])
+
+    def test_durations_keep_each_setting_apart(self):
+        records = [{"endpoint": "plan", "status": 200, "seconds": 10, "firstSeconds": 5},
+                   {"endpoint": "plan", "status": 200, "seconds": 12, "spark": "meta-low"},
+                   {"endpoint": "plan", "status": 200, "seconds": 7, "firstSeconds": 3, "spark": "meta-minimal"}]
+        spreads = guide.durations(records)
+        self.assertEqual(spreads["plan"]["count"], 2)
+        self.assertEqual(spreads["plan · meta-minimal"]["median"], 7)
+        self.assertEqual(spreads["plan (first step) · meta-minimal"]["median"], 3)
+
+
 class StartTests(unittest.TestCase):
     def test_guide_is_off_without_a_host(self):
         with tempfile.TemporaryDirectory() as tmp:

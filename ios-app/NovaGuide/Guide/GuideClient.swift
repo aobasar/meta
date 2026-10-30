@@ -26,6 +26,13 @@ struct GuideClient {
         var orientation: String
     }
 
+    /// The maintainer's speed test setting: where Spark runs and how long it reasons. Nil is the default and is left
+    /// out of the request.
+    struct SparkChoice: Encodable, Equatable {
+        var provider: String
+        var effort: String
+    }
+
     private struct PlanRequest: Encodable {
         var frame: String
         var question: String
@@ -34,6 +41,7 @@ struct GuideClient {
         var autoLanguage: Bool
         var record: Bool
         var camera: CameraInfo?
+        var spark: SparkChoice?
         /// One JSON line per part: the steps first, then the located plan.
         var stream = true
     }
@@ -63,9 +71,10 @@ struct GuideClient {
     /// The located plan. `onSteps` gets the steps as soon as Spark has written them, a few seconds before the
     /// controls are located, so the first step can be read while the markers are still on their way.
     func plan(jpeg: Data, question: String, language: String, autoLanguage: Bool = false, record: Bool,
-              camera: CameraInfo?, onSteps: @MainActor (GuidePlan) -> Void = { _ in }) async throws -> GuidePlan {
+              camera: CameraInfo?, spark: SparkChoice? = nil,
+              onSteps: @MainActor (GuidePlan) -> Void = { _ in }) async throws -> GuidePlan {
         let request = PlanRequest(frame: jpeg.base64EncodedString(), question: question, language: language,
-                                  autoLanguage: autoLanguage, record: record, camera: record ? camera : nil)
+                                  autoLanguage: autoLanguage, record: record, camera: record ? camera : nil, spark: spark)
         let bytes = try await open(path: "api/guide/plan", body: try JSONEncoder().encode(request), timeout: 90)
         for try await line in bytes.lines where !line.isEmpty {
             let data = Data(line.utf8)
@@ -85,11 +94,13 @@ struct GuideClient {
         var success: String
         var language: String
         var record: Bool
+        var spark: SparkChoice?
     }
 
-    func verify(jpeg: Data, step: GuideStep, language: String, record: Bool) async throws -> StepCheck {
+    func verify(jpeg: Data, step: GuideStep, language: String, record: Bool,
+                spark: SparkChoice? = nil) async throws -> StepCheck {
         let request = VerifyRequest(frame: jpeg.base64EncodedString(), instruction: step.instruction,
-                                    success: step.success, language: language, record: record)
+                                    success: step.success, language: language, record: record, spark: spark)
         let (data, _) = try await send(path: "api/guide/verify", body: try JSONEncoder().encode(request), timeout: 30)
         do {
             return try JSONDecoder().decode(StepCheck.self, from: data)
@@ -139,12 +150,13 @@ struct GuideClient {
         var autoLanguage: Bool
         var context: TaskContext
         var record: Bool
+        var spark: SparkChoice?
     }
 
     func ask(jpeg: Data, question: String, language: String, autoLanguage: Bool = false, context: TaskContext,
-             record: Bool) async throws -> Reply {
+             record: Bool, spark: SparkChoice? = nil) async throws -> Reply {
         let request = AskRequest(frame: jpeg.base64EncodedString(), question: question, language: language,
-                                 autoLanguage: autoLanguage, context: context, record: record)
+                                 autoLanguage: autoLanguage, context: context, record: record, spark: spark)
         let (data, _) = try await send(path: "api/guide/ask", body: try JSONEncoder().encode(request), timeout: 30)
         guard let reply = try? JSONDecoder().decode(Reply.self, from: data) else { throw Failure.unreadable }
         return reply

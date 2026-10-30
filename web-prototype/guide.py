@@ -35,6 +35,7 @@ import threading
 import time
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor
+from dataclasses import dataclass
 from datetime import date, datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -45,6 +46,11 @@ from server import BadRequest, ConfigError, UpstreamError
 
 SAM_MODEL = "sam-3.1"
 REASONING_EFFORT = "low"
+BASETEN_BASE = "https://inference.baseten.co/v1"
+BASETEN_MODEL = "meta-models/muse-spark-open-1026"  # a pinned version of the open weights
+BASETEN_KEY_NAME = "BASETEN_API_KEY"
+SPARK_PROVIDERS = ("meta", "baseten")
+SPARK_EFFORTS = ("low", "minimal")
 MAX_FRAME_BYTES = 12 * 1024 * 1024  # base64 JPEG inside JSON
 MAX_QUESTION_CHARS = 500
 MAX_STEPS = 6
@@ -356,7 +362,8 @@ def summarize(records: list[dict], prices: dict | None = None) -> dict:
 
 
 def durations(records: list[dict]) -> dict:
-    """Median and slowest-10% seconds per endpoint, and for plans the time until the steps were sent."""
+    """Median and slowest-10% seconds per endpoint, and for plans the time until the steps were sent.
+    Requests made with a speed test setting are grouped apart; records without one used the default."""
     def spread(values: list[float]) -> dict:
         values = sorted(values)
         return {"count": len(values), "median": round(statistics.median(values), 1),
@@ -364,9 +371,11 @@ def durations(records: list[dict]) -> dict:
     groups: dict[str, list[float]] = {}
     for record in records:
         if record.get("status") == 200 and isinstance(record.get("seconds"), (int, float)):
-            groups.setdefault(record["endpoint"], []).append(record["seconds"])
+            label = record.get("spark") or SparkRoute().label
+            suffix = "" if label == SparkRoute().label else f" · {label}"
+            groups.setdefault(record["endpoint"] + suffix, []).append(record["seconds"])
             if isinstance(record.get("firstSeconds"), (int, float)):
-                groups.setdefault("plan (first step)", []).append(record["firstSeconds"])
+                groups.setdefault("plan (first step)" + suffix, []).append(record["firstSeconds"])
     return {name: spread(values) for name, values in sorted(groups.items())}
 
 
@@ -374,12 +383,28 @@ def durations(records: list[dict]) -> dict:
 # Meta calls
 
 
-def post(path: str, payload: dict, api_key: str, opener) -> dict:
+@dataclass(frozen=True)
+class SparkRoute:
+    """Where a request's Spark calls go: Meta's API by default; other settings are for the maintainer's speed tests.
+    SAM and transcription always stay on Meta."""
+    provider: str = "meta"
+    effort: str = REASONING_EFFORT
+    key: str = ""  # Baseten's key; Meta's key comes with each call
+
+    @property
+    def label(self) -> str:
+        return f"{self.provider}-{self.effort}"
+
+
+SPARK_ROUTE: contextvars.ContextVar[SparkRoute] = contextvars.ContextVar("spark_route", default=SparkRoute())
+
+
+def post(path: str, payload: dict, api_key: str, opener, base: str = nova.API_BASE, scheme: str = "Bearer") -> dict:
     request = urllib.request.Request(
-        f"{nova.API_BASE}/{path}",
+        f"{base}/{path}",
         data=json.dumps(payload).encode(),
         method="POST",
-        headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+        headers={"Authorization": f"{scheme} {api_key}", "Content-Type": "application/json"},
     )
     started = time.monotonic()
     data = nova.call_meta(request, api_key, opener)
@@ -392,19 +417,27 @@ def post(path: str, payload: dict, api_key: str, opener) -> dict:
 
 
 def spark(prompt: str, image_url: str, api_key: str, opener, schema: dict | None = None) -> tuple[str, str]:
+    route = SPARK_ROUTE.get()
+    baseten = route.provider == "baseten"
     payload = {
-        "model": nova.REASONING_MODEL,
-        "reasoning_effort": REASONING_EFFORT,
+        "model": BASETEN_MODEL if baseten else nova.REASONING_MODEL,
+        "reasoning_effort": route.effort,
         "messages": [{"role": "user", "content": [
             {"type": "text", "text": prompt}, {"type": "image_url", "image_url": {"url": image_url}}]}],
     }
     if schema:
         payload["response_format"] = schema
-    data = post("chat/completions", payload, api_key, opener)
+    if baseten:
+        try:
+            data = post("chat/completions", payload, route.key, opener, BASETEN_BASE, "Api-Key")
+        except UpstreamError as exc:
+            raise UpstreamError(exc.status, f"Baseten: {exc.message}") from None
+    else:
+        data = post("chat/completions", payload, api_key, opener)
     choices = data.get("choices") or []
     if not choices:
         raise UpstreamError(0, "Meta returned an empty answer.")
-    return (choices[0].get("message") or {}).get("content") or "", str(data.get("model") or nova.REASONING_MODEL)
+    return (choices[0].get("message") or {}).get("content") or "", str(data.get("model") or payload["model"])
 
 
 def sam(prompt: str, image_url: str, api_key: str, opener) -> tuple[list[dict], str]:
@@ -857,6 +890,7 @@ class GuideHandler(BaseHTTPRequestHandler):
     started = 0.0
     # Seconds until the first part of a streamed plan was sent (the steps), for the usage log.
     first_seconds: float | None = None
+    spark_label: str | None = None
 
     # The Host check blocks DNS rebinding; the client header blocks web pages (they can't set it without a preflight).
     def _allowed(self) -> bool:
@@ -880,8 +914,30 @@ class GuideHandler(BaseHTTPRequestHandler):
         if self.invite is not None:
             self.server.invites.consume(self.invite, kind)
 
+    def _maintainer(self) -> bool:
+        return self.invite is None or bool(self.invite.get("record"))
+
     def _may_record(self, body: dict) -> bool:
-        return body.get("record") is True and (self.invite is None or bool(self.invite.get("record")))
+        return body.get("record") is True and self._maintainer()
+
+    def _use_spark_route(self, body: dict) -> None:
+        """The request's speed test setting: `spark` is {"provider", "effort"}; only the maintainer may change it."""
+        choice = body.get("spark")
+        route = SparkRoute()
+        if choice is not None:
+            if (not isinstance(choice, dict) or choice.get("provider") not in SPARK_PROVIDERS
+                    or choice.get("effort") not in SPARK_EFFORTS):
+                raise BadRequest("Unknown speed test setting.")
+            route = SparkRoute(choice["provider"], choice["effort"])
+            if route != SparkRoute() and not self._maintainer():
+                raise BadRequest("Speed test settings are for the maintainer only.")
+            if route.provider == "baseten":
+                key = env_value(self.server.env_file, BASETEN_KEY_NAME)
+                if not key:
+                    raise ConfigError(f"Set {BASETEN_KEY_NAME} in .env.local for the Baseten speed test.")
+                route = SparkRoute(route.provider, route.effort, key)
+        SPARK_ROUTE.set(route)
+        self.spark_label = route.label
 
     def do_GET(self) -> None:
         if not self._allowed():
@@ -895,7 +951,8 @@ class GuideHandler(BaseHTTPRequestHandler):
         except ConfigError as exc:
             loaded, message = False, str(exc)
         self._json(200, {"keyLoaded": loaded, "message": message, "internet": self.invite is not None,
-                         "mayRecord": self.invite is None or bool(self.invite.get("record")),
+                         "mayRecord": self._maintainer(),
+                         "baseten": bool(env_value(self.server.env_file, BASETEN_KEY_NAME)),
                          "models": {"reasoning": nova.REASONING_MODEL, "segmentation": SAM_MODEL}})
 
     def do_POST(self) -> None:
@@ -903,10 +960,12 @@ class GuideHandler(BaseHTTPRequestHandler):
             return
         calls: list = []
         token = CALLS.set(calls)
+        route_token = SPARK_ROUTE.set(SparkRoute())
         self.started = time.monotonic()
         try:
             self._dispatch()
         finally:
+            SPARK_ROUTE.reset(route_token)
             CALLS.reset(token)
             self._log_usage(calls, round(time.monotonic() - self.started, 2))
 
@@ -921,6 +980,7 @@ class GuideHandler(BaseHTTPRequestHandler):
             **{name: value if ID_PATTERN.match(value) else None for name, value in ids.items()},
             "seconds": seconds,
             **({"firstSeconds": self.first_seconds} if self.first_seconds is not None else {}),
+            **({"spark": self.spark_label} if self.spark_label else {}),
             "calls": calls,
         })
 
@@ -1012,6 +1072,7 @@ class GuideHandler(BaseHTTPRequestHandler):
         language = self._language(body)
         frame = strip_metadata(decode_frame(body.get("frame")))
         api_key = nova.load_api_key(self.server.env_file)
+        self._use_spark_route(body)
         self._spend("plan")
         for result in plan_parts(frame, question.strip(), language, api_key, self.server.opener,
                                  body.get("autoLanguage") is True):
@@ -1027,6 +1088,7 @@ class GuideHandler(BaseHTTPRequestHandler):
         language = self._language(body)
         crop = strip_metadata(decode_frame(body.get("frame")))
         api_key = nova.load_api_key(self.server.env_file)
+        self._use_spark_route(body)
         self._spend("verify")
         result = verify(crop, texts[0].strip(), texts[1].strip(), language, api_key, self.server.opener)
         if self._may_record(body):
@@ -1042,6 +1104,7 @@ class GuideHandler(BaseHTTPRequestHandler):
         context = ask_context(body)
         frame = strip_metadata(decode_frame(body.get("frame")))
         api_key = nova.load_api_key(self.server.env_file)
+        self._use_spark_route(body)
         self._spend("ask")
         result = ask(frame, question.strip(), language, context, api_key, self.server.opener,
                      body.get("autoLanguage") is True)

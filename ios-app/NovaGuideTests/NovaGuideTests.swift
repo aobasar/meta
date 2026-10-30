@@ -347,6 +347,29 @@ final class AutoLanguageTests: XCTestCase {
     }
 }
 
+final class SpeedTestTests: XCTestCase {
+    func testTheDefaultSendsNoSparkSetting() throws {
+        let suite = "speed-test-\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let settings = GuideSettings(defaults: defaults)
+        XCTAssertNil(settings.sparkChoice)
+        settings.sparkEffort = .minimal
+        XCTAssertEqual(settings.sparkChoice, GuideClient.SparkChoice(provider: "meta", effort: "minimal"))
+        settings.sparkProvider = .baseten
+        XCTAssertEqual(GuideSettings(defaults: defaults).sparkChoice, GuideClient.SparkChoice(provider: "baseten", effort: "minimal"))
+    }
+
+    func testTheSummaryListsOnlyWhatWasMeasured() {
+        XCTAssertTrue(TaskTimings().isEmpty)
+        let timings = TaskTimings(steps: 3.44, markers: 7.1, setting: "Meta Minimal")
+        let number = { (value: Double) in value.formatted(.number.precision(.fractionLength(1))) }
+        XCTAssertFalse(timings.isEmpty)
+        XCTAssertEqual(timings.summary, "\(String(localized: "Steps")) \(String(localized: "\(number(3.44)) s")) · "
+            + "\(String(localized: "Markers")) \(String(localized: "\(number(7.1)) s")) · Meta Minimal")
+    }
+}
+
 final class AutoTorchTests: XCTestCase {
     func testTheTorchComesOnAfterTwoSecondsOfDark() {
         var torch = AutoTorch()

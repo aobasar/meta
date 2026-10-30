@@ -97,6 +97,18 @@ struct CameraScreen: View {
             }
             VStack(spacing: 8) {
                 TopBar(showSettings: $showSettings)
+                #if DEBUG
+                if settings.showTimings && !model.timings.isEmpty {
+                    Text(model.timings.summary)
+                        .font(.caption2.monospacedDigit())
+                        .foregroundStyle(.white)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 4)
+                        .background(Color.black.opacity(0.65), in: Capsule())
+                        .allowsHitTesting(false)
+                }
+                #endif
                 if let issue = ar.trackingIssue, model.phase != .thinking {
                     Chip(text: issue, systemImage: "exclamationmark.triangle.fill", tint: .novaOrange)
                 }

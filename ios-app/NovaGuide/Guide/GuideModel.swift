@@ -73,6 +73,11 @@ final class GuideModel: ObservableObject {
     /// Nova's answer to a question asked during the task.
     @Published private(set) var reply: String?
 
+    /// Settings › Speed test: the current task's timings, measured on the phone.
+    @Published private(set) var timings = TaskTimings()
+    /// How long the question being handled took to transcribe; nil for a typed question.
+    private var heardSeconds: Double?
+
     /// With Settings › I speak › Automatic: the language of what the user said last (the iPhone's at first).
     @Published private(set) var spokenLanguage: UserLanguage
 
@@ -171,6 +176,7 @@ final class GuideModel: ObservableObject {
         startedAt = startedAt ?? Date()
         finishedAt = nil
         phase = .thinking
+        timings = TaskTimings(transcript: heardSeconds, setting: settings.sparkLabel)
         acknowledge(text)
         let settings = self.settings
         task = Task {
@@ -178,14 +184,19 @@ final class GuideModel: ObservableObject {
             defer { status.cancel() }
             do {
                 let language = self.language.serverName, auto = settings.isAutomaticLanguage, record = settings.record
+                let spark = settings.sparkChoice, started = Date()
                 let plan = try await send {
                     try await $0.plan(jpeg: capture.jpeg, question: text, language: language, autoLanguage: auto,
-                                      record: record, camera: capture.cameraInfo) { steps in
+                                      record: record, camera: capture.cameraInfo, spark: spark) { steps in
                         status.cancel()
+                        self.timings.steps = Date().timeIntervalSince(started)
                         self.heardLanguage(steps.language)
                         self.show(steps, capture: capture)
                     }
                 }
+                let elapsed = Date().timeIntervalSince(started)
+                if timings.steps == nil { timings.steps = elapsed }
+                if !plan.steps.isEmpty { timings.markers = elapsed }
                 connection = Self.connection(await router.state)
                 if phase == .guiding, self.plan?.isLocated == false {
                     located(plan, capture: capture)
@@ -303,10 +314,13 @@ final class GuideModel: ObservableObject {
             checkTask = Task {
                 do {
                     let language = self.language.serverName, record = settings.record
+                    let spark = settings.sparkChoice, started = Date()
                     let check = try await send {
-                        try await $0.verify(jpeg: jpeg, step: step, language: language, record: record)
+                        try await $0.verify(jpeg: jpeg, step: step, language: language, record: record, spark: spark)
                     }
                     guard !Task.isCancelled, index == stepIndex else { return }
+                    timings.check = Date().timeIntervalSince(started)
+                    timings.setting = settings.sparkLabel
                     apply(check, to: index)
                 } catch is CancellationError {
                 } catch {
@@ -470,9 +484,13 @@ final class GuideModel: ObservableObject {
         voiceTask = Task {
             do {
                 let language = settings.isAutomaticLanguage ? "Turkish" : settings.language.serverName
+                let started = Date()
                 let text = try await send { try await $0.transcribe(wav: wav, language: language) }
                 listening = .idle
+                heardSeconds = Date().timeIntervalSince(started)
+                timings.transcript = heardSeconds
                 handle(spoken: text.trimmingCharacters(in: .whitespacesAndNewlines))
+                heardSeconds = nil
             } catch {
                 listening = .idle
                 show(message: error.localizedDescription)
@@ -533,10 +551,13 @@ final class GuideModel: ObservableObject {
         voiceTask = Task {
             do {
                 let language = self.language.serverName, auto = settings.isAutomaticLanguage, record = settings.record
+                let spark = settings.sparkChoice, started = Date()
                 let answer = try await send {
                     try await $0.ask(jpeg: capture.jpeg, question: text, language: language, autoLanguage: auto,
-                                     context: context, record: record)
+                                     context: context, record: record, spark: spark)
                 }
+                timings.answer = Date().timeIntervalSince(started)
+                timings.setting = settings.sparkLabel
                 listening = .idle
                 heardLanguage(answer.language)
                 switch answer.kind {
@@ -607,6 +628,7 @@ final class GuideModel: ObservableObject {
         knownDevice = plan.deviceLabel
         records = plan.steps.map { StepRecord(expected: $0.success) }
         startedAt = Date().addingTimeInterval(-192)
+        timings = TaskTimings(transcript: 1.9, steps: 3.4, markers: 7.1, check: 1.6, setting: settings.sparkLabel)
         switch screen {
         case "thinking":
             self.plan = nil

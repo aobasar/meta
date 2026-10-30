@@ -2,6 +2,16 @@
   "sourceLanguage": "en",
   "version": "1.0",
   "strings": {
+    "%@ s": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ sn"
+          }
+        }
+      }
+    },
     "AI-generated guidance. Check before you press.": {
       "localizations": {
         "tr": {
@@ -48,6 +58,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Nova ile konuşmak için Ayarlar'dan mikrofona izin verin."
+          }
+        }
+      }
+    },
+    "Answer": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cevap"
           }
         }
       }
@@ -112,6 +132,16 @@
         }
       }
     },
+    "Built with Muse Spark Open": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Built with Muse Spark Open"
+          }
+        }
+      }
+    },
     "Camera": {
       "localizations": {
         "tr": {
@@ -128,6 +158,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Kamera takibi kullanılamıyor."
+          }
+        }
+      }
+    },
+    "Check": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kontrol"
           }
         }
       }
@@ -318,6 +358,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "18 yaş ve üstü içindir."
+          }
+        }
+      }
+    },
+    "For the maintainer's tests: the Mac refuses these settings for other invite codes. Only Muse Spark moves; SAM and voice recognition stay on Meta. Timings are measured on the phone, network included.": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Geliştiricinin testleri içindir: Mac bu ayarları diğer davet kodları için reddeder. Sadece Muse Spark taşınır; SAM ve ses tanıma Meta'da kalır. Süreleri telefon ölçer, ağ süresi de dahildir."
           }
         }
       }
@@ -632,6 +682,16 @@
         }
       }
     },
+    "Last task": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Son görev"
+          }
+        }
+      }
+    },
     "Let me look…": {
       "comment": "Spoken the moment a question is asked, in the user's language (UserLanguage.phrase).",
       "extractionState": "manual",
@@ -664,6 +724,16 @@
         }
       }
     },
+    "Low": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Low"
+          }
+        }
+      }
+    },
     "Mac not reachable": {
       "localizations": {
         "tr": {
@@ -680,6 +750,36 @@
           "stringUnit": {
             "state": "translated",
             "value": "Tailscale üzerinden Mac"
+          }
+        }
+      }
+    },
+    "Markers": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Halka"
+          }
+        }
+      }
+    },
+    "Minimal": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Minimal"
+          }
+        }
+      }
+    },
+    "Model": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Model"
           }
         }
       }
@@ -1134,6 +1234,16 @@
         }
       }
     },
+    "Show timings on the camera screen": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Süreleri kamera ekranında göster"
+          }
+        }
+      }
+    },
     "Shows where to touch, guides you step by step and checks every step.": {
       "localizations": {
         "tr": {
@@ -1170,6 +1280,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Talimatları sesli oku"
+          }
+        }
+      }
+    },
+    "Speed test": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hız testi"
           }
         }
       }
@@ -1320,6 +1440,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Mikrofon başlatılamadı."
+          }
+        }
+      }
+    },
+    "Thinking": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Düşünme"
           }
         }
       }
@@ -1500,6 +1630,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Özeti gör"
+          }
+        }
+      }
+    },
+    "Voice": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ses"
           }
         }
       }

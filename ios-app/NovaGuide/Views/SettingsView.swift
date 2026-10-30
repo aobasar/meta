@@ -100,6 +100,26 @@ struct SettingsView: View {
                 } footer: {
                     Text("The internet address is tried first and needs your invite code, kept in this iPhone's Keychain. The Mac over Tailscale is the fallback. The phone never holds the API key.")
                 }
+                #if DEBUG
+                Section {
+                    Picker(String(localized: "Model"), selection: $settings.sparkProvider) {
+                        ForEach(SparkProvider.allCases) { Text($0.title).tag($0) }
+                    }
+                    Picker(String(localized: "Thinking"), selection: $settings.sparkEffort) {
+                        ForEach(SparkEffort.allCases) { Text($0.title).tag($0) }
+                    }
+                    Toggle(String(localized: "Show timings on the camera screen"), isOn: $settings.showTimings)
+                    LabeledContent(String(localized: "Last task"),
+                                   value: model.timings.isEmpty ? String(localized: "none yet") : model.timings.summary)
+                } header: {
+                    Text("Speed test")
+                } footer: {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("For the maintainer's tests: the Mac refuses these settings for other invite codes. Only Muse Spark moves; SAM and voice recognition stay on Meta. Timings are measured on the phone, network included.")
+                        if settings.sparkProvider == .baseten { Text("Built with Muse Spark Open") }
+                    }
+                }
+                #endif
                 Section {
                     Toggle(String(localized: "Recording mode (for testing)"), isOn: $settings.record)
                 } footer: {

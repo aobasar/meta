@@ -97,6 +97,41 @@ enum TorchChoice: String, CaseIterable, Identifiable {
     }
 }
 
+/// Settings › Speed test (the maintainer's builds): where Spark runs. SAM and transcription always stay on Meta.
+enum SparkProvider: String, CaseIterable, Identifiable {
+    case meta, baseten
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .meta: "Meta · Muse Spark 1.3"
+        case .baseten: "Baseten · Muse Spark Open"
+        }
+    }
+
+    var shortTitle: String {
+        switch self {
+        case .meta: "Meta"
+        case .baseten: "Baseten"
+        }
+    }
+}
+
+/// Settings › Speed test: how long Spark reasons before it answers.
+enum SparkEffort: String, CaseIterable, Identifiable {
+    case low, minimal
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .low: String(localized: "Low")
+        case .minimal: String(localized: "Minimal")
+        }
+    }
+}
+
 /// User settings, kept in UserDefaults on the phone.
 final class GuideSettings: ObservableObject {
     /// The version of the terms the consent screen shows; a new version asks again.
@@ -131,6 +166,10 @@ final class GuideSettings: ObservableObject {
     @Published var torch: TorchChoice { didSet { defaults.set(torch.rawValue, forKey: "torchMode") } }
     /// Record every task on screen (video only); the last recording is shared from Settings.
     @Published var screenRecording: Bool { didSet { defaults.set(screenRecording, forKey: "screenRecording") } }
+    @Published var sparkProvider: SparkProvider { didSet { defaults.set(sparkProvider.rawValue, forKey: "sparkProvider") } }
+    @Published var sparkEffort: SparkEffort { didSet { defaults.set(sparkEffort.rawValue, forKey: "sparkEffort") } }
+    /// A line on the camera screen with the current task's timings.
+    @Published var showTimings: Bool { didSet { defaults.set(showTimings, forKey: "showTimings") } }
     /// The terms version the user accepted, with the date; empty until the consent screen is accepted.
     @Published private(set) var acceptedTerms: String { didSet { defaults.set(acceptedTerms, forKey: "acceptedTerms") } }
 
@@ -153,6 +192,9 @@ final class GuideSettings: ObservableObject {
         highDetail = defaults.bool(forKey: "highDetail")
         torch = TorchChoice(rawValue: defaults.string(forKey: "torchMode") ?? "") ?? .automatic
         screenRecording = defaults.bool(forKey: "screenRecording")
+        sparkProvider = SparkProvider(rawValue: defaults.string(forKey: "sparkProvider") ?? "") ?? .meta
+        sparkEffort = SparkEffort(rawValue: defaults.string(forKey: "sparkEffort") ?? "") ?? .low
+        showTimings = defaults.bool(forKey: "showTimings")
         acceptedTerms = defaults.string(forKey: "acceptedTerms") ?? ""
     }
 
@@ -161,6 +203,25 @@ final class GuideSettings: ObservableObject {
     /// The chosen language; with Automatic, the iPhone's language until the user speaks.
     var language: UserLanguage {
         isAutomaticLanguage ? UserLanguage.matching(preferred: preferredLanguages) : UserLanguage.named(languageName)
+    }
+
+    /// The speed test setting to send; nil for the default (Meta, low), and always nil outside the maintainer's builds.
+    var sparkChoice: GuideClient.SparkChoice? {
+        #if DEBUG
+        sparkProvider == .meta && sparkEffort == .low
+            ? nil : GuideClient.SparkChoice(provider: sparkProvider.rawValue, effort: sparkEffort.rawValue)
+        #else
+        nil
+        #endif
+    }
+
+    /// "Meta Minimal", for the timings line.
+    var sparkLabel: String {
+        #if DEBUG
+        "\(sparkProvider.shortTitle) \(sparkEffort.title)"
+        #else
+        ""
+        #endif
     }
 
     /// Internet first, then Tailscale.
