@@ -205,7 +205,7 @@ final class GuideModel: ObservableObject {
     private let sessionID = UUID().uuidString
     private var taskID = UUID().uuidString
 
-    /// A request on the current route (internet first, then Tailscale), with the routes from Settings.
+    /// A request to the server, with the address and code from Settings.
     private func send<T>(_ request: @escaping (GuideClient) async throws -> T) async throws -> T {
         await router.update(settings.routes)
         let session = sessionID, task = taskID
@@ -215,6 +215,25 @@ final class GuideModel: ObservableObject {
             client.taskID = task
             return try await request(client)
         }
+    }
+
+    /// The server turned the invite code down, so the user has to enter another one.
+    var inviteRejected: Bool {
+        if case .rejected = connection { return true }
+        return false
+    }
+
+    /// Asks the server about a code before keeping it.
+    func tryInvite(_ code: String) async -> ServerRouter.Probe {
+        let code = code.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let url = URL(string: settings.publicURL.trimmingCharacters(in: .whitespaces)), !code.isEmpty else { return .rejected("") }
+        let probe = await ServerRouter.liveProbe(Route(kind: .internet, baseURL: url, inviteCode: code))
+        if case .ok = probe {
+            settings.inviteCode = code
+            settings.inviteSkipped = false
+            await checkConnection()
+        }
+        return probe
     }
 
     func checkConnection() async {

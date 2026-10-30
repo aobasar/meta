@@ -48,6 +48,8 @@ struct RootView: View {
                 OnboardingView()
             } else if model.showHowNext {
                 HowView(buttonTitle: String(localized: "Continue", bundle: .ui)) { model.showHowNext = false }
+            } else if settings.needsInviteCode || model.inviteRejected {
+                InviteView()
             } else if model.showWelcome {
                 WelcomeView(onStart: { model.showWelcome = false }, onHow: { showHow = true }, onSettings: { showSettings = true })
                     .sheet(isPresented: $showSettings) { SettingsView() }
@@ -62,6 +64,11 @@ struct RootView: View {
             }
         }
         .onAppear { OrientationLock.apply(settings.orientation) }
+        .task { await model.checkConnection() }
+        .onOpenURL { link in
+            guard let code = Route.inviteCode(from: link) else { return }
+            Task { _ = await model.tryInvite(code) }
+        }
         .onChange(of: settings.orientation) { _, choice in OrientationLock.apply(choice) }
     }
 }

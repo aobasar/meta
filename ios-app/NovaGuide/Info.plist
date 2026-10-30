@@ -23,23 +23,21 @@
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
 	<string>$(MARKETING_VERSION)</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>com.aobasar.nova.guide.invite</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>kokobubu</string>
+			</array>
+		</dict>
+	</array>
 	<key>CFBundleVersion</key>
 	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
-	<key>NSAppTransportSecurity</key>
-	<dict>
-		<key>NSExceptionDomains</key>
-		<dict>
-			<key>ts.net</key>
-			<dict>
-				<key>NSExceptionAllowsInsecureHTTPLoads</key>
-				<true/>
-				<key>NSIncludesSubdomains</key>
-				<true/>
-			</dict>
-		</dict>
-	</dict>
 	<key>NSCameraUsageDescription</key>
 	<string>Kokobubu uses the camera to see the device in front of you and show you which control to touch.</string>
 	<key>NSLocalNetworkUsageDescription</key>
@@ -50,8 +48,6 @@
 	<string>Kokobubu saves a screen recording to Photos only when you tap Save to Photos.</string>
 	<key>NovaPublicURL</key>
 	<string>$(NOVA_PUBLIC_URL)</string>
-	<key>NovaServerURL</key>
-	<string>$(NOVA_SERVER_URL)</string>
 	<key>UILaunchScreen</key>
 	<dict/>
 	<key>UIRequiredDeviceCapabilities</key>

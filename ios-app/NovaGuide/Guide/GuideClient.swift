@@ -9,9 +9,9 @@ struct GuideClient {
 
         var errorDescription: String? {
             switch self {
-            case .noServer: String(localized: "Set the Mac's address in Settings.", bundle: .ui)
+            case .noServer: String(localized: "Set the server's address in Settings.", bundle: .ui)
             case .server(_, let message): message
-            case .unreadable: String(localized: "The Mac sent an answer the app couldn't read.", bundle: .ui)
+            case .unreadable: String(localized: "The server sent an answer the app couldn't read.", bundle: .ui)
             }
         }
     }
@@ -263,7 +263,7 @@ struct GuideClient {
 
     private static func failure(_ status: Int, _ data: Data) -> Failure {
         let message = (try? JSONDecoder().decode(ServerError.self, from: data))?.error.message
-        return .server(status: status, message: message ?? String(localized: "The Mac answered with HTTP \(status).", bundle: .ui))
+        return .server(status: status, message: message ?? String(localized: "The server answered with HTTP \(status).", bundle: .ui))
     }
 
     private func request(path: String, body: Data?, contentType: String, timeout: TimeInterval) throws -> URLRequest {

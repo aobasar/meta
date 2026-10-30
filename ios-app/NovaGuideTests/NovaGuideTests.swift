@@ -519,6 +519,14 @@ final class GreetingTests: XCTestCase {
         XCTAssertEqual(CameraGaze.look(forSlide: CGPoint(x: 2, y: -2), screenWidth: 400), .zero)
     }
 
+    func testInviteLinkGivesTheCode() throws {
+        XCTAssertEqual(Route.inviteCode(from: try XCTUnwrap(URL(string: "kokobubu://invite/ABCD-1234"))), "ABCD-1234")
+        XCTAssertNil(Route.inviteCode(from: try XCTUnwrap(URL(string: "https://invite/ABCD-1234"))))
+        XCTAssertNil(Route.inviteCode(from: try XCTUnwrap(URL(string: "kokobubu://other/ABCD-1234"))))
+        XCTAssertNil(Route.inviteCode(from: try XCTUnwrap(URL(string: "kokobubu://invite/ab"))))
+        XCTAssertNil(Route.inviteCode(from: try XCTUnwrap(URL(string: "kokobubu://invite/AB%20CD"))))
+    }
+
     func testPlanCanAskToSeeSomethingElse() throws {
         let json = """
         {"device": {"type": "monitor", "brand": ""}, "safe": true, "safetyNote": "", "uncertainty": "",

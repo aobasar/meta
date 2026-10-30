@@ -188,8 +188,8 @@ struct CameraScreen: View {
     private var connectionProblem: String? {
         switch model.connection {
         case .rejected: String(localized: "Invite code not accepted", bundle: .ui)
-        case .noKey: String(localized: "The Mac has no API key", bundle: .ui)
-        case .unreachable: String(localized: "Mac not reachable", bundle: .ui)
+        case .noKey: String(localized: "The server has no API key", bundle: .ui)
+        case .unreachable: String(localized: "Kokobubu is not reachable", bundle: .ui)
         case .connected, .unknown: nil
         }
     }

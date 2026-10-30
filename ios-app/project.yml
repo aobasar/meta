@@ -38,6 +38,9 @@ targets:
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         CFBundleLocalizations: [en, tr]
         LSRequiresIPhoneOS: true
+        CFBundleURLTypes:
+          - CFBundleURLName: com.aobasar.nova.guide.invite
+            CFBundleURLSchemes: [kokobubu]
         UILaunchScreen: {}
         UIRequiresFullScreen: true
         UIStatusBarHidden: true
@@ -47,14 +50,6 @@ targets:
         NSMicrophoneUsageDescription: "Kokobubu listens only after you tap the microphone, so you can ask and answer by voice."
         NSPhotoLibraryAddUsageDescription: "Kokobubu saves a screen recording to Photos only when you tap Save to Photos."
         NSLocalNetworkUsageDescription: "Kokobubu connects to the Kokobubu server on your own Mac."
-        # The Mac is reached over Tailscale (WireGuard already encrypts the traffic). Plain HTTP is allowed for
-        # Tailscale MagicDNS names only (docs/goster-bana.md, Decisions).
-        NSAppTransportSecurity:
-          NSExceptionDomains:
-            ts.net:
-              NSIncludesSubdomains: true
-              NSExceptionAllowsInsecureHTTPLoads: true
-        NovaServerURL: $(NOVA_SERVER_URL)
         NovaPublicURL: $(NOVA_PUBLIC_URL)
   NovaGuideTests:
     type: bundle.unit-test

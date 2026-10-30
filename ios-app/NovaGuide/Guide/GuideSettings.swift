@@ -187,14 +187,13 @@ final class GuideSettings: ObservableObject {
     private let defaults: UserDefaults
     private let preferredLanguages: [String]
 
-    /// The Mac over Tailscale; defaults to NOVA_SERVER_URL from the build (ios-app/Config/Local.xcconfig).
-    @Published var serverURL: String { didSet { defaults.set(serverURL, forKey: "serverURL") } }
-    /// The guide server over the internet (a tunnel to the Mac); defaults to NOVA_PUBLIC_URL from the build.
+    /// The guide server; defaults to NOVA_PUBLIC_URL from the build.
     @Published var publicURL: String { didSet { defaults.set(publicURL, forKey: "publicURL") } }
     /// The tester's invite code for the internet route, kept in the Keychain.
     @Published var inviteCode: String { didSet { Keychain.write(inviteCode, for: "invite") } }
+    @Published var inviteSkipped: Bool { didSet { defaults.set(inviteSkipped, forKey: "inviteSkipped") } }
     @Published var languageName: String { didSet { defaults.set(languageName, forKey: "language") } }
-    /// Recording mode: the Mac saves each frame, the camera details and the answer (git-ignored, on the Mac only).
+    /// Recording mode: the server saves each frame, the camera details and the answer.
     @Published var record: Bool { didSet { defaults.set(record, forKey: "record") } }
     @Published var interfaceLanguage: InterfaceLanguage {
         didSet {
@@ -239,11 +238,10 @@ final class GuideSettings: ObservableObject {
     init(defaults: UserDefaults = .standard, bundle: Bundle = .main, preferredLanguages: [String] = Locale.preferredLanguages) {
         self.defaults = defaults
         self.preferredLanguages = preferredLanguages
-        let built = (bundle.object(forInfoDictionaryKey: "NovaServerURL") as? String) ?? ""
-        serverURL = defaults.string(forKey: "serverURL") ?? built
         let builtPublic = (bundle.object(forInfoDictionaryKey: "NovaPublicURL") as? String) ?? ""
         publicURL = defaults.string(forKey: "publicURL") ?? builtPublic
         inviteCode = Keychain.read("invite")
+        inviteSkipped = defaults.bool(forKey: "inviteSkipped")
         languageName = defaults.string(forKey: "language") ?? Self.automaticLanguage
         record = defaults.bool(forKey: "record")
         interfaceLanguage = InterfaceLanguage(rawValue: defaults.string(forKey: "interfaceLanguage") ?? "") ?? .iPhone
@@ -292,8 +290,13 @@ final class GuideSettings: ObservableObject {
         #endif
     }
 
-    /// Internet first, then Tailscale.
-    var routes: [Route] { Route.candidates(publicURL: publicURL, inviteCode: inviteCode, tailscaleURL: serverURL) }
+    /// The server needs a code and none is set.
+    var needsInviteCode: Bool {
+        !publicURL.trimmingCharacters(in: .whitespaces).isEmpty
+            && inviteCode.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !inviteSkipped
+    }
+
+    var routes: [Route] { Route.candidates(publicURL: publicURL, inviteCode: inviteCode, tailscaleURL: "") }
 
     var needsConsent: Bool { !acceptedTerms.hasPrefix(Self.termsVersion + " ") }
 

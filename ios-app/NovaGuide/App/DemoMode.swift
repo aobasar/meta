@@ -24,6 +24,8 @@ enum DemoMode {
         }
         if settings.needsConsent { settings.acceptTerms() }
         model.showWelcome = false
+        settings.inviteSkipped = screen != "invite"  // only that screenshot needs the screen
+        if screen == "invite" { settings.inviteCode = "" }
         model.loadDemo(screen, plan: screen == "screens" ? screensPlan : plan, correction: "Düğme hâlâ “light” konumunda. Biraz daha sağa, “regular” yazısına çevirin.")
     }
 

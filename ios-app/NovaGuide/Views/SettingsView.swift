@@ -66,10 +66,6 @@ struct SettingsView: View {
                         SecureField(String(localized: "Invite code", bundle: .ui), text: $settings.inviteCode)
                             .textInputAutocapitalization(.characters)
                             .autocorrectionDisabled()
-                        TextField(String(localized: "Mac over Tailscale", bundle: .ui), text: $settings.serverURL)
-                            .keyboardType(.URL)
-                            .textInputAutocapitalization(.never)
-                            .autocorrectionDisabled()
                         LabeledContent(String(localized: "Status", bundle: .ui), value: connectionText)
                         Button(String(localized: "How Kokobubu works", bundle: .ui)) { showHow = true }
                         Link(String(localized: "Privacy", bundle: .ui), destination: ConsentView.legalURL)
@@ -158,10 +154,10 @@ struct SettingsView: View {
     private var connectionText: String {
         switch model.connection {
         case .connected(.internet): String(localized: "Connected over the internet", bundle: .ui)
-        case .connected(.tailscale): String(localized: "Connected to the Mac (Tailscale)", bundle: .ui)
+        case .connected(.tailscale): String(localized: "Connected over the internet", bundle: .ui)
         case .rejected: String(localized: "Invite code not accepted", bundle: .ui)
-        case .noKey: String(localized: "The Mac has no API key", bundle: .ui)
-        case .unreachable: String(localized: "Mac not reachable", bundle: .ui)
+        case .noKey: String(localized: "The server has no API key", bundle: .ui)
+        case .unreachable: String(localized: "Kokobubu is not reachable", bundle: .ui)
         case .unknown: String(localized: "Checking…", bundle: .ui)
         }
     }

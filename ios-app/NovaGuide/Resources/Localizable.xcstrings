@@ -608,12 +608,12 @@
         }
       }
     },
-    "For the maintainer's tests: the Mac refuses these settings for other invite codes. Only Muse Spark moves; SAM and voice recognition stay on Meta. Timings are measured on the phone, network included.": {
+    "For the maintainer's tests: the server refuses these settings for other invite codes. Only Muse Spark moves; SAM and voice recognition stay on Meta. Timings are measured on the phone, network included.": {
       "localizations": {
         "tr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Geliştiricinin testleri içindir: Mac bu ayarları diğer davet kodları için reddeder. Sadece Muse Spark taşınır; SAM ve ses tanıma Meta'da kalır. Süreleri telefon ölçer, ağ süresi de dahildir."
+            "value": "Geliştiricinin testleri içindir: Sunucu bu ayarları diğer davet kodları için reddeder. Sadece Muse Spark taşınır; SAM ve ses tanıma Meta'da kalır. Süreleri telefon ölçer, ağ süresi de dahildir."
           }
         }
       }
@@ -1118,12 +1118,12 @@
         }
       }
     },
-    "Mac not reachable": {
+    "Kokobubu is not reachable": {
       "localizations": {
         "tr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Mac'e ulaşılamıyor"
+            "value": "Kokobubu'ya ulaşılamıyor"
           }
         }
       }
@@ -1678,12 +1678,12 @@
         }
       }
     },
-    "Set the Mac's address in Settings.": {
+    "Set the server's address in Settings.": {
       "localizations": {
         "tr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ayarlar'dan Mac'in adresini girin."
+            "value": "Ayarlar'dan sunucu adresini girin."
           }
         }
       }
@@ -1862,6 +1862,61 @@
         }
       }
     },
+    "Enter your invite code": {
+      "extractionState": "manual",
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Davet kodunu gir"
+          }
+        }
+      }
+    },
+    "You only need to do this once.": {
+      "extractionState": "manual",
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bunu yalnız bir kez yapacaksın."
+          }
+        }
+      }
+    },
+    "Skip for now": {
+      "extractionState": "manual",
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Şimdilik geç"
+          }
+        }
+      }
+    },
+    "This invite code isn't valid.": {
+      "extractionState": "manual",
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bu davet kodu geçerli değil."
+          }
+        }
+      }
+    },
+    "Can't reach Kokobubu. Check your internet connection and try again.": {
+      "extractionState": "manual",
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kokobubu'ya ulaşılamıyor. İnternetini kontrol edip tekrar dene."
+          }
+        }
+      }
+    },
     "Sound effects": {
       "localizations": {
         "tr": {
@@ -2033,32 +2088,32 @@
         }
       }
     },
-    "The Mac answered with HTTP %lld.": {
+    "The server answered with HTTP %lld.": {
       "localizations": {
         "tr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Mac HTTP %lld ile yanıt verdi."
+            "value": "Sunucu HTTP %lld ile yanıt verdi."
           }
         }
       }
     },
-    "The Mac has no API key": {
+    "The server has no API key": {
       "localizations": {
         "tr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Mac'te API anahtarı yok"
+            "value": "Sunucuda API anahtarı yok"
           }
         }
       }
     },
-    "The Mac sent an answer the app couldn't read.": {
+    "The server sent an answer the app couldn't read.": {
       "localizations": {
         "tr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Mac'in gönderdiği yanıt okunamadı."
+            "value": "Sunucunun gönderdiği yanıt okunamadı."
           }
         }
       }
@@ -2083,12 +2138,12 @@
         }
       }
     },
-    "The internet address is tried first and needs your invite code, kept in this iPhone's Keychain. The Mac over Tailscale is the fallback. The phone never holds the API key.": {
+    "The server address needs your invite code, kept in this iPhone's Keychain. The phone never holds the API key.": {
       "localizations": {
         "tr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Önce internet adresi denenir; bunun için davet kodun gerekir, kod bu iPhone'un Anahtar Zinciri'nde saklanır. Tailscale üzerinden Mac yedek yoldur. API anahtarı hiçbir zaman telefonda olmaz."
+            "value": "Sunucu adresi için davet kodun gerekir, kod bu iPhone'un Anahtar Zinciri'nde saklanır. API anahtarı hiçbir zaman telefonda olmaz."
           }
         }
       }
@@ -2423,12 +2478,12 @@
         }
       }
     },
-    "When on, each frame and answer is saved on the Mac for testing; nothing is kept on the phone. Audio is never saved. Only invite codes allowed to record can use it.": {
+    "When on, each frame and answer is saved on the server for testing; nothing is kept on the phone. Audio is never saved. Only invite codes allowed to record can use it.": {
       "localizations": {
         "tr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Açıkken her kare ve cevap test için Mac'e kaydedilir; telefonda hiçbir şey saklanmaz. Ses hiçbir zaman kaydedilmez. Sadece kayıt izni olan davet kodlarında çalışır."
+            "value": "Açıkken her kare ve cevap test için sunucuya kaydedilir; telefonda hiçbir şey saklanmaz. Ses hiçbir zaman kaydedilmez. Sadece kayıt izni olan davet kodlarında çalışır."
           }
         }
       }

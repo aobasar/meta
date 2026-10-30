@@ -26,6 +26,16 @@ struct Route: Equatable {
         return routes
     }
 
+    /// The code in a link like kokobubu://invite/ABCD-1234, so a tester only has to tap it.
+    static func inviteCode(from link: URL) -> String? {
+        guard link.scheme == "kokobubu", link.host == "invite" else { return nil }
+        let code = link.lastPathComponent
+        guard (4...64).contains(code.count), code.allSatisfy({ $0.isASCII && ($0.isLetter || $0.isNumber || $0 == "-") }) else {
+            return nil
+        }
+        return code
+    }
+
     private static func parse(_ text: String) -> URL? {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty, let url = URL(string: trimmed), url.scheme != nil, url.host != nil else { return nil }
