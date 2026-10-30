@@ -125,8 +125,9 @@ PLAN_SCHEMA = {
                             "type": "array",
                             "items": {
                                 "type": "object",
-                                "properties": {"label": {"type": "string"}, "meaning": {"type": "string"}},
-                                "required": ["label", "meaning"],
+                                "properties": {"label": {"type": "string"}, "meaning": {"type": "string"},
+                                               "color": {"type": "string"}},
+                                "required": ["label", "meaning", "color"],
                                 "additionalProperties": False,
                             },
                         },
@@ -224,7 +225,9 @@ ASK_RULE = """0. First decide whether you must ask them one thing. Ask only if t
    words nor the photo tell you. Fill clarify with the single most important question, one short sentence in {lang}:
    - kind "choice": the device offers several settings for their task and they did not say which. options: only
      settings you can read in the photo, at most 5, most common first; label: copied exactly as printed; meaning: what
-     it means, in {lang}.
+     it means, in {lang}; color: the hex code of the button's fill color as seen in the photo (for example "#F28C28"
+     for an orange button). Give it whenever buttons differ by color, since color is the easiest way to find them;
+     leave it empty for a plain gray, black or white control, or one you can't see. Other kinds leave it empty.
    - kind "confirm_device": the steps depend on the brand or model and you cannot read it. The question names your
      guess and asks if it is right; options are yes and no in {lang}, with an empty label.
    - kind "state": something is not working and you need a fact the photo cannot show (for example whether the
@@ -767,11 +770,17 @@ def plan_context(answers: list[dict], correction: dict | None, findings: list[st
     return "".join(lines)
 
 
+def option_color(option: dict) -> dict:
+    color = str(option.get("color", "")).strip()
+    return {"color": color} if re.fullmatch(r"#[0-9A-Fa-f]{6}", color) else {}
+
+
 def clarifying_question(raw: dict) -> dict | None:
     clarify = raw.get("clarify")
     if not isinstance(clarify, dict) or clarify.get("kind") not in ("choice", "confirm_device", "state"):
         return None
-    options = [{"label": str(option.get("label", "")), "meaning": str(option.get("meaning", ""))}
+    options = [{"label": str(option.get("label", "")), "meaning": str(option.get("meaning", "")),
+                **option_color(option)}
                for option in clarify.get("options") or [] if isinstance(option, dict)][:5]
     text = str(clarify.get("question", ""))
     return {"kind": clarify["kind"], "text": text, "options": options} if text and options else None

@@ -249,6 +249,13 @@ class PlanTests(unittest.TestCase):
         self.assertIn('with "warm"', prompt)
         self.assertIsNone(result["question"])
 
+    def test_an_option_keeps_only_a_real_color(self):
+        plan = {**PLAN, "steps": [], "clarify": {"kind": "choice", "question": "Hangi?", "options": [
+            {"label": "a", "meaning": "b", "color": "#F28C28"}, {"label": "c", "meaning": "d", "color": "orange"}]}}
+        options = guide.clarifying_question(plan)["options"]
+        self.assertEqual(options[0]["color"], "#F28C28")
+        self.assertNotIn("color", options[1])
+
     def test_a_question_without_options_is_ignored(self):
         plan = {**PLAN, "clarify": {"kind": "choice", "question": "Hangi?", "options": []}}
         result = guide.plan(tiny_jpeg(), "q", "Turkish", FAKE_KEY, RoutingOpener(plan=plan), allow_questions=True)
