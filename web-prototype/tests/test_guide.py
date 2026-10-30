@@ -346,6 +346,20 @@ class PlanTests(unittest.TestCase):
         self.assertEqual(len(opener.bodies), 1)
 
 
+class TourPromptTests(unittest.TestCase):
+    def test_a_general_question_gets_a_tour_of_unchecked_controls(self):
+        for words in ('"How do I use this?"', "at most 5", "without asking them to press it", "visible_result is false",
+                      "task_continues is false", "don't pick a task for them", "could not tell what they do"):
+            self.assertIn(words, " ".join(guide.PLAN_PROMPT.split()))
+
+    def test_labels_they_may_not_read_are_explained(self):
+        self.assertIn("say in the same sentence what it means", " ".join(guide.PLAN_PROMPT.split()))
+
+    def test_a_step_without_a_visible_result_is_not_checked(self):
+        step = {"instruction": "This is «Start».", "visible_result": False}
+        self.assertFalse(guide.step_entry(step, "start button", "", (500, 250), 1000, 500)["verifiable"])
+
+
 class RestrictedRegionTests(unittest.TestCase):
     def test_every_code_is_two_letters_and_china_is_listed(self):
         self.assertTrue(all(len(code) == 2 and code.isupper() for code in guide.RESTRICTED_COUNTRIES))
