@@ -97,7 +97,17 @@
         "tr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Otomatik: Türkçe ya da İngilizce konuş, Nova aynı dilde cevap verir. Cihazın üstünde yazan kelimeler kendi dillerinde okunur."
+            "value": "Otomatik: Türkçe ya da İngilizce konuş, Nova aynı dilde cevap verir. Cihazda yazan kelimeler kendi dilinde okunur. Canlı yazıya çevirme: sen konuşurken kelimeler ekranda görünür ve Nova konuşmanın bittiğini anlar; sözünü kesiyorsa kapat."
+          }
+        }
+      }
+    },
+    "Automatic: speak Turkish or English and Nova answers in the same language. Words printed on the device are read in their own language. Live transcription: your words appear as you speak, and Nova notices when you finish; turn it off if it cuts you off.": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Otomatik: Türkçe ya da İngilizce konuş, Nova aynı dilde cevap verir. Cihazda yazan kelimeler kendi dilinde okunur. Canlı yazıya çevirme: sen konuşurken kelimeler ekranda görünür ve Nova konuşmanın bittiğini anlar; sözünü kesiyorsa kapat."
           }
         }
       }
@@ -794,6 +804,36 @@
         }
       }
     },
+    "Live transcription": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Canlı yazıya çevirme"
+          }
+        }
+      }
+    },
+    "Live voice": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Canlı ses"
+          }
+        }
+      }
+    },
+    "Looking again…": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tekrar bakıyorum…"
+          }
+        }
+      }
+    },
     "Low": {
       "localizations": {
         "tr": {
@@ -860,6 +900,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Model"
+          }
+        }
+      }
+    },
+    "More options": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Diğer seçenekler"
           }
         }
       }
@@ -1120,6 +1170,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Gizlilik ve koşullar"
+          }
+        }
+      }
+    },
+    "Re-evaluate": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tekrar değerlendir"
           }
         }
       }
@@ -1410,6 +1470,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Adım"
+          }
+        }
+      }
+    },
+    "Still wrong": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yine de yanlış"
           }
         }
       }
@@ -1780,6 +1850,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Ses"
+          }
+        }
+      }
+    },
+    "We seem stuck. Shall I look at this again?": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Takıldık gibi. Tekrar değerlendireyim mi?"
           }
         }
       }

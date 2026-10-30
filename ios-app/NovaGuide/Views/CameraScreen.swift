@@ -132,7 +132,15 @@ struct CameraScreen: View {
                             withAnimation { tipClosed = true }
                         }
                 }
-                if let heard = model.heard {
+                if let words = model.liveWords, !words.isEmpty {
+                    Text(verbatim: "“\(words)”")
+                        .font(.body.weight(.semibold))
+                        .lineLimit(3)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 9)
+                        .background(Color.novaCard.opacity(0.92), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        .allowsHitTesting(false)
+                } else if let heard = model.heard {
                     Text(verbatim: "“\(heard)”")
                         .font(.body.weight(.semibold))
                         .padding(.horizontal, 14)

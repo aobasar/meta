@@ -335,18 +335,15 @@ private struct StepCard: View {
             }
             if land { Spacer(minLength: 0) }
             VStack(spacing: 8) {
-                HStack(spacing: 8) {
-                    Text("AI-generated guidance. Check before you press.")
-                        .font(.caption2)
-                        .foregroundStyle(Color.novaText3)
-                        .lineLimit(2)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                    Button(String(localized: "This is wrong")) { model.openCorrection() }
-                        .font(.caption.weight(.bold))
-                        .foregroundStyle(Color.novaOrange)
-                        .frame(minHeight: 32)
-                        .disabled(model.feedback == .checking)
+                if model.seemsStuck {
+                    Bubble(icon: "arrow.triangle.2.circlepath", color: .novaOrange, title: nil,
+                           text: String(localized: "We seem stuck. Shall I look at this again?"))
                 }
+                Text("AI-generated guidance. Check before you press.")
+                    .font(.caption2)
+                    .foregroundStyle(Color.novaText3)
+                    .lineLimit(2)
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 HStack(spacing: 8) {
                     Button { model.repeatStep() } label: {
                         Image(systemName: "speaker.wave.2").font(.system(size: 18)).foregroundStyle(.white)
@@ -362,7 +359,22 @@ private struct StepCard: View {
                     }
                     .buttonStyle(PrimaryButtonStyle(fill: model.feedback == .correct ? .novaGreen : .novaYellow))
                     .scaleEffect(nudge ? 1.03 : 1)
-                    .disabled(model.feedback == .checking || model.isLocating)
+                    .disabled(model.feedback == .checking || model.isLocating || model.reassessing)
+                }
+                HStack(spacing: 8) {
+                    Button { model.reassess() } label: {
+                        HStack(spacing: 6) {
+                            if model.reassessing { ProgressView().tint(.white) }
+                            Text(model.reassessing ? String(localized: "Looking again…") : String(localized: "Re-evaluate"))
+                        }
+                    }
+                    .buttonStyle(OutlineButtonStyle())
+                    .disabled(model.feedback == .checking || model.isLocating || model.reassessing)
+                    Button(model.stepDefended ? String(localized: "Still wrong") : String(localized: "More options")) {
+                        model.openCorrection()
+                    }
+                    .buttonStyle(OutlineButtonStyle())
+                    .disabled(model.feedback == .checking || model.reassessing)
                 }
                 if let secondary = secondaryTitle {
                     Button(secondary) { model.secondary() }.buttonStyle(OutlineButtonStyle())

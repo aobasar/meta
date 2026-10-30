@@ -17,6 +17,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import guide  # noqa: E402
 import server  # noqa: E402
+import ws  # noqa: E402
 
 FAKE_KEY = "test-key-123"
 
@@ -57,6 +58,51 @@ GROUND = [{"object_name": "temperature knob", "x": 210, "y": 410}, {"object_name
           {"object_name": "start button", "x": 800, "y": 400}]
 
 
+def last_record(httpd):
+    """The usage record is written just after the response goes out."""
+    for _ in range(100):
+        records = httpd.usage.records(1)
+        if records:
+            return records[-1]
+        time.sleep(0.02)
+    raise AssertionError("No usage record.")
+
+
+REVIEW = {"verdict": "step_ok", "explanation": "«warm» yazısını görüyorum.", "x": 210, "y": 410}
+
+
+class FakeUpstream:
+    """Meta's realtime endpoint: acknowledges, answers the audio with words, then closes."""
+
+    def __init__(self):
+        self.audio = bytearray()
+        self.frames = [json.dumps({"sessionId": "s-1"})]
+        self.ready = threading.Event()
+        self.sock = type("Sock", (), {"settimeout": lambda self, value: None})()
+
+    def send_text(self, text):
+        if json.loads(text).get("type") == "endStream":
+            self.ready.set()
+
+    def send_binary(self, data):
+        self.audio += data
+
+    def recv(self):
+        if self.frames:
+            return ws.OP_TEXT, self.frames.pop(0)
+        self.ready.wait(5)
+        if self.ready.is_set() and self.ready.__dict__.setdefault("sent", False) is False:
+            self.ready.sent = True
+            return ws.OP_TEXT, json.dumps({"type": "speechComplete", "turnId": 1, "transcript": "Nasıl yıkarım?"})
+        raise ws.WebSocketClosed(1000)
+
+    def close(self):
+        pass
+
+    def shutdown(self):
+        pass
+
+
 class RoutingOpener:
     """Answers Spark plan, Spark ground, and SAM calls; records every request body."""
 
@@ -70,6 +116,7 @@ class RoutingOpener:
         self.sam_point = sam_point or "1<|box;x1=180;y1=180;x2=240;y2=230;c=0.91|>"
         self.sam_text = sam_text or "1<|box;x1=780;y1=180;x2=820;y2=220;c=0.8|>"
         self.bodies = []
+        self.review = REVIEW
         self.lock = threading.Lock()
 
     def __call__(self, request, timeout=None):
@@ -86,6 +133,8 @@ class RoutingOpener:
             reply = {"model": guide.SAM_MODEL, "output_text": text}
         elif body.get("response_format", {}).get("json_schema", {}).get("name") == "guide_reply":
             reply = {"model": self.served, "choices": [{"message": {"content": json.dumps(self.reply)}}]}
+        elif body.get("response_format", {}).get("json_schema", {}).get("name") == "step_review":
+            reply = {"model": self.served, "choices": [{"message": {"content": json.dumps(self.review)}}]}
         elif body.get("response_format", {}).get("json_schema", {}).get("name") == "step_check":
             reply = {"model": self.served, "choices": [{"message": {"content": json.dumps(self.check)}}]}
         elif "response_format" in body:
@@ -423,7 +472,7 @@ class HttpTests(unittest.TestCase):
         self.assertEqual([line["located"] for line in lines], [False, True])
         self.assertNotIn("recording", lines[0])
         self.assertTrue((self.recordings / lines[1]["recording"] / "frame.jpg").is_file())
-        record = self.httpd.usage.records(1)[-1]
+        record = last_record(self.httpd)
         self.assertLessEqual(record["firstSeconds"], record["seconds"])
 
     def test_an_error_after_the_steps_is_the_last_line(self):
@@ -443,13 +492,7 @@ class HttpTests(unittest.TestCase):
         self.assertEqual((status, body["error"]["kind"]), (400, "request"))
 
     def last_usage(self):
-        """The usage record is written just after the response goes out."""
-        for _ in range(100):
-            records = self.httpd.usage.records(1)
-            if records:
-                return records[-1]
-            time.sleep(0.02)
-        self.fail("No usage record.")
+        return last_record(self.httpd)
 
     def test_a_correction_thinks_longer_and_is_counted(self):
         correction = {"kind": "restart", "wrongStep": "x", "said": "", "done": []}
@@ -463,6 +506,52 @@ class HttpTests(unittest.TestCase):
                       {"correction": {"kind": "other"}}, {"correction": {"kind": "step", "wrongStep": 1}}):
             self.assertEqual(self.request("/api/guide/plan", self.frame_body(**extra))[0], 400, extra)
         self.assertEqual(self.opener.bodies, [])
+
+    def reassess_body(self, **extra):
+        return {"frame": base64.b64encode(tiny_jpeg()).decode(), "language": "Turkish", "target": "temperature knob",
+                "context": {"device": "washer", "current": 1, "steps": [
+                    {"instruction": "Düğmeyi çevir.", "success": "x", "result": "not done yet"}]}, **extra}
+
+    def test_a_step_that_holds_up_is_located_again(self):
+        status, body = self.request("/api/guide/reassess", self.reassess_body())
+        self.assertEqual((status, body["verdict"]), (200, "step_ok"))
+        self.assertEqual(body["boxMethod"], "point")
+        self.assertIsNotNone(body["point"])
+        self.assertEqual(self.opener.bodies[0]["reasoning_effort"], "low")
+        prompt = self.opener.bodies[0]["messages"][0]["content"][0]["text"]
+        self.assertIn("without defending it", prompt)
+        self.assertEqual(self.last_usage()["correction"], "reassess")
+
+    def test_a_wrong_step_is_not_located(self):
+        self.opener.review = {"verdict": "wrong_step", "explanation": "Böyle bir düğme yok.", "x": 0, "y": 0}
+        status, body = self.request("/api/guide/reassess", self.reassess_body())
+        self.assertEqual((status, body["verdict"], body["point"]), (200, "wrong_step", None))
+        self.assertEqual([b["model"] for b in self.opener.bodies], ["muse-spark-1.3"])
+
+    def test_a_review_needs_the_current_step(self):
+        extra = {"context": {"device": "x", "current": 0, "steps": []}}
+        self.assertEqual(self.request("/api/guide/reassess", self.reassess_body(**extra))[0], 400)
+
+    def test_live_listening_relays_words_and_stores_no_audio(self):
+        upstream = FakeUpstream()
+        self.httpd.ws_connect = lambda url: upstream
+        self.httpd.allowed_hosts = {*self.httpd.allowed_hosts, f"127.0.0.1:{self.port}"}
+        phone = ws.connect(f"ws://127.0.0.1:{self.port}/api/guide/listen", {guide.CLIENT_HEADER: guide.CLIENT_NAME})
+        phone.send_text(json.dumps({"languages": ["Turkish", "English"]}))
+        self.assertEqual(json.loads(phone.recv()[1])["type"], "ready")
+        phone.send_binary(b"\x01\x02" * 24000)
+        phone.send_text(json.dumps({"type": "endStream"}))
+        self.assertEqual(json.loads(phone.recv()[1])["transcript"], "Nasıl yıkarım?")
+        phone.shutdown()
+        record = self.last_usage()
+        self.assertEqual((record["endpoint"], record["status"]), ("listen", 101))
+        self.assertEqual(record["calls"][0]["audio_seconds"], 1.0)
+        self.assertFalse(self.recordings.exists())
+        self.assertNotIn("api", json.dumps(record["calls"]))
+
+    def test_live_listening_needs_the_app_and_an_upgrade(self):
+        self.assertEqual(self.request("/api/guide/listen")[0], 400)  # no upgrade headers
+        self.assertEqual(self.request("/api/guide/listen", headers={guide.CLIENT_HEADER: "browser"})[0], 403)
 
     def test_a_moved_marker_is_only_counted(self):
         self.assertEqual(self.request("/api/guide/correction", {"kind": "moved"}), (200, {"ok": True}))
@@ -725,7 +814,7 @@ class SparkRouteTests(unittest.TestCase):
         for url, authorization, _ in sams:
             self.assertTrue(url.startswith(server.API_BASE))
             self.assertEqual(authorization, f"Bearer {FAKE_KEY}")
-        self.assertEqual(self.httpd.usage.records(1)[-1]["spark"], "baseten-minimal")
+        self.assertEqual(last_record(self.httpd)["spark"], "baseten-minimal")
 
     def test_meta_low_changes_only_the_effort(self):
         self.assertEqual(self.plan(self.owner, {"provider": "meta", "effort": "low"})[0], 200)
@@ -740,7 +829,7 @@ class SparkRouteTests(unittest.TestCase):
         self.assertEqual(self.plan(self.tester)[0], 200)
         self.assertEqual((self.opener.sent[0][2]["model"], self.opener.sent[0][2]["reasoning_effort"]),
                          (server.REASONING_MODEL, "minimal"))
-        self.assertEqual(self.httpd.usage.records(1)[-1]["spark"], "meta-minimal")
+        self.assertEqual(last_record(self.httpd)["spark"], "meta-minimal")
 
     def test_only_the_maintainer_may_change_the_setting(self):
         status, body = self.plan(self.tester, {"provider": "baseten", "effort": "low"})

@@ -175,6 +175,50 @@ struct GuideClient {
         var correction: String?
     }
 
+    /// "Re-evaluate": Nova looks at the current step again, from a new frame.
+    struct Review: Decodable, Equatable {
+        enum Verdict: String, Decodable {
+            case stepOK = "step_ok"
+            case wrongStep = "wrong_step"
+            case unsure
+        }
+
+        var verdict: Verdict
+        var explanation: String
+        var point: NormalizedPoint?
+        var box: NormalizedBox?
+        var boxMethod: String
+    }
+
+    private struct ReassessRequest: Encodable {
+        var frame: String
+        var target: String
+        var language: String
+        var context: TaskContext
+        var record: Bool
+        var spark: SparkChoice?
+    }
+
+    func reassess(jpeg: Data, target: String, language: String, context: TaskContext, record: Bool,
+                  spark: SparkChoice? = nil) async throws -> Review {
+        let request = ReassessRequest(frame: jpeg.base64EncodedString(), target: target, language: language,
+                                      context: context, record: record, spark: spark)
+        let (data, _) = try await send(path: "api/guide/reassess", body: try JSONEncoder().encode(request), timeout: 45)
+        guard let review = try? JSONDecoder().decode(Review.self, from: data) else { throw Failure.unreadable }
+        return review
+    }
+
+    /// A WebSocket for one spoken turn (LiveTranscriber), with this route's headers.
+    func listenTask() throws -> URLSessionWebSocketTask {
+        var request = try request(path: "api/guide/listen", body: nil, contentType: "", timeout: 30)
+        guard let url = request.url?.absoluteURL, var parts = URLComponents(url: url, resolvingAgainstBaseURL: true) else {
+            throw Failure.noServer
+        }
+        parts.scheme = parts.scheme == "https" ? "wss" : "ws"
+        request.url = parts.url
+        return session.webSocketTask(with: request)
+    }
+
     /// Counts a correction that needs no model (the user moved the marker) in the Mac's usage log.
     func noteCorrection(kind: String) async throws {
         struct Note: Encodable { var kind: String }

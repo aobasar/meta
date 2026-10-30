@@ -31,11 +31,12 @@ struct SettingsView: View {
                         LabeledContent(String(localized: "Interface language"), value: String(localized: "iPhone language"))
                     }
                     .foregroundStyle(.primary)
+                    Toggle(String(localized: "Live transcription"), isOn: $settings.liveTranscription)
                     Toggle(String(localized: "Speak instructions aloud"), isOn: $settings.speakAloud)
                 } header: {
                     Text("Language & voice")
                 } footer: {
-                    Text("Automatic: speak Turkish or English and Nova answers in the same language. Words printed on the device are read in their own language.")
+                    Text("Automatic: speak Turkish or English and Nova answers in the same language. Words printed on the device are read in their own language. Live transcription: your words appear as you speak, and Nova notices when you finish; turn it off if it cuts you off.")
                 }
                 Section(String(localized: "Screen")) {
                     Picker(String(localized: "Screen orientation"), selection: $settings.orientation) {

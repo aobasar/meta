@@ -151,6 +151,8 @@ final class GuideSettings: ObservableObject {
     @Published var languageName: String { didSet { defaults.set(languageName, forKey: "language") } }
     /// Recording mode: the Mac saves each frame, the camera details and the answer (git-ignored, on the Mac only).
     @Published var record: Bool { didSet { defaults.set(record, forKey: "record") } }
+    /// Words appear while the user speaks, and Meta finds the end of the sentence.
+    @Published var liveTranscription: Bool { didSet { defaults.set(liveTranscription, forKey: "liveTranscription") } }
     @Published var speakAloud: Bool { didSet { defaults.set(speakAloud, forKey: "speakAloud") } }
     /// Check each step on a close-up; when off, "I've done it" moves on and counts as the user's own confirmation.
     @Published var verifyEach: Bool { didSet { defaults.set(verifyEach, forKey: "verifyEach") } }
@@ -183,6 +185,7 @@ final class GuideSettings: ObservableObject {
         inviteCode = Keychain.read("invite")
         languageName = defaults.string(forKey: "language") ?? Self.automaticLanguage
         record = defaults.bool(forKey: "record")
+        liveTranscription = defaults.object(forKey: "liveTranscription") as? Bool ?? true
         speakAloud = defaults.object(forKey: "speakAloud") as? Bool ?? true
         verifyEach = defaults.object(forKey: "verifyEach") as? Bool ?? true
         autoContinue = defaults.object(forKey: "autoContinue") as? Bool ?? true

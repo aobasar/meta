@@ -1,12 +1,14 @@
 import AVFoundation
 
-/// Records one utterance after the user taps the microphone: 16 kHz mono WAV, in memory only. It stops when the user
+/// Records one utterance after the user taps the microphone: 24 kHz mono WAV, in memory only. It stops when the user
 /// taps again, after a short silence once speech was heard, or at a time limit. The microphone is never open
 /// otherwise (HACKATHON.md, design rule 6).
 final class VoiceRecorder: ObservableObject {
-    static let sampleRate = 16_000.0
+    static let sampleRate = 24_000.0  // what Meta's realtime endpoint takes
     static let maxSeconds = 20.0
     static let silenceSeconds = 1.5
+    /// With live transcription Meta finds the end of the turn; this is only the backstop.
+    static let liveSilenceSeconds = 3.0
     static let noSpeechSeconds = 6.0
     static let speechLevel: Float = 0.04  // RMS of normalized samples that counts as speech
 
@@ -15,6 +17,9 @@ final class VoiceRecorder: ObservableObject {
 
     /// Called on the main queue with the WAV, or nil when no speech was heard.
     var onFinish: ((Data?) -> Void)?
+    /// Called on the audio thread with each chunk of 16-bit PCM, for live transcription.
+    var onPCM: ((Data) -> Void)?
+    var silenceSeconds = VoiceRecorder.silenceSeconds
 
     private let engine = AVAudioEngine()
     private let target = AVAudioFormat(commonFormat: .pcmFormatInt16, sampleRate: sampleRate, channels: 1, interleaved: true)!
@@ -74,6 +79,7 @@ final class VoiceRecorder: ObservableObject {
         guard error == nil, let channel = output.int16ChannelData?[0] else { return }
         let chunk = Array(UnsafeBufferPointer(start: channel, count: Int(output.frameLength)))
         lock.withLock { samples += chunk }
+        onPCM?(chunk.withUnsafeBufferPointer { Data(buffer: $0) })
         let rms = Self.rms(chunk)
         DispatchQueue.main.async { self.update(rms: rms) }
     }
@@ -84,7 +90,7 @@ final class VoiceRecorder: ObservableObject {
         let now = Date()
         if rms >= Self.speechLevel { lastSpeechAt = now }
         let elapsed = now.timeIntervalSince(startedAt)
-        if let lastSpeechAt, now.timeIntervalSince(lastSpeechAt) > Self.silenceSeconds {
+        if let lastSpeechAt, now.timeIntervalSince(lastSpeechAt) > silenceSeconds {
             finish()
         } else if lastSpeechAt == nil && elapsed > Self.noSpeechSeconds {
             finish()

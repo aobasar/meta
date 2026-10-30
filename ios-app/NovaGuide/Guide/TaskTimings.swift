@@ -4,6 +4,8 @@ import Foundation
 /// upload are included: this is the wait the user feels.
 struct TaskTimings: Equatable {
     var transcript: Double?
+    /// The transcript came over the live route (measured from the end of speech).
+    var liveVoice = false
     var steps: Double?
     var markers: Double?
     var check: Double?
@@ -16,7 +18,7 @@ struct TaskTimings: Equatable {
     /// "Voice 1.9 s · Steps 3.4 s · Markers 7.1 s · Check 1.6 s · Meta Minimal"
     var summary: String {
         let parts: [(String, Double?)] = [
-            (String(localized: "Voice"), transcript),
+            (liveVoice ? String(localized: "Live voice") : String(localized: "Voice"), transcript),
             (String(localized: "Steps"), steps),
             (String(localized: "Markers"), markers),
             (String(localized: "Check"), check),

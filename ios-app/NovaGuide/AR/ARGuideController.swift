@@ -275,19 +275,28 @@ final class ARGuideController: NSObject, ObservableObject, ARSessionDelegate {
     /// Turns the plan's 2D points into world positions, using the camera as it was when the frame was captured.
     /// Steps before `start` keep their markers: they were corrected from a later frame.
     func place(_ plan: GuidePlan, from capture: CapturedFrame, startingAt start: Int = 0) {
-        anchors = Array(anchors.prefix(start)) + plan.steps.dropFirst(start).map { step in
-            let center = step.markerPoint
-            let (control, distance, precise) = locate(center, capture)
-            var radius: Float = 0.025
-            if let box = step.box, step.boxMethod == "point" || step.boxMethod == "fallback" {
-                let upright = capture.orientation.uprightSize(capture.imageSize)
-                let pixels = max(box.width * upright.width, box.height * upright.height) / 2
-                radius = min(max(CameraGeometry.meters(pixels: pixels, depth: distance, intrinsics: capture.intrinsics), 0.012), 0.08)
-            }
-            let label = step.setTo?.point.map { locate($0, capture).position }
-            return StepAnchor(control: control, radius: radius, label: label, precise: precise)
-        }
+        anchors = Array(anchors.prefix(start)) + plan.steps.dropFirst(start).map { anchor(for: $0, capture) }
         updateMarker()
+    }
+
+    /// One step located again from a newer frame ("Re-evaluate").
+    func relocate(step index: Int, to step: GuideStep, from capture: CapturedFrame) {
+        guard anchors.indices.contains(index) else { return }
+        anchors[index] = anchor(for: step, capture)
+        updateMarker()
+    }
+
+    private func anchor(for step: GuideStep, _ capture: CapturedFrame) -> StepAnchor {
+        let center = step.markerPoint
+        let (control, distance, precise) = locate(center, capture)
+        var radius: Float = 0.025
+        if let box = step.box, step.boxMethod == "point" || step.boxMethod == "fallback" {
+            let upright = capture.orientation.uprightSize(capture.imageSize)
+            let pixels = max(box.width * upright.width, box.height * upright.height) / 2
+            radius = min(max(CameraGeometry.meters(pixels: pixels, depth: distance, intrinsics: capture.intrinsics), 0.012), 0.08)
+        }
+        let label = step.setTo?.point.map { locate($0, capture).position }
+        return StepAnchor(control: control, radius: radius, label: label, precise: precise)
     }
 
     func clear() {

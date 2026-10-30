@@ -422,3 +422,33 @@ final class AutoTorchTests: XCTestCase {
         XCTAssertFalse(torch.isOn)
     }
 }
+
+final class LiveTranscriberTests: XCTestCase {
+    func testServerMessages() {
+        XCTAssertEqual(LiveTranscriber.event(from: #"{"type":"transcript","transcript":"nasıl","final":false}"#), .partial("nasıl"))
+        XCTAssertEqual(LiveTranscriber.event(from: #"{"type":"speechEnd","turnId":1}"#), .speechEnded)
+        XCTAssertEqual(LiveTranscriber.event(from: #"{"type":"speechComplete","turnId":1,"transcript":"Nasıl?"}"#), .final("Nasıl?"))
+        XCTAssertEqual(LiveTranscriber.event(from: #"{"type":"error","message":"x"}"#), .failed)
+        XCTAssertNil(LiveTranscriber.event(from: #"{"type":"ready"}"#))
+        XCTAssertNil(LiveTranscriber.event(from: "not json"))
+    }
+
+    func testTheTimingsSayWhichRouteWasUsed() {
+        XCTAssertTrue(TaskTimings(transcript: 0.4, liveVoice: true).summary.hasPrefix(String(localized: "Live voice")))
+        XCTAssertTrue(TaskTimings(transcript: 1.9).summary.hasPrefix(String(localized: "Voice")))
+    }
+}
+
+final class ReviewTests: XCTestCase {
+    func testAReviewDecodes() throws {
+        let json = """
+        {"verdict": "step_ok", "explanation": "«warm» görünüyor.", "point": {"x": 0.2, "y": 0.4}, "box": null,
+         "boxMethod": "point", "seconds": 3.1, "served": ["muse-spark-1.3"]}
+        """
+        let review = try JSONDecoder().decode(GuideClient.Review.self, from: Data(json.utf8))
+        XCTAssertEqual(review.verdict, .stepOK)
+        XCTAssertEqual(review.point, NormalizedPoint(x: 0.2, y: 0.4))
+        let wrong = #"{"verdict": "wrong_step", "explanation": "Yok.", "point": null, "box": null, "boxMethod": "none"}"#
+        XCTAssertEqual(try JSONDecoder().decode(GuideClient.Review.self, from: Data(wrong.utf8)).verdict, .wrongStep)
+    }
+}

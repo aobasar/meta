@@ -71,6 +71,13 @@ final class GuideModel: ObservableObject {
     @Published private(set) var startedAt: Date?
     @Published private(set) var finishedAt: Date?
     @Published private(set) var correcting: Correcting?
+    /// "Re-evaluate" is running; and afterwards, Nova looked again and stands by the step.
+    @Published private(set) var reassessing = false
+    @Published private(set) var stepDefended = false
+    /// How often each step failed its check; two in a row and Nova offers to look again.
+    @Published private(set) var failedChecks: [Int: Int] = [:]
+    /// Live transcription: the words so far.
+    @Published private(set) var liveWords: String?
     /// How often each step was planned again.
     @Published private(set) var stepCorrections: [Int: Int] = [:]
     /// The welcome screen opens every launch and comes back with Home; "Get Started" goes to the camera.
@@ -108,6 +115,10 @@ final class GuideModel: ObservableObject {
     private var greeted = false
     private var skipWords = false
     private var discardRecording = false
+    private var live: LiveTranscriber?
+    private var liveFinal: String?
+    private var liveEndedAt: Date?
+    private var heardLive = false
     let recorder = VoiceRecorder()
 
     init(settings: GuideSettings, ar: ARGuideController) {
@@ -132,6 +143,8 @@ final class GuideModel: ObservableObject {
         return plan.steps[stepIndex]
     }
 
+    var seemsStuck: Bool { (failedChecks[stepIndex] ?? 0) >= 2 && !stepDefended && !reassessing }
+
     var canCorrectStep: Bool { (stepCorrections[stepIndex] ?? 0) < Self.maxStepCorrections }
 
     var isLastStep: Bool { plan.map { stepIndex + 1 == $0.steps.count } ?? false }
@@ -141,7 +154,7 @@ final class GuideModel: ObservableObject {
 
     /// True while Nova waits for a model: screen recording pauses so the video holds only the action.
     var isWaiting: Bool {
-        phase == .thinking || feedback == .checking || listening == .transcribing || listening == .answering
+        phase == .thinking || feedback == .checking || reassessing || listening == .transcribing || listening == .answering
     }
 
     var pulse: Pulse {
@@ -198,11 +211,12 @@ final class GuideModel: ObservableObject {
         startedAt = startedAt ?? Date()
         finishedAt = nil
         phase = .thinking
-        timings = TaskTimings(transcript: heardSeconds, setting: settings.sparkLabel)
+        timings = TaskTimings(transcript: heardSeconds, liveVoice: heardLive, setting: settings.sparkLabel)
         taskQuestion = text
         planCapture = capture
         answers = []
         stepCorrections = [:]
+        failedChecks = [:]
         correcting = nil
         acknowledge(text)
         requestPlan(capture: capture)
@@ -340,6 +354,59 @@ final class GuideModel: ObservableObject {
 
     // MARK: Corrections
 
+    /// "Re-evaluate": one tap, no choices. Nova looks at the step again from a new frame: it locates the control again,
+    /// plans again if the step doesn't fit, or says what it can't tell.
+    func reassess() {
+        guard phase == .guiding, !reassessing, !isLocating, let step = currentStep else { return }
+        guard let capture = ar.capture() else {
+            show(message: String(localized: "The camera isn't ready yet. Point it at the device and try again."))
+            return
+        }
+        checkTask?.cancel()
+        correcting = nil
+        feedback = nil
+        reply = nil
+        stepDefended = false
+        reassessing = true
+        speak(language.phrase("Let me look…"))
+        let index = stepIndex, context = taskContext(), settings = self.settings
+        voiceTask = Task {
+            do {
+                let language = self.language.serverName, record = settings.record, spark = settings.sparkChoice
+                let review = try await send {
+                    try await $0.reassess(jpeg: capture.jpeg, target: step.target, language: language, context: context,
+                                          record: record, spark: spark)
+                }
+                reassessing = false
+                guard phase == .guiding, index == stepIndex else { return }
+                switch review.verdict {
+                case .stepOK:
+                    if let point = review.point {
+                        var located = step
+                        located.point = point
+                        located.box = review.box
+                        located.boxMethod = review.boxMethod
+                        located.setTo?.point = nil  // measured on the old frame
+                        plan?.steps[index] = located
+                        ar.relocate(step: index, to: located, from: capture)
+                    }
+                    stepDefended = true
+                    failedChecks[index] = 0
+                    reply = review.explanation
+                    speak(review.explanation)
+                case .wrongStep:
+                    runCorrection(kind: "step", said: review.explanation)
+                case .unsure:
+                    reply = review.explanation
+                    speak(review.explanation)
+                }
+            } catch {
+                reassessing = false
+                reply = error.localizedDescription
+            }
+        }
+    }
+
     func openCorrection() {
         guard phase == .guiding else { return }
         checkTask?.cancel()
@@ -415,6 +482,7 @@ final class GuideModel: ObservableObject {
             }
             stepCorrections[stepIndex, default: 0] += 1
         }
+        failedChecks[stepIndex] = 0
         let start = restart ? 0 : stepIndex
         let done = restart ? [] : plan.steps.prefix(start).map(\.instruction)
         checkTask?.cancel()
@@ -521,7 +589,9 @@ final class GuideModel: ObservableObject {
             records[index].result = .failed
             let correction = check.correction.isEmpty
                 ? String(localized: "Not yet. Check the marker and try again.") : check.correction
+            failedChecks[index, default: 0] += 1
             say(.notDone(correction))
+            if seemsStuck { speak(correction + " " + language.phrase("We seem stuck. Shall I look at this again?")) }
         case .unsure:
             records[index].result = .uncertain
             say(.unsure(check.reason == "too_small"
@@ -603,6 +673,9 @@ final class GuideModel: ObservableObject {
         checkTask?.cancel()
         greeted = false
         correcting = nil
+        reassessing = false
+        stepDefended = false
+        failedChecks = [:]
         answers = []
         feedback = nil
         reply = nil
@@ -643,22 +716,109 @@ final class GuideModel: ObservableObject {
                 return
             }
             do {
+                startLive()
                 try recorder.start()
                 listening = .listening
             } catch {
+                closeLive()
                 show(message: String(localized: "The microphone couldn't start."))
             }
         }
+    }
+
+    // MARK: Live transcription
+
+    /// The WAV is still recorded: if the live route fails, it goes through the file route.
+    private func startLive() {
+        closeLive()
+        heardSeconds = nil
+        heardLive = false
+        recorder.silenceSeconds = VoiceRecorder.silenceSeconds
+        guard settings.liveTranscription else { return }
+        let live = LiveTranscriber()
+        self.live = live
+        recorder.silenceSeconds = VoiceRecorder.liveSilenceSeconds
+        recorder.onPCM = { [weak live] in live?.send(pcm: $0) }
+        live.onEvent = { [weak self, weak live] event in
+            guard let self, let live, live === self.live else { return }
+            switch event {
+            case .partial(let words):
+                self.liveWords = words
+            case .speechEnded:
+                self.liveEndedAt = self.liveEndedAt ?? Date()
+            case .final(let words):
+                guard !words.isEmpty else { return }
+                self.liveFinal = words
+                self.recorder.finish()  // Meta found the end of the sentence
+            case .failed:
+                self.closeLive()
+            }
+        }
+        let languages = Array(Set([language.serverName, "English", settings.isAutomaticLanguage ? "Turkish" : "English"]))
+        Task {
+            do {
+                let client = try await send { $0 }
+                live.connect(try client.listenTask(), languages: languages)
+            } catch {
+                live.fail()
+            }
+        }
+    }
+
+    private func closeLive() {
+        live?.close()
+        live = nil
+        recorder.onPCM = nil
+        recorder.silenceSeconds = VoiceRecorder.silenceSeconds
+        liveFinal = nil
+        liveEndedAt = nil
+        liveWords = nil
     }
 
     private func heardRecording(_ wav: Data?) {
         if discardRecording {
             discardRecording = false
             listening = .idle
+            closeLive()
             return
         }
-        if case .telling(let kind) = correcting, wav == nil || skipWords {
+        if case .telling(let kind) = correcting, skipWords {
             skipWords = false
+            closeLive()
+            runCorrection(kind: kind, said: "")
+            return
+        }
+        let stoppedAt = Date()
+        if let live, wav != nil || liveFinal != nil {
+            listening = .transcribing
+            voiceTask = Task {
+                if liveFinal == nil {  // the recorder stopped first: a tap, the backstop or the time limit
+                    live.finish()
+                    let deadline = Date().addingTimeInterval(2.5)
+                    while liveFinal == nil, self.live === live, Date() < deadline {
+                        try? await Task.sleep(for: .milliseconds(50))
+                    }
+                }
+                if let text = liveFinal {
+                    heardSeconds = Date().timeIntervalSince(liveEndedAt ?? stoppedAt)
+                    heardLive = true
+                    closeLive()
+                    listening = .idle
+                    handle(spoken: text.trimmingCharacters(in: .whitespacesAndNewlines))
+                } else {
+                    closeLive()
+                    transcribeFile(wav)
+                }
+            }
+            return
+        }
+        closeLive()
+        transcribeFile(wav)
+    }
+
+    /// The recording, in one request: the route without live transcription, and the fallback when it fails.
+    private func transcribeFile(_ wav: Data?) {
+        if case .telling(let kind) = correcting, wav == nil {
             runCorrection(kind: kind, said: "")
             return
         }
@@ -719,7 +879,7 @@ final class GuideModel: ObservableObject {
             case .back: back()
             case .skip: skip()
             case .newQuestion: newQuestion()
-            case .wrong: openCorrection()
+            case .wrong: reassess()
             case nil: askDuringTask(text)
             }
         case .asking, .finished, .refused, .failed:
@@ -735,16 +895,11 @@ final class GuideModel: ObservableObject {
 
     /// A question in the middle of the task: answer it and keep the user's place, or start the new task they asked for.
     private func askDuringTask(_ text: String, correction: String? = nil) {
-        guard let plan, let capture = ar.capture() else {
+        guard plan != nil, let capture = ar.capture() else {
             show(message: String(localized: "The camera isn't ready yet. Point it at the device and try again."))
             return
         }
-        let context = GuideClient.TaskContext(
-            device: plan.deviceLabel, current: stepIndex + 1,
-            steps: zip(plan.steps, records).map { step, record in
-                GuideClient.TaskContext.Step(instruction: step.instruction, success: step.success,
-                                             result: Self.describe(record.result))
-            })
+        let context = taskContext()
         listening = .answering
         let settings = self.settings
         voiceTask = Task {
@@ -779,6 +934,15 @@ final class GuideModel: ObservableObject {
         }
     }
 
+    private func taskContext() -> GuideClient.TaskContext {
+        GuideClient.TaskContext(
+            device: plan?.deviceLabel ?? "", current: stepIndex + 1,
+            steps: zip(plan?.steps ?? [], records).map { step, record in
+                GuideClient.TaskContext.Step(instruction: step.instruction, success: step.success,
+                                             result: Self.describe(record.result))
+            })
+    }
+
     private static func describe(_ result: StepRecord.Result) -> String {
         switch result {
         case .pending: "not done yet"
@@ -806,6 +970,7 @@ final class GuideModel: ObservableObject {
 
     private func go(to index: Int) {
         checkTask?.cancel()
+        stepDefended = false
         feedback = nil
         reply = nil
         stepIndex = index
