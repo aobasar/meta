@@ -33,8 +33,8 @@ struct NovaGuideApp: App {
     }
 }
 
-/// Onboarding until the current terms are accepted, then the camera; Home brings the welcome screen back, and its
-/// Get Started goes straight to the camera.
+/// Onboarding until the current terms are accepted, then the camera. Later launches and Home open the welcome screen;
+/// its Get Started goes straight to the camera.
 struct RootView: View {
     @EnvironmentObject private var settings: GuideSettings
     @EnvironmentObject private var model: GuideModel

@@ -60,8 +60,8 @@ final class GuideModel: ObservableObject {
     /// When the task's first question was asked and when its last step was done.
     @Published private(set) var startedAt: Date?
     @Published private(set) var finishedAt: Date?
-    /// Home shows the welcome screen again; "Get Started" returns to the camera.
-    @Published var showWelcome = false
+    /// The welcome screen opens every launch and comes back with Home; "Get Started" goes to the camera.
+    @Published var showWelcome = true
 
     enum Listening: Equatable {
         case idle, listening, transcribing, answering

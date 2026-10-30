@@ -23,6 +23,7 @@ enum DemoMode {
             return
         }
         if settings.needsConsent { settings.acceptTerms() }
+        model.showWelcome = false
         model.loadDemo(screen, plan: plan, correction: "Düğme hâlâ “light” konumunda. Biraz daha sağa, “regular” yazısına çevirin.")
     }
 

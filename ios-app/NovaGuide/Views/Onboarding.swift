@@ -6,6 +6,7 @@ struct OnboardingView: View {
     enum Page { case welcome, how, consent }
 
     @EnvironmentObject private var settings: GuideSettings
+    @EnvironmentObject private var model: GuideModel
     #if DEBUG
     @State private var page: Page = DemoMode.onboardingPage ?? .welcome
     #else
@@ -17,7 +18,12 @@ struct OnboardingView: View {
             switch page {
             case .welcome: WelcomeView(onStart: next, onHow: next)
             case .how: HowView(buttonTitle: String(localized: "Continue")) { withAnimation { page = .consent } }
-            case .consent: ConsentView { withAnimation { settings.acceptTerms() } }
+            case .consent: ConsentView {
+                withAnimation {
+                    model.showWelcome = false  // the user has just seen it
+                    settings.acceptTerms()
+                }
+            }
             }
         }
         .transition(.opacity)
