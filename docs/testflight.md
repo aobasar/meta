@@ -6,7 +6,7 @@ Kokobubu's beta. Paste from here. The review invite code is not in this file: it
 ## App record (the maintainer creates it)
 
 - Name: Kokobubu
-- Bundle ID: `com.aobasar.nova.guide`
+- Bundle ID: `com.aobasar.kokobubu`
 - Primary language: English
 - SKU: `kokobubu`
 - Privacy policy: https://www.aobasar.com/projects/kokobubu/legal/

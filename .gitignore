@@ -30,7 +30,7 @@ test-photos/
 web-prototype/static/reports/
 
 # iOS app
-ios-app/NovaGuide.xcodeproj/
+ios-app/Kokobubu.xcodeproj/
 ios-app/Config/Local.xcconfig
 ios-app/build/
 *.xcuserstate

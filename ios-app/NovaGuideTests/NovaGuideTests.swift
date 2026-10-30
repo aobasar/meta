@@ -2,7 +2,7 @@ import AVFoundation
 import CoreGraphics
 import simd
 import XCTest
-@testable import NovaGuide
+@testable import Kokobubu
 
 final class CameraGeometryTests: XCTestCase {
     // fx = fy = 1000, principal point (960, 720): a 1920x1440 sensor image.
