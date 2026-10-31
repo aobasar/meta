@@ -92,6 +92,12 @@ final class GuideModel: ObservableObject {
     @Published private(set) var failedChecks: [Int: Int] = [:]
     /// Checks that could not tell, per step: the next one looks at the whole device, and after two the user leads.
     @Published private(set) var unsureChecks: [Int: Int] = [:]
+    /// After the last step: the camera looks at the whole task, so "Did this solve it?" isn't the only check.
+    enum GoalCheck: Equatable {
+        case checking, waiting, unclear
+    }
+
+    @Published private(set) var goalCheck: GoalCheck?
     /// Live transcription: the words so far.
     @Published private(set) var liveWords: String?
     /// How often each step was planned again.
@@ -571,6 +577,8 @@ final class GuideModel: ObservableObject {
 
     func notSolved() {
         guard phase == .confirming else { return }
+        checkTask?.cancel()
+        goalCheck = nil
         note("not_solved")
         guard outcomeTries < Self.maxOutcomeTries else {
             finishUnsolved(note: "")
@@ -887,7 +895,7 @@ final class GuideModel: ObservableObject {
             let retry = failedChecks[index, default: 0] > 1
             say(.notDone(retry ? language.phrase("No problem, let's try again.") + " " + correction : correction))
             if seemsStuck { speak(correction + " " + language.phrase("We seem stuck. Shall I look at this again?")) }
-        case .unsure:
+        case .unsure, .inProgress:
             records[index].result = .uncertain
             unsureChecks[index, default: 0] += 1
             say(.unsure(check.reason == "too_small"
@@ -942,14 +950,77 @@ final class GuideModel: ObservableObject {
             feedback = nil
             reply = nil
             phase = .confirming
+            goalCheck = nil
+            if settings.verifyEach, plan.goal?.isEmpty == false {
+                checkGoal()
+            } else {
+                askIfSolved()
+            }
+        }
+    }
+
+    private func askIfSolved() {
+        sound(.question)
+        speak(language.phrase("Did this solve it?"))
+    }
+
+    /// The camera looks for the task's end state. Only a clear "done" ends the task without asking.
+    func checkGoal() {
+        guard phase == .confirming, goalCheck != .checking, let goal = plan?.goal, !goal.isEmpty else { return }
+        guard let capture = ar.capture() else {
+            goalCheck = .unclear
+            reply = language.phrase("Hold the phone steady, then check again.")
+            return
+        }
+        goalCheck = .checking
+        reply = nil
+        let settings = self.settings, task = question.isEmpty ? goal : question
+        checkTask = Task {
+            do {
+                let language = self.language.serverName, record = settings.record, spark = settings.sparkChoice
+                let check = try await send {
+                    try await $0.verifyGoal(jpeg: capture.jpeg, task: task, goal: goal, language: language, record: record,
+                                            spark: spark)
+                }
+                guard !Task.isCancelled, phase == .confirming else { return }
+                applyGoal(check)
+            } catch is CancellationError {
+            } catch {
+                guard phase == .confirming else { return }
+                goalCheck = .unclear
+                askIfSolved()
+            }
+        }
+    }
+
+    private func applyGoal(_ check: StepCheck) {
+        switch check.status {
+        case .done:
+            goalCheck = nil
+            let line = check.confirmation?.isEmpty == false ? check.confirmation! : language.phrase("Done. It should be working now.")
+            finish()
+            note("solved")
+            sound(.done)
+            speak(line)
+        case .inProgress:
+            goalCheck = .waiting
+            let line = language.phrase("It's still working. When it finishes, point the camera here and check again.")
+            reply = line
+            speak(line)
+        case .notDone, .unsure:
+            goalCheck = .unclear
+            let line = check.correction.isEmpty ? language.phrase("I can't confirm the result from here.") : check.correction
+            reply = line
             sound(.question)
-            speak(language.phrase("Did this solve it?"))
+            speak(line + " " + language.phrase("Did this solve it?"))
         }
     }
 
     /// Back one step; from the first step, back to the question with the same thing in view.
     func back() {
         if phase == .finished || phase == .confirming {
+            checkTask?.cancel()
+            goalCheck = nil
             phase = .guiding
             go(to: stepIndex)
         } else if stepIndex > 0 {
@@ -983,6 +1054,7 @@ final class GuideModel: ObservableObject {
         stepDefended = false
         failedChecks = [:]
         unsureChecks = [:]
+        goalCheck = nil
         answers = []
         findings = []
         shows = 0

@@ -383,6 +383,11 @@ class TourPromptTests(unittest.TestCase):
         self.assertEqual(entry["check"], "whole_view")
         self.assertFalse(entry["verifiable"])  # the older app keeps skipping what it can't see on a close-up
 
+    def test_the_goal_check_can_say_the_device_is_still_working(self):
+        self.assertIn("in_progress", guide.VERIFY_GOAL_SCHEMA["json_schema"]["schema"]["properties"]["status"]["enum"])
+        self.assertNotIn("in_progress", guide.VERIFY_SCHEMA["json_schema"]["schema"]["properties"]["status"]["enum"])
+        self.assertIn("not only the last step", " ".join(guide.PLAN_PROMPT.split()))
+
     def test_the_whole_view_check_takes_a_new_state_as_proof(self):
         words = " ".join(guide.VERIFY_WHOLE_PROMPT.split())
         for part in ("a dialog that is gone", "a state that can only come after this step", "the same dialog still open"):

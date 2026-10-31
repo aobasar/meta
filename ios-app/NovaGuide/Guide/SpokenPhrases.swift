@@ -20,6 +20,8 @@ enum SpokenPhrases {
             "We seem stuck. Shall I look at this again?": "Parece que estamos atascados. ¿Lo reviso de nuevo?",
             "Okay.": "Está bien.",
             "Did this solve it?": "¿Se resolvió?",
+            "It's still working. When it finishes, point the camera here and check again.": "Aún está trabajando. Cuando termine, apunta la cámara aquí y vuelve a comprobar.",
+            "I can't confirm the result from here.": "No puedo confirmar el resultado desde aquí.",
             "I couldn't solve this. Check the device's manual or contact service.":
                 "No pude resolverlo. Revisa el manual del aparato o contacta al servicio técnico.",
             "Point the camera at the control, then check again.": "Apunta la cámara al control y vuelve a comprobar.",
@@ -41,6 +43,8 @@ enum SpokenPhrases {
             "We seem stuck. Shall I look at this again?": "好像卡住了。要我再看一遍吗?",
             "Okay.": "好的。",
             "Did this solve it?": "问题解决了吗?",
+            "It's still working. When it finishes, point the camera here and check again.": "它还在进行中。完成后,请把相机对准这里再检查一次。",
+            "I can't confirm the result from here.": "我无法从这里确认结果。",
             "I couldn't solve this. Check the device's manual or contact service.":
                 "我没能解决这个问题。请查看设备说明书或联系售后服务。",
             "Point the camera at the control, then check again.": "请把摄像头对准按钮,然后再检查一次。",
@@ -62,6 +66,8 @@ enum SpokenPhrases {
             "We seem stuck. Shall I look at this again?": "लगता है हम अटक गए हैं। क्या मैं इसे फिर से देखूँ?",
             "Okay.": "ठीक है।",
             "Did this solve it?": "क्या इससे समस्या हल हुई?",
+            "It's still working. When it finishes, point the camera here and check again.": "यह अभी भी चल रहा है। पूरा होने पर कैमरा यहाँ रखकर फिर से जाँचें।",
+            "I can't confirm the result from here.": "मैं यहाँ से नतीजे की पुष्टि नहीं कर सकता।",
             "I couldn't solve this. Check the device's manual or contact service.":
                 "मैं इसे हल नहीं कर पाया। डिवाइस का मैनुअल देखिए या सर्विस से संपर्क कीजिए।",
             "Point the camera at the control, then check again.": "कैमरा बटन की ओर कीजिए, फिर दोबारा जाँचिए।",
@@ -83,6 +89,8 @@ enum SpokenPhrases {
             "We seem stuck. Shall I look at this again?": "يبدو أننا عالقون. هل أنظر إليه مرة أخرى؟",
             "Okay.": "حسنًا.",
             "Did this solve it?": "هل حلّ هذا المشكلة؟",
+            "It's still working. When it finishes, point the camera here and check again.": "ما زال يعمل. عند انتهائه، وجّه الكاميرا إلى هنا وتحقق مرة أخرى.",
+            "I can't confirm the result from here.": "لا أستطيع تأكيد النتيجة من هنا.",
             "I couldn't solve this. Check the device's manual or contact service.":
                 "لم أتمكن من حل هذه المشكلة. راجع دليل الجهاز أو اتصل بالصيانة.",
             "Point the camera at the control, then check again.": "وجّه الكاميرا نحو الزر، ثم تحقق مرة أخرى.",
@@ -104,6 +112,8 @@ enum SpokenPhrases {
             "We seem stuck. Shall I look at this again?": "Parece que travamos. Quer que eu olhe de novo?",
             "Okay.": "Certo.",
             "Did this solve it?": "Isso resolveu?",
+            "It's still working. When it finishes, point the camera here and check again.": "Ainda está em andamento. Quando terminar, aponte a câmera para cá e verifique de novo.",
+            "I can't confirm the result from here.": "Não consigo confirmar o resultado daqui.",
             "I couldn't solve this. Check the device's manual or contact service.":
                 "Não consegui resolver. Consulte o manual do aparelho ou a assistência técnica.",
             "Point the camera at the control, then check again.": "Aponte a câmera para o controle e verifique de novo.",

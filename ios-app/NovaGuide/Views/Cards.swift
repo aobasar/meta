@@ -395,11 +395,33 @@ private struct ConfirmCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
+            if model.goalCheck == .checking {
+                HStack(spacing: 8) {
+                    ProgressView()
+                    Text("Checking the result…").font(.headline)
+                }
+                .clearsMascot()
+            } else {
+                choices
+            }
+        }
+    }
+
+    @ViewBuilder private var choices: some View {
+        VStack(alignment: .leading, spacing: 8) {
             Text("Did this solve it?").font(.headline).clearsMascot()
             if let reply = model.reply {
                 Text(GuideText.display(reply)).font(.footnote).foregroundStyle(Color.sheetMuted).fixedSize(horizontal: false, vertical: true)
             }
-            Button(String(localized: "Yes, solved", bundle: .ui)) { model.confirmSolved() }.buttonStyle(PrimaryButtonStyle(fill: .novaGreen))
+            if model.goalCheck == .waiting {
+                Button(String(localized: "Check now", bundle: .ui)) { model.checkGoal() }.buttonStyle(PrimaryButtonStyle(fill: .novaYellow))
+                Button(String(localized: "Yes, solved", bundle: .ui)) { model.confirmSolved() }.buttonStyle(SheetButtonStyle())
+            } else {
+                Button(String(localized: "Yes, solved", bundle: .ui)) { model.confirmSolved() }.buttonStyle(PrimaryButtonStyle(fill: .novaGreen))
+                if model.goalCheck == .unclear {
+                    Button(String(localized: "Check now", bundle: .ui)) { model.checkGoal() }.buttonStyle(SheetButtonStyle())
+                }
+            }
             HStack(spacing: 8) {
                 Button(String(localized: "No, not solved", bundle: .ui)) { model.notSolved() }.buttonStyle(SheetButtonStyle())
                 MicButton()
@@ -449,7 +471,16 @@ private struct CorrectionCard: View {
                 }
                 Button(String(localized: "Just look again", bundle: .ui)) { model.lookAgainWithoutWords() }.buttonStyle(PrimaryButtonStyle())
             }
-            Button(String(localized: "Cancel", bundle: .ui)) { model.closeCorrection() }.buttonStyle(SheetButtonStyle())
+            HStack(spacing: 8) {
+                if case .telling("outcome") = correcting {
+                    Button(String(localized: "Go back", bundle: .ui)) {
+                        model.closeCorrection()
+                        model.back()
+                    }
+                    .buttonStyle(SheetButtonStyle())
+                }
+                Button(String(localized: "Cancel", bundle: .ui)) { model.closeCorrection() }.buttonStyle(SheetButtonStyle())
+            }
         }
     }
 }

@@ -416,6 +416,8 @@ final class AutoLanguageTests: XCTestCase {
             "Kokobubu is ready to help.", "How can I help you?", "Done. It should be working now.",
             "Tap the right control on the screen.", "Okay, next step.", "No problem, let's try again.",
             "We seem stuck. Shall I look at this again?", "Okay.", "Did this solve it?",
+            "It's still working. When it finishes, point the camera here and check again.",
+            "I can't confirm the result from here.",
             "I couldn't solve this. Check the device's manual or contact service.",
             "Point the camera at the control, then check again.",
             "Move the phone closer to the control, then check again.", "Hold the phone steady, then check again.",
@@ -681,6 +683,13 @@ final class SoundEffectsTests: XCTestCase {
         XCTAssertNotNil(Color(hex: "#F28C28"))
         XCTAssertNil(Color(hex: "orange"))
         XCTAssertNil(Color(hex: nil))
+    }
+}
+
+final class GoalCheckTests: XCTestCase {
+    func testADeviceStillWorkingIsReadFromTheServer() throws {
+        let data = Data(#"{"status":"in_progress","observed":"Setting Language...","correction":""}"#.utf8)
+        XCTAssertEqual(try JSONDecoder().decode(StepCheck.self, from: data).status, .inProgress)
     }
 }
 

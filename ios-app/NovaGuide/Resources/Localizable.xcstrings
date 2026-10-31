@@ -12,6 +12,56 @@
         }
       }
     },
+    "Check now": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Şimdi kontrol et"
+          }
+        }
+      }
+    },
+    "Checking the result…": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sonuç kontrol ediliyor…"
+          }
+        }
+      }
+    },
+    "Go back": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Geri dön"
+          }
+        }
+      }
+    },
+    "I can't confirm the result from here.": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sonucu buradan doğrulayamıyorum."
+          }
+        }
+      }
+    },
+    "It's still working. When it finishes, point the camera here and check again.": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hâlâ çalışıyor. Bitince kamerayı buraya tutup yeniden kontrol edin."
+          }
+        }
+      }
+    },
     "Stop": {
       "localizations": {
         "tr": {

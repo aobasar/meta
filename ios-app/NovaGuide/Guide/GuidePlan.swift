@@ -27,6 +27,8 @@ struct GuidePlan: Decodable, Equatable {
     /// The task goes on past what this photo shows (the next screen, a panel that opens), and the way as Spark expects it.
     var continues: Bool? = nil
     var remaining: String? = nil
+    /// What the camera shows once the whole task is finished; checked after the last step.
+    var goal: String? = nil
     /// Nova asks this before it plans; such a plan has no steps.
     var question: Question? = nil
     /// Kokobubu needs to see something else first; such a plan has no steps.
@@ -163,6 +165,8 @@ struct StepCheck: Decodable, Equatable {
         case done
         case notDone = "not_done"
         case unsure
+        /// Only for a whole task: the device is still working on it.
+        case inProgress = "in_progress"
     }
 
     var status: Status
