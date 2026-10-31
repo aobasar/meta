@@ -394,6 +394,17 @@ class TourPromptTests(unittest.TestCase):
                      "when the way is the same on any model"):
             self.assertIn(part, words)
 
+    def test_a_problem_is_tested_before_anything_is_changed(self):
+        words = " ".join(guide.PLAN_PROMPT.split())
+        for part in ("test it before changing anything", "open the browser and load a page", "already selected"):
+            self.assertIn(part, words)
+
+    def test_only_a_dial_gets_the_any_position_check(self):
+        tap = {"instruction": "Tap the network.", "own_suggestion": True, "success_condition": "the network is selected"}
+        dial = {**tap, "set_to_label": "normal"}
+        self.assertEqual(guide.step_entry(tap, "row", "", (500, 250), 1000, 500)["success"], "the network is selected")
+        self.assertEqual(guide.step_entry(dial, "knob", "", (500, 250), 1000, 500)["success"], guide.ANY_POSITION)
+
     def test_the_goal_check_can_say_the_device_is_still_working(self):
         self.assertIn("in_progress", guide.VERIFY_GOAL_SCHEMA["json_schema"]["schema"]["properties"]["status"]["enum"])
         self.assertNotIn("in_progress", guide.VERIFY_SCHEMA["json_schema"]["schema"]["properties"]["status"]["enum"])
