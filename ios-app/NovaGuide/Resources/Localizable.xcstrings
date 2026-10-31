@@ -82,6 +82,16 @@
         }
       }
     },
+    "Dial line": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kadran çizgisi"
+          }
+        }
+      }
+    },
     "Floating card": {
       "localizations": {
         "tr": {

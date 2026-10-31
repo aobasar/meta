@@ -10,6 +10,8 @@ struct MarkerOverlay: View {
     var brightness: ((CGPoint) -> Double?)? = nil
     var card: CGRect = .zero
     var aims = true
+    /// Settings › Dial line: from the control to the position it should reach.
+    var showsDialLine = false
     @State private var ringShown = false
     @State private var aim: CGVector?
     @State private var cornersShown = false
@@ -18,6 +20,9 @@ struct MarkerOverlay: View {
         GeometryReader { geometry in
             if marker.onScreen {
                 ZStack {
+                    if showsDialLine, let label = marker.label {
+                        DialLine(from: marker.center, to: label, tint: tint)
+                    }
                     if let label = marker.label {
                         Circle().stroke(tint, lineWidth: 3)
                             .frame(width: 15, height: 15)
@@ -93,6 +98,29 @@ private struct CornerMarks: View {
         }
         .frame(width: side, height: side)
         .shadow(color: .black.opacity(0.7), radius: 2)
+    }
+}
+
+/// A moving dashed line from a dial to the position it should reach. It needs no turning direction: the user sees where
+/// to arrive, even when the model can't tell the shorter way.
+private struct DialLine: View {
+    var from: CGPoint
+    var to: CGPoint
+    var tint: Color
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var phase: CGFloat = 0
+
+    var body: some View {
+        Path { path in
+            path.move(to: from)
+            path.addLine(to: to)
+        }
+        .stroke(tint, style: StrokeStyle(lineWidth: 3, lineCap: .round, dash: [4, 10], dashPhase: phase))
+        .shadow(color: .black.opacity(0.7), radius: 2)
+        .onAppear {
+            guard !reduceMotion else { return }
+            withAnimation(.linear(duration: 0.9).repeatForever(autoreverses: false)) { phase = -14 }
+        }
     }
 }
 

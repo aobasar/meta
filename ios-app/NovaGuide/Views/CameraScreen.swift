@@ -200,8 +200,10 @@ struct CameraScreen: View {
                     .allowsHitTesting(false)
             }
             if model.phase == .guiding, let marker = ar.marker {
-                MarkerOverlay(marker: marker, tint: ringTint, motion: model.feedback == .correct ? nil : model.currentStep?.motionKind ?? .point, brightness: handBrightness,
-                              card: docked ? .zero : ar.cameraRect(fromGlobal: cardFrame), aims: model.feedback != .correct)
+                MarkerOverlay(marker: marker, tint: ringTint, motion: model.feedback == .correct ? nil : model.currentStep?.motionKind ?? (dialLineShown(marker) ? nil : .point),
+                              brightness: handBrightness,
+                              card: docked ? .zero : ar.cameraRect(fromGlobal: cardFrame), aims: model.feedback != .correct,
+                              showsDialLine: dialLineShown(marker))
                     .id("\(model.stepIndex)-\(markerShown)")
             }
             if model.correcting == .moving {
@@ -235,6 +237,11 @@ struct CameraScreen: View {
 
     private var cameraOptions: CameraOptions {
         CameraOptions(lens: settings.lens, highDetail: settings.highDetail, torch: settings.torch)
+    }
+
+    /// A dial's step with a known position shows the way there, so it needs no pointing hand as well.
+    private func dialLineShown(_ marker: MarkerState) -> Bool {
+        settings.dialLine && marker.label != nil && model.feedback != .correct
     }
 
     /// The card sits on the step's target: it folds out of the way.

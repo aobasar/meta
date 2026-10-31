@@ -304,6 +304,7 @@ final class GuideSettings: ObservableObject {
     /// Short sounds for the microphone, checks and the end of a task.
     @Published var soundEffects: Bool { didSet { defaults.set(soundEffects, forKey: "soundEffects") } }
     @Published var handAnimation: Bool { didSet { defaults.set(handAnimation, forKey: "handAnimation") } }
+    @Published var dialLine: Bool { didSet { defaults.set(dialLine, forKey: "dialLine") } }
     @Published var showMascot: Bool { didSet { defaults.set(showMascot, forKey: "showMascot") } }
     @Published var speakAloud: Bool { didSet { defaults.set(speakAloud, forKey: "speakAloud") } }
     /// Check each step on a close-up; when off, "I've done it" moves on and counts as the user's own confirmation.
@@ -345,6 +346,7 @@ final class GuideSettings: ObservableObject {
         liveTranscription = defaults.object(forKey: "liveTranscription") as? Bool ?? true
         soundEffects = defaults.object(forKey: "soundEffects") as? Bool ?? true
         handAnimation = defaults.object(forKey: "handAnimation") as? Bool ?? true
+        dialLine = defaults.object(forKey: "dialLine") as? Bool ?? true
         showMascot = defaults.object(forKey: "showMascot") as? Bool ?? true
         cardPortrait = CardPlace(rawValue: defaults.string(forKey: "cardPortrait")) ?? .portraitDefault
         cardLandscape = CardPlace(rawValue: defaults.string(forKey: "cardLandscape")) ?? .landscapeDefault
