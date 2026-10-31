@@ -686,6 +686,45 @@ final class SoundEffectsTests: XCTestCase {
     }
 }
 
+final class FocusGeometryTests: XCTestCase {
+    func testATapBecomesAPointInTheCameraImage() {
+        let point = FocusGeometry.point(tap: CGPoint(x: 100, y: 200), viewSize: CGSize(width: 400, height: 800),
+                                        displayTransform: .identity)
+        XCTAssertEqual(point, CGPoint(x: 0.25, y: 0.25))
+    }
+
+    func testAPortraitScreenTurnsThePoint() {
+        // Portrait: the image's x runs down the screen, and its y runs from right to left.
+        let portrait = CGAffineTransform(a: 0, b: 1, c: -1, d: 0, tx: 1, ty: 0)
+        let point = FocusGeometry.point(tap: CGPoint(x: 300, y: 200), viewSize: CGSize(width: 400, height: 800),
+                                        displayTransform: portrait)
+        XCTAssertEqual(point?.x ?? -1, 0.25, accuracy: 0.001)
+        XCTAssertEqual(point?.y ?? -1, 0.25, accuracy: 0.001)
+    }
+
+    func testAPointStaysInsideTheImage() {
+        let point = FocusGeometry.point(tap: CGPoint(x: 900, y: -50), viewSize: CGSize(width: 400, height: 800),
+                                        displayTransform: .identity)
+        XCTAssertEqual(point, CGPoint(x: 1, y: 0))
+        XCTAssertNil(FocusGeometry.point(tap: .zero, viewSize: .zero, displayTransform: .identity))
+    }
+}
+
+final class BuildStampTests: XCTestCase {
+    private let pacific = TimeZone(identifier: "America/Los_Angeles")!
+
+    func testTheCommitAndTheTimeAreShown() {
+        let text = BuildStamp.text(commit: "2ab53c1+", built: "2026-10-31T03:14:00Z", timeZone: pacific, locale: Locale(identifier: "en_US"))
+        XCTAssertTrue(text.hasPrefix("2ab53c1+ · Oct 30"), text)
+        XCTAssertTrue(text.contains("8:14"), text)
+    }
+
+    func testAMissingStampStillSaysSomething() {
+        XCTAssertEqual(BuildStamp.text(commit: "2ab53c1", built: nil), "2ab53c1")
+        XCTAssertFalse(BuildStamp.text(commit: nil, built: nil).isEmpty)
+    }
+}
+
 final class GoalCheckTests: XCTestCase {
     func testADeviceStillWorkingIsReadFromTheServer() throws {
         let data = Data(#"{"status":"in_progress","observed":"Setting Language...","correction":""}"#.utf8)
@@ -761,5 +800,8 @@ final class CardPlaceTests: XCTestCase {
         let reopened = GuideSettings(defaults: defaults)
         XCTAssertEqual(reopened.cardLandscape, CardPlace(top: true, left: true))
         XCTAssertEqual(reopened.cardPortrait, .portraitDefault)
+        XCTAssertFalse(reopened.cardDocked)
+        reopened.cardDocked = true
+        XCTAssertTrue(GuideSettings(defaults: defaults).cardDocked)
     }
 }

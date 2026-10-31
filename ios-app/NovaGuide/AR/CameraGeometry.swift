@@ -182,6 +182,17 @@ struct DepthSample {
 
 /// The close-up sent for step verification: the control with room around it for the printed labels, and the dial's
 /// target label when there is one. Prototype crops of about 3 knob diameters scored 20 of 21 (docs/goster-bana.md).
+enum FocusGeometry {
+    /// Where a tap on the screen falls in the camera's own coordinates, 0 to 1. `displayTransform` is ARKit's, from the
+    /// camera image to the screen.
+    static func point(tap: CGPoint, viewSize: CGSize, displayTransform: CGAffineTransform) -> CGPoint? {
+        guard viewSize.width > 0, viewSize.height > 0 else { return nil }
+        let inView = CGPoint(x: tap.x / viewSize.width, y: tap.y / viewSize.height)
+        let inImage = inView.applying(displayTransform.inverted())
+        return CGPoint(x: min(max(inImage.x, 0), 1), y: min(max(inImage.y, 0), 1))
+    }
+}
+
 enum CropGeometry {
     static let minSide: CGFloat = 200  // pixels of the captured image; smaller can't show a pointer reliably
     static let paddingRadii: CGFloat = 3.2  // half the crop's side, in control radii

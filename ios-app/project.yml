@@ -32,6 +32,7 @@ targets:
         APP_URL_SCHEME: kokobubu
         INFOPLIST_KEY_CFBundleDisplayName: $(APP_DISPLAY_NAME)
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ENABLE_USER_SCRIPT_SANDBOXING: NO
       # The maintainer's own build sits beside the TestFlight one on the phone, and looks different.
       configs:
         Debug:
@@ -60,6 +61,20 @@ targets:
         NSMicrophoneUsageDescription: "Kokobubu listens only after you tap the microphone, so you can ask and answer by voice."
         NSPhotoLibraryAddUsageDescription: "Kokobubu saves a screen recording to Photos only when you tap Save to Photos."
         NovaPublicURL: $(NOVA_PUBLIC_URL)
+    # Settings shows which commit and when, so a new install can be told from the old one.
+    postBuildScripts:
+      - name: Stamp the build
+        basedOnDependencyAnalysis: false
+        script: |
+          plist="$TARGET_BUILD_DIR/$INFOPLIST_PATH"
+          commit=$(git -C "$SRCROOT" rev-parse --short HEAD 2>/dev/null || echo unknown)
+          if [ -n "$(git -C "$SRCROOT" status --porcelain -- . ../web-prototype/guide.py 2>/dev/null)" ]; then commit="$commit+"; fi
+          built=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          for pair in "KokobubuCommit:$commit" "KokobubuBuilt:$built"; do
+            key=${pair%%:*}; value=${pair#*:}
+            /usr/libexec/PlistBuddy -c "Delete :$key" "$plist" 2>/dev/null || true
+            /usr/libexec/PlistBuddy -c "Add :$key string $value" "$plist" || true
+          done
   KokobubuTests:
     type: bundle.unit-test
     platform: iOS

@@ -7,8 +7,20 @@ struct SidePanel: View {
     @EnvironmentObject private var settings: GuideSettings
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     var land: Bool
+    var docked = false
+    static let width: CGFloat = 300
+    /// Narrower than the floating card: the camera is what the user needs most.
+    static let dockedWidth: CGFloat = 240
     @State private var folded = false
     @GestureState(resetTransaction: Transaction(animation: .easeOut(duration: 0.2))) private var dragged = CGSize.zero
+    // The ready card's first view: the mascot stands where the microphone will be, hops twice and goes to its corner.
+    private enum Intro { case center, leaving }
+    private static var introPlayed = false
+    private static let introSize: CGFloat = 76
+    @State private var intro: Intro?
+    @State private var introHop: CGFloat = 0
+    @State private var introTask: Task<Void, Never>?
+    @State private var micCenter: CGPoint?
 
     var body: some View {
         Group {
@@ -17,34 +29,78 @@ struct SidePanel: View {
                     CardMascot()
                     ThinkingCard()
                 }
-                .padding(.horizontal, 14).padding(.vertical, 10).sheetStyle()
+                .padding(.horizontal, 14).padding(.vertical, 10).cardSurface(docked: docked)
             } else if model.phase == .finished {
                 CompletionCard().padding(14)
                     .overlay(alignment: .topLeading) { CardMascot().padding(10) }
-                    .sheetStyle()
+                    .cardSurface(docked: docked)
             } else {
-                if folded, let line = foldedLine {
+                if folded, !docked, let line = foldedLine {
                     FoldedBar(prefix: line.prefix, title: line.title) { folded = false }
                 } else {
                     VStack(alignment: .leading, spacing: 8) {
-                        Handle { folded = true }
+                        Handle { if !docked { folded = true } }
                             .simultaneousGesture(moving)
-                            .accessibilityAction(named: Text("Move the card")) { place(cardPlace.next(land: land)) }
-                        ScrollView {
-                            content.padding(.bottom, 2)
+                            .accessibilityAction(named: Text("Move the card")) {
+                                place(docked ? CardPlace(top: cardPlace.top, left: !cardPlace.left) : cardPlace.next(land: land))
+                            }
+                        if docked { Spacer(minLength: 0) }
+                        if case .choosing = model.phase {
+                            content  // scrolls its options itself, so its buttons stay in reach
+                        } else {
+                            ScrollView {
+                                content.padding(.bottom, 2)
+                            }
+                            .scrollBounceBehavior(.basedOnSize)
+                            .frame(maxHeight: land ? 300 : 420)
+                            .fixedSize(horizontal: false, vertical: true)
                         }
-                        .scrollBounceBehavior(.basedOnSize)
-                        .frame(maxHeight: land ? 300 : 420)
-                        .fixedSize(horizontal: false, vertical: true)
+                        if docked { Spacer(minLength: 0) }
                     }
-                    .padding(.horizontal, 12)
+                    .padding(.horizontal, docked ? 16 : 12)
                     .padding(.bottom, 10)
-                    .overlay(alignment: .topTrailing) { CardMascot().padding(.top, 8).padding(.trailing, 12) }
-                    .sheetStyle()
+                    .overlay(alignment: .topTrailing) {
+                        HStack(alignment: .top, spacing: 4) {
+                            if land {
+                                Button { dockToggle() } label: {
+                                    Image(systemName: docked ? "rectangle.inset.filled" : (cardPlace.left ? "sidebar.left" : "sidebar.right"))
+                                        .font(.footnote.weight(.semibold))
+                                        .foregroundStyle(Color.sheetMuted)
+                                        .frame(width: 44, height: 28)
+                                        .contentShape(Rectangle())
+                                }
+                                .accessibilityLabel(Text(docked ? "Floating card" : "Side panel"))
+                            }
+                            if settings.showMascot && !cornerMascotHidden {
+                                CardMascot()
+                            } else if settings.showMascot {
+                                Color.clear.frame(width: CardMascot.size, height: CardMascot.size)
+                            }
+                        }
+                        .padding(.top, 8).padding(.trailing, 12)
+                    }
+                    .coordinateSpace(name: Self.cardSpace)
+                    .overlay {
+                        if let intro, let micCenter {
+                            GeometryReader { card in
+                                KokobubuMascot(size: Self.introSize)
+                                    .scaleEffect(intro == .center ? 1 : CardMascot.size / Self.introSize)
+                                    .position(intro == .center ? micCenter : CGPoint(x: card.size.width - 12 - CardMascot.size / 2, y: 8 + CardMascot.size / 2))
+                                    .offset(y: introHop)
+                                    .onTapGesture(perform: skipIntroAndListen)
+                            }
+                            .accessibilityHidden(true)
+                        }
+                    }
+                    .onPreferenceChange(MicCenterKey.self) { center in
+                        micCenter = center
+                        startIntroIfNeeded()
+                    }
+                    .cardSurface(docked: docked)
                 }
             }
         }
-        .offset(dragged)
+        .offset(docked ? .zero : dragged)
         .environment(\.colorScheme, .light)
         .animation(.easeOut(duration: 0.2), value: folded)
         .onChange(of: model.phase) { _, _ in folded = false }
@@ -61,12 +117,58 @@ struct SidePanel: View {
         DragGesture(minimumDistance: 12, coordinateSpace: .global)
             .updating($dragged) { value, state, _ in state = value.translation }
             .onEnded { value in
+                if docked {
+                    // A panel fills its side, so only a drag across the screen means anything.
+                    let across = cardPlace.left ? value.translation.width > CardPlace.moveDistance : value.translation.width < -CardPlace.moveDistance
+                    if across { place(CardPlace(top: cardPlace.top, left: !cardPlace.left)) }
+                    return
+                }
                 switch cardPlace.afterDrag(value.translation, land: land) {
                 case .move(let next): place(next)
                 case .fold: folded = true
                 case .stay: break
                 }
             }
+    }
+
+    static let cardSpace = "card"
+
+    /// While the mascot itself listens, or stands in the middle, a second one in the corner would only compete with it.
+    private var cornerMascotHidden: Bool {
+        intro != nil || (model.phase == .asking && model.pulse == .listening)
+    }
+
+    private func startIntroIfNeeded() {
+        guard !Self.introPlayed, micCenter != nil, model.phase == .asking, model.awaitingFirstTap, settings.showMascot,
+              !reduceMotion, !folded else { return }
+        Self.introPlayed = true
+        intro = .center
+        introTask = Task {
+            for _ in 0..<2 {
+                withAnimation(.easeOut(duration: 0.16)) { introHop = -16 }
+                try? await Task.sleep(for: .seconds(0.16))
+                withAnimation(.spring(response: 0.25, dampingFraction: 0.55)) { introHop = 0 }
+                try? await Task.sleep(for: .seconds(0.25))
+            }
+            try? await Task.sleep(for: .seconds(0.15))
+            guard !Task.isCancelled else { return }
+            withAnimation(.spring(response: 0.5, dampingFraction: 0.78)) { intro = .leaving }
+            try? await Task.sleep(for: .seconds(0.5))
+            guard !Task.isCancelled else { return }
+            intro = nil
+        }
+    }
+
+    /// The user shouldn't have to wait for the mascot: a tap on it goes straight to listening.
+    private func skipIntroAndListen() {
+        introTask?.cancel()
+        introHop = 0
+        intro = nil
+        model.microphoneTapped()
+    }
+
+    private func dockToggle() {
+        withAnimation(reduceMotion ? nil : .spring(response: 0.35, dampingFraction: 0.85)) { settings.cardDocked.toggle() }
     }
 
     private func place(_ next: CardPlace) {
@@ -78,9 +180,9 @@ struct SidePanel: View {
     @ViewBuilder private var content: some View {
         switch model.phase {
         case .asking:
-            ReadyCard()
+            ReadyCard(micHidden: intro == .center)
         case .choosing(let asked):
-            QuestionCard(asked: asked)
+            QuestionCard(asked: asked, land: land)
         case .showing(let asked):
             ShowCard(asked: asked)
         case .guiding:
@@ -123,6 +225,15 @@ struct SidePanel: View {
 
 extension View {
     /// The frosted card: the camera stays visible around it, and light enough to read in a dim room.
+    @ViewBuilder func cardSurface(docked: Bool) -> some View {
+        if docked {
+            frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+                .background(Color(white: 0.98).ignoresSafeArea())
+        } else {
+            sheetStyle()
+        }
+    }
+
     func sheetStyle() -> some View {
         frame(maxWidth: .infinity, alignment: .leading)
             .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
@@ -217,13 +328,47 @@ private struct SheetButtonStyle: ButtonStyle {
 }
 
 /// The microphone: large while Nova waits for the user to speak, small beside the main button otherwise.
+private struct MicCenterKey: PreferenceKey {
+    static let defaultValue: CGPoint? = nil
+    static func reduce(value: inout CGPoint?, nextValue: () -> CGPoint?) { value = nextValue() ?? value }
+}
+
 private struct MicButton: View {
     @EnvironmentObject private var model: GuideModel
+    @EnvironmentObject private var settings: GuideSettings
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     var large = false
     @State private var glow = false
 
     var body: some View {
         Button { model.microphoneTapped() } label: {
+            if large && listening && settings.showMascot {
+                listeningMascot
+            } else {
+                microphone
+            }
+        }
+        .disabled(model.pulse == .thinking)
+        .accessibilityLabel(Text(listening ? "Listening…" : "Tap and talk"))
+        .onAppear { withAnimation(.easeInOut(duration: 1.1).repeatForever(autoreverses: true)) { glow = true } }
+    }
+
+    /// One thing on the card while it listens: the mascot, in a red ring that says the microphone is on.
+    private var listeningMascot: some View {
+        VStack(spacing: 8) {
+            KokobubuMascot(size: 64, mood: .listening)
+                .padding(5)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 19, style: .continuous)
+                        .stroke(Color.novaRed, lineWidth: 3)
+                        .scaleEffect(!reduceMotion && glow ? 1.08 : 1)
+                        .opacity(!reduceMotion && glow ? 0.55 : 1)
+                )
+            Waveform(recorder: model.recorder, color: .novaRed)
+        }
+    }
+
+    private var microphone: some View {
             ZStack {
                 if large {
                     Circle().fill(listening ? Color.novaRed : Color.novaYellow)
@@ -243,10 +388,6 @@ private struct MicButton: View {
             }
             .frame(width: large ? 64 : 44, height: large ? 64 : 44)
             .scaleEffect(large && model.awaitingFirstTap && glow ? 1.08 : 1)
-        }
-        .disabled(model.pulse == .thinking)
-        .accessibilityLabel(Text(listening ? "Listening…" : "Tap and talk"))
-        .onAppear { withAnimation(.easeInOut(duration: 1.1).repeatForever(autoreverses: true)) { glow = true } }
     }
 
     private var listening: Bool { model.pulse == .listening }
@@ -256,6 +397,7 @@ private struct MicButton: View {
 
 private struct ReadyCard: View {
     @EnvironmentObject private var model: GuideModel
+    var micHidden = false
     @State private var typing = false
     @FocusState private var focused: Bool
 
@@ -265,6 +407,12 @@ private struct ReadyCard: View {
                 .font(.headline)
                 .multilineTextAlignment(.center)
             MicButton(large: true)
+                .scaleEffect(micHidden ? 0.3 : 1)
+                .opacity(micHidden ? 0 : 1)
+                .background(GeometryReader { mic in
+                    Color.clear.preference(key: MicCenterKey.self, value: CGPoint(
+                        x: mic.frame(in: .named(SidePanel.cardSpace)).midX, y: mic.frame(in: .named(SidePanel.cardSpace)).midY))
+                })
             Text(model.pulse == .listening ? "Listening…" : "Tap and talk").font(.footnote.weight(.semibold))
             if typing {
                 TextField(String(localized: "I want a normal wash", bundle: .ui), text: $model.question, axis: .vertical)
@@ -373,18 +521,28 @@ private struct ShowCard: View {
 private struct QuestionCard: View {
     @EnvironmentObject private var model: GuideModel
     var asked: GuidePlan.Question
+    var land = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 7) {
             Text(GuideText.display(asked.text)).font(.headline).fixedSize(horizontal: false, vertical: true).clearsMascot()
-            ForEach(asked.options) { option in
-                ChoiceRow(title: option.title, subtitle: option.subtitle, color: Color(hex: option.color)) { model.answerQuestion(option.answer) }
+            ScrollView {
+                VStack(spacing: 7) { options }
             }
+            .scrollBounceBehavior(.basedOnSize)
+            .frame(maxHeight: land ? 180 : 340)
+            .fixedSize(horizontal: false, vertical: true)
             HStack(spacing: 8) {
                 Button(String(localized: "You choose", bundle: .ui)) { model.letNovaChoose() }.buttonStyle(SheetButtonStyle())
                 MicButton()
             }
         }
+    }
+
+    @ViewBuilder private var options: some View {
+            ForEach(asked.options) { option in
+                ChoiceRow(title: option.title, subtitle: option.subtitle, color: Color(hex: option.color)) { model.answerQuestion(option.answer) }
+            }
     }
 }
 

@@ -121,6 +121,21 @@ enum InterfaceLanguage: String, CaseIterable, Identifiable {
 }
 
 /// Which way the screen may turn: Settings › Screen orientation.
+/// Which build this is: the commit and the time, stamped when it was built. "+" means changes that weren't committed.
+enum BuildStamp {
+    static var text: String {
+        text(commit: Bundle.main.object(forInfoDictionaryKey: "KokobubuCommit") as? String,
+             built: Bundle.main.object(forInfoDictionaryKey: "KokobubuBuilt") as? String)
+    }
+
+    static func text(commit: String?, built: String?, timeZone: TimeZone = .current, locale: Locale = .current) -> String {
+        guard let commit, !commit.isEmpty else { return String(localized: "unknown", bundle: .ui) }
+        guard let built, let date = ISO8601DateFormatter().date(from: built) else { return commit }
+        let format = Date.FormatStyle(date: .abbreviated, time: .shortened, locale: locale, timeZone: timeZone)
+        return "\(commit) · \(date.formatted(format))"
+    }
+}
+
 /// Where the card sits on the camera screen: top or bottom in portrait, one of the corners in landscape.
 struct CardPlace: Equatable {
     var top: Bool
@@ -299,6 +314,8 @@ final class GuideSettings: ObservableObject {
     /// Each orientation remembers its own place for the card.
     @Published var cardPortrait: CardPlace { didSet { defaults.set(cardPortrait.rawValue, forKey: "cardPortrait") } }
     @Published var cardLandscape: CardPlace { didSet { defaults.set(cardLandscape.rawValue, forKey: "cardLandscape") } }
+    /// In landscape, the card fills one side of the screen and the camera the rest, so nothing hides under the card.
+    @Published var cardDocked: Bool { didSet { defaults.set(cardDocked, forKey: "cardDocked") } }
     /// The widest camera ARKit can track with is the default: more of a wide panel fits in one frame.
     @Published var lens: LensChoice { didSet { defaults.set(lens.rawValue, forKey: "lens") } }
     /// The camera's highest-resolution format, for small labels (close-ups are cut from the full frame).
@@ -329,6 +346,7 @@ final class GuideSettings: ObservableObject {
         showMascot = defaults.object(forKey: "showMascot") as? Bool ?? true
         cardPortrait = CardPlace(rawValue: defaults.string(forKey: "cardPortrait")) ?? .portraitDefault
         cardLandscape = CardPlace(rawValue: defaults.string(forKey: "cardLandscape")) ?? .landscapeDefault
+        cardDocked = defaults.bool(forKey: "cardDocked")
         speakAloud = defaults.object(forKey: "speakAloud") as? Bool ?? true
         verifyEach = defaults.object(forKey: "verifyEach") as? Bool ?? true
         autoContinue = defaults.object(forKey: "autoContinue") as? Bool ?? true

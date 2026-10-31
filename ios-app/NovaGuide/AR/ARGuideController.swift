@@ -93,6 +93,8 @@ final class ARGuideController: NSObject, ObservableObject, ARSessionDelegate {
     /// Nova is listening or waiting for a model: the automatic torch doesn't blink to measure the room.
     var holdTorch = false
     private(set) var anchors: [StepAnchor] = []
+    private var focusReturn: Task<Void, Never>?
+    private static let focusHoldSeconds = 5.0
     private var displayLink: CADisplayLink?
     private let ciContext = CIContext()
 
@@ -182,6 +184,47 @@ final class ARGuideController: NSObject, ObservableObject, ARSessionDelegate {
     private static func describe(_ format: ARConfiguration.VideoFormat) -> String {
         let camera = format.captureDeviceType == .builtInUltraWideCamera ? String(localized: "Ultra wide", bundle: .ui) : String(localized: "Wide", bundle: .ui)
         return "\(camera) · \(Int(format.imageResolution.width))×\(Int(format.imageResolution.height))"
+    }
+
+    /// A tap in the window, in this view's own points: the side panel can move the camera away from the screen's edge.
+    func cameraPoint(fromGlobal point: CGPoint) -> CGPoint {
+        arView.convert(point, from: nil)
+    }
+
+    /// A tap on the camera: focus and exposure go to that point, then back to automatic so a moving phone stays sharp.
+    func focus(atScreen tap: CGPoint) {
+        guard running, let frame = arView.session.currentFrame,
+              let device = ARWorldTrackingConfiguration.configurableCaptureDeviceForPrimaryCamera,
+              let orientation = arView.window?.windowScene?.interfaceOrientation else { return }
+        let size = arView.bounds.size
+        guard let point = FocusGeometry.point(tap: tap, viewSize: size,
+                                              displayTransform: frame.displayTransform(for: orientation, viewportSize: size)),
+              (try? device.lockForConfiguration()) != nil else { return }
+        if device.isFocusPointOfInterestSupported, device.isFocusModeSupported(.autoFocus) {
+            device.focusPointOfInterest = point
+            device.focusMode = .autoFocus
+        }
+        if device.isExposurePointOfInterestSupported, device.isExposureModeSupported(.autoExpose) {
+            device.exposurePointOfInterest = point
+            device.exposureMode = .autoExpose
+        }
+        device.unlockForConfiguration()
+        focusReturn?.cancel()
+        focusReturn = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(Self.focusHoldSeconds))
+            guard !Task.isCancelled else { return }
+            self?.returnToAutomaticFocus(device)
+        }
+    }
+
+    private func returnToAutomaticFocus(_ device: AVCaptureDevice) {
+        guard running, (try? device.lockForConfiguration()) != nil else { return }
+        let center = CGPoint(x: 0.5, y: 0.5)
+        if device.isFocusPointOfInterestSupported { device.focusPointOfInterest = center }
+        if device.isFocusModeSupported(.continuousAutoFocus) { device.focusMode = .continuousAutoFocus }
+        if device.isExposurePointOfInterestSupported { device.exposurePointOfInterest = center }
+        if device.isExposureModeSupported(.continuousAutoExposure) { device.exposureMode = .continuousAutoExposure }
+        device.unlockForConfiguration()
     }
 
     /// The torch belongs to the back camera module; ARKit hands out the device it runs, and the wide camera has the

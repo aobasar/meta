@@ -1,3 +1,4 @@
+import Combine
 import RealityKit
 import SwiftUI
 
@@ -12,6 +13,8 @@ struct CameraScreen: View {
     @State private var panel: Panel?
     @State private var markerShown = 0
     @State private var showStoppedVideo = false
+    @State private var focusMark: FocusMark.Tap?
+    @State private var sceneOrientation = UIInterfaceOrientation.unknown
 
     enum Panel: String, Identifiable {
         case more, settings, recording
@@ -22,14 +25,27 @@ struct CameraScreen: View {
         GeometryReader { geometry in
             let land = geometry.size.width > geometry.size.height
             let place = land ? settings.cardLandscape : settings.cardPortrait
-            ZStack(alignment: place.alignment(land: land)) {
-                cameraArea(land: land, card: place)
-                SidePanel(land: land)
-                    .frame(maxWidth: land ? 300 : .infinity)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 8)
+            let docked = land && settings.cardDocked
+            // Away from the Dynamic Island the panel can use the screen's edge, so it takes less of the camera.
+            // Read fresh: the launch can turn the screen after the first read. The state only asks for a redraw.
+            let _ = sceneOrientation
+            let orientation = Self.currentOrientation
+            let edgeIsFree = place.left ? orientation == .landscapeLeft : orientation == .landscapeRight
+            let inset = !docked || !edgeIsFree ? 0 : place.left ? geometry.safeAreaInsets.leading : geometry.safeAreaInsets.trailing
+            ZStack(alignment: docked ? (place.left ? .leading : .trailing) : place.alignment(land: land)) {
+                cameraArea(land: land, card: place, docked: docked)
+                    .padding(.leading, docked && place.left ? SidePanel.dockedWidth - inset : 0)
+                    .padding(.trailing, docked && !place.left ? SidePanel.dockedWidth - inset : 0)
+                SidePanel(land: land, docked: docked)
+                    .frame(maxWidth: docked ? SidePanel.dockedWidth : land ? SidePanel.width : .infinity, maxHeight: docked ? .infinity : nil)
+                    .padding(.horizontal, docked ? 0 : 8)
+                    .padding(.vertical, docked ? 0 : 8)
+                    .offset(x: place.left ? -inset : inset)
             }
         }
+        // Later than the turn itself would read the old side.
+        .onReceive(NotificationCenter.default.publisher(for: UIDevice.orientationDidChangeNotification).delay(for: .seconds(0.4), scheduler: RunLoop.main)) { _ in readOrientation() }
+        .onAppear(perform: readOrientation)
         .background(Color.black.ignoresSafeArea())
         .preferredColorScheme(.dark)
         .sheet(item: $panel, onDismiss: { Task { await model.checkConnection() } }) { which in
@@ -91,6 +107,14 @@ struct CameraScreen: View {
         }
     }
 
+    private func readOrientation() {
+        sceneOrientation = Self.currentOrientation
+    }
+
+    private static var currentOrientation: UIInterfaceOrientation {
+        UIApplication.shared.connectedScenes.compactMap { ($0 as? UIWindowScene)?.interfaceOrientation }.first ?? .unknown
+    }
+
     /// The user stops the video: it is kept and shown, and the next task isn't recorded until Settings turns it on again.
     private func stopRecording() {
         settings.screenRecording = false
@@ -98,7 +122,7 @@ struct CameraScreen: View {
         screenRecorder.finishTask()
     }
 
-    private func cameraArea(land: Bool, card: CardPlace) -> some View {
+    private func cameraArea(land: Bool, card: CardPlace, docked: Bool) -> some View {
         // The top bar stays clear of the card: at the bottom under a card on top, and beside it in landscape.
         let barsAtBottom = !land && card.top
         return ZStack {
@@ -106,12 +130,24 @@ struct CameraScreen: View {
             #if DEBUG
             if DemoMode.screen != nil { DemoBackdrop().ignoresSafeArea() }
             #endif
-            if model.phase == .guiding, let marker = ar.marker {
-                // A tap on the camera, or a new step, shows the ring and the motion again.
-                Color.clear
-                    .contentShape(Rectangle())
+            // A tap on the camera focuses there. A tap, or a new step, also shows the ring and the motion again.
+            Color.clear
+                .contentShape(Rectangle())
+                .ignoresSafeArea()
+                // Global, then the camera's own points: .local here starts below the safe area.
+                .onTapGesture(coordinateSpace: .global) { global in
+                    let point = ar.cameraPoint(fromGlobal: global)
+                    ar.focus(atScreen: point)
+                    focusMark = FocusMark.Tap(point: point)
+                    markerShown += 1
+                }
+            if let focusMark {
+                FocusMark(tap: focusMark)
+                    .id(focusMark.id)
                     .ignoresSafeArea()
-                    .onTapGesture { markerShown += 1 }
+                    .allowsHitTesting(false)
+            }
+            if model.phase == .guiding, let marker = ar.marker {
                 MarkerOverlay(marker: marker, tint: ringTint, motion: model.currentStep?.motionKind)
                     .id("\(model.stepIndex)-\(markerShown)")
                     .ignoresSafeArea()
@@ -120,7 +156,7 @@ struct CameraScreen: View {
                 Color.clear
                     .contentShape(Rectangle())
                     .ignoresSafeArea()
-                    .onTapGesture(coordinateSpace: .local) { model.markerTapped(at: $0) }
+                    .onTapGesture(coordinateSpace: .global) { model.markerTapped(at: ar.cameraPoint(fromGlobal: $0)) }
             }
             if model.phase == .thinking {
                 ScanOverlay().padding(.horizontal, 20)
@@ -167,8 +203,8 @@ struct CameraScreen: View {
                 if !barsAtBottom { Spacer() }
             }
             .padding(.horizontal, 14)
-            .padding(.leading, land && card.left ? 300 : 0)
-            .padding(.trailing, land && !card.left ? 300 : 0)
+            .padding(.leading, land && !docked && card.left ? SidePanel.width : 0)
+            .padding(.trailing, land && !docked && !card.left ? SidePanel.width : 0)
             .padding(barsAtBottom ? .bottom : .top, 12)
         }
         #if DEBUG
@@ -198,6 +234,36 @@ struct CameraScreen: View {
         case .noKey: String(localized: "The server has no API key", bundle: .ui)
         case .unreachable: String(localized: "Kokobubu is not reachable", bundle: .ui)
         case .connected, .unknown: nil
+        }
+    }
+}
+
+/// A small yellow square where the user tapped to focus; it fades by itself.
+private struct FocusMark: View {
+    struct Tap: Equatable {
+        let id = UUID()
+        var point: CGPoint
+    }
+
+    var tap: Tap
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var settled = false
+    @State private var gone = false
+
+    var body: some View {
+        GeometryReader { _ in
+            RoundedRectangle(cornerRadius: 4)
+                .stroke(Color.novaYellow, lineWidth: 2)
+                .frame(width: 70, height: 70)
+                .scaleEffect(settled || reduceMotion ? 1 : 1.35)
+                .opacity(gone ? 0 : 1)
+                .position(tap.point)
+        }
+        .accessibilityHidden(true)
+        .task {
+            withAnimation(.easeOut(duration: 0.2)) { settled = true }
+            try? await Task.sleep(for: .seconds(1))
+            withAnimation(.easeIn(duration: 0.3)) { gone = true }
         }
     }
 }
@@ -394,11 +460,12 @@ private struct CornerBrackets: Shape {
 
 struct Waveform: View {
     @ObservedObject var recorder: VoiceRecorder
+    var color = Color.white
 
     var body: some View {
         HStack(spacing: 3) {
             ForEach([12.0, 20, 14, 22], id: \.self) { base in
-                Capsule().fill(.white)
+                Capsule().fill(color)
                     .frame(width: 4, height: base * (0.6 + CGFloat(recorder.level) * 1.6))
             }
         }

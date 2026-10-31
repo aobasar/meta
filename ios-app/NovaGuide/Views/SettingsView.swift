@@ -13,7 +13,9 @@ struct SettingsView: View {
     @State private var copied = false
 
     private var version: String {
-        (Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0.1") + " Beta"
+        let short = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0.1"
+        let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "?"
+        return "\(short) Beta (\(build))"
     }
 
     var body: some View {
@@ -92,6 +94,7 @@ struct SettingsView: View {
                         LabeledContent(String(localized: "Depth sensor", bundle: .ui), value: depthText)
                         LabeledContent(String(localized: "AR tracking", bundle: .ui), value: ar.trackingIssue ?? String(localized: "Normal", bundle: .ui))
                         LabeledContent(String(localized: "Version", bundle: .ui), value: version)
+                        LabeledContent(String(localized: "Build", bundle: .ui), value: BuildStamp.text)
                         Button(copied ? String(localized: "Copied", bundle: .ui) : String(localized: "Copy debug report", bundle: .ui)) {
                             UIPasteboard.general.string = debugReport
                             copied = true
@@ -137,7 +140,7 @@ struct SettingsView: View {
 
     /// For pasting into a bug report; no frames, words or keys.
     private var debugReport: String {
-        ["Kokobubu debug report", "version: \(version)", "phase: \(model.phase)", "step: \(model.stepIndex + 1)",
+        ["Kokobubu debug report", "version: \(version)", "build: \(BuildStamp.text)", "phase: \(model.phase)", "step: \(model.stepIndex + 1)",
          "reasoning: \(reasoningModel)", "provider: \(settings.sparkProvider.rawValue)", "controls: sam-3.1",
          "voice: muse-voice-transcribe-1.0, live: \(settings.liveTranscription)", "connection: \(model.connection)",
          "camera: \(ar.activeCamera), depth: \(ar.hasLiDAR)", "tracking: \(ar.trackingIssue ?? "normal")",

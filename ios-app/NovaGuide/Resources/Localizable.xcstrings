@@ -12,6 +12,16 @@
         }
       }
     },
+    "Build": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Derleme"
+          }
+        }
+      }
+    },
     "Check now": {
       "localizations": {
         "tr": {
@@ -28,6 +38,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Sonuç kontrol ediliyor…"
+          }
+        }
+      }
+    },
+    "Floating card": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yüzen kart"
           }
         }
       }
@@ -58,6 +78,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Hâlâ çalışıyor. Bitince kamerayı buraya tutup yeniden kontrol edin."
+          }
+        }
+      }
+    },
+    "Side panel": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yan panel"
           }
         }
       }
@@ -1979,6 +2009,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Davet kodunu gir"
+          }
+        }
+      }
+    },
+    "unknown": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "bilinmiyor"
           }
         }
       }
