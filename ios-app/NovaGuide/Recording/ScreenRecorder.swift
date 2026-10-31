@@ -9,9 +9,10 @@ struct RecordedVideo: Identifiable, Equatable {
 }
 
 /// Records Nova's own screen (camera view, markers, cards) with ReplayKit while a task runs, when Settings › Screen
-/// recording is on. Video only: no microphone, no app audio, so no one else's voice is ever captured (HACKATHON.md,
-/// design rule 6). It pauses while Nova waits for a model, so the video holds only the action. Only the last
-/// recording is kept, on the phone; it never goes to the server. Settings shares, saves or deletes it.
+/// recording is on. Video only. It pauses while Nova waits for a model, so the video holds only the action. Only the
+/// last recording is kept, on the phone; it never goes to the server. Settings shares, saves or deletes it.
+/// The demo video (Settings › Demo video) runs from launch to Home and adds the app's own audio, so Kokobubu's spoken
+/// words are heard. Never the microphone: no one else's voice is ever captured (HACKATHON.md, design rule 6).
 @MainActor
 final class ScreenRecorder: ObservableObject {
     enum State: Equatable {
@@ -24,6 +25,11 @@ final class ScreenRecorder: ObservableObject {
     @Published private(set) var state: State = .off
     @Published private(set) var last: RecordedVideo?
     @Published var failure: String?
+    /// A demo video is being recorded.
+    @Published private(set) var isDemo = false
+    /// It has ended: the preview offers to save it.
+    @Published var demoFinished = false
+    @Published var demoFailed = false
     private var writer: VideoWriter?
     /// Nova's waiting state, which can change while ReplayKit is still starting.
     private var wantPaused = false
@@ -39,27 +45,44 @@ final class ScreenRecorder: ObservableObject {
 
     /// A task started. `paused`: Nova is thinking right now, so nothing is written until the first step shows.
     func beginTask(paused: Bool) {
+        begin(paused: paused, audio: false)
+    }
+
+    /// From launch: the whole demo, with the app's audio.
+    func beginDemo() {
+        guard state == .off else { return }
+        isDemo = true
+        begin(paused: false, audio: true)
+    }
+
+    private func begin(paused: Bool, audio: Bool) {
         guard state == .off else { return }
         let recorder = RPScreenRecorder.shared()
         guard recorder.isAvailable else {
+            isDemo = false
             failure = String(localized: "Screen recording isn't available on this iPhone right now.", bundle: .ui)
             return
         }
         recorder.isMicrophoneEnabled = false
-        let writer = VideoWriter(url: FileManager.default.temporaryDirectory.appendingPathComponent("Nova-\(UUID().uuidString).mp4"))
+        let writer = VideoWriter(url: FileManager.default.temporaryDirectory.appendingPathComponent("Nova-\(UUID().uuidString).mp4"), audio: audio)
         writer.setPaused(paused)
         wantPaused = paused
         self.writer = writer
         state = .starting
         recorder.startCapture(handler: { buffer, type, error in
-            guard error == nil, type == .video else { return }  // video only
-            writer.append(buffer)
+            guard error == nil else { return }
+            switch type {
+            case .video: writer.append(buffer)
+            case .audioApp: if audio { writer.appendAudio(buffer) }
+            default: break  // never the microphone
+            }
         }, completionHandler: { error in
             Task { @MainActor in
                 guard self.writer === writer else { return }
                 if let error {
                     self.writer = nil
                     self.state = .off
+                    self.isDemo = false
                     // The user tapped "Don't Allow" on iOS's prompt, or recording failed to start.
                     self.failure = error.localizedDescription
                 } else if self.state == .starting {
@@ -70,7 +93,7 @@ final class ScreenRecorder: ObservableObject {
     }
 
     func setPaused(_ paused: Bool) {
-        guard isActive, let writer else { return }
+        guard isActive, let writer, wantPaused != paused else { return }
         wantPaused = paused
         writer.setPaused(paused)
         if state != .starting { state = paused ? .paused : .recording }
@@ -78,13 +101,29 @@ final class ScreenRecorder: ObservableObject {
 
     /// The task ended (completed, Home, or a new task): the video becomes the last recording.
     func finishTask() {
+        end { url in _ = self.keep(url) }
+    }
+
+    /// The demo ended (Home, or stopped from the menu, or the app left the screen): what was filmed is kept and offered.
+    func finishDemo() {
+        guard isDemo else { return }
         end { url in
-            guard let url else { return }
-            try? FileManager.default.removeItem(at: Self.lastURL)
-            guard (try? FileManager.default.moveItem(at: url, to: Self.lastURL)) != nil else { return }
-            self.last = RecordedVideo(url: Self.lastURL)
-            Task { await self.loadDuration() }
+            self.isDemo = false
+            if self.keep(url) {
+                self.demoFinished = true
+            } else {
+                self.demoFailed = true
+            }
         }
+    }
+
+    private func keep(_ url: URL?) -> Bool {
+        guard let url else { return false }
+        try? FileManager.default.removeItem(at: Self.lastURL)
+        guard (try? FileManager.default.moveItem(at: url, to: Self.lastURL)) != nil else { return false }
+        last = RecordedVideo(url: Self.lastURL)
+        Task { await loadDuration() }
+        return true
     }
 
     /// The app went to the background mid-task: the partial video is dropped.
@@ -126,12 +165,17 @@ final class VideoWriter: @unchecked Sendable {
     private let url: URL
     private var writer: AVAssetWriter?
     private var input: AVAssetWriterInput?
+    private var audioInput: AVAssetWriterInput?
+    private let withAudio: Bool
     private var paused = false
     private var resumed = false
     private var offset = CMTime.zero
     private var lastSourceTime: CMTime?
 
-    init(url: URL) { self.url = url }
+    init(url: URL, audio: Bool = false) {
+        self.url = url
+        withAudio = audio
+    }
 
     func setPaused(_ paused: Bool) {
         queue.async {
@@ -144,6 +188,10 @@ final class VideoWriter: @unchecked Sendable {
         queue.async { self.write(buffer) }
     }
 
+    func appendAudio(_ buffer: CMSampleBuffer) {
+        queue.async { self.writeAudio(buffer) }
+    }
+
     func finish(_ completion: @escaping (URL?) -> Void) {
         queue.async {
             guard let writer = self.writer, writer.status == .writing else {
@@ -151,6 +199,7 @@ final class VideoWriter: @unchecked Sendable {
                 return
             }
             self.input?.markAsFinished()
+            self.audioInput?.markAsFinished()
             let url = self.url
             writer.finishWriting { completion(writer.status == .completed ? url : nil) }
         }
@@ -166,11 +215,31 @@ final class VideoWriter: @unchecked Sendable {
             resumed = false
         }
         guard let input, input.isReadyForMoreMediaData else { return }
-        var timing = CMSampleTimingInfo(duration: .invalid, presentationTimeStamp: time - offset, decodeTimeStamp: .invalid)
-        var shifted: CMSampleBuffer?
-        CMSampleBufferCreateCopyWithNewTiming(allocator: nil, sampleBuffer: buffer, sampleTimingEntryCount: 1,
-                                              sampleTimingArray: &timing, sampleBufferOut: &shifted)
-        if let shifted, input.append(shifted) { lastSourceTime = time }
+        if let shifted = shifted(buffer), input.append(shifted) { lastSourceTime = time }
+    }
+
+    /// Sound follows the picture: it waits for the first frame, stops with the pause and takes the same time shift.
+    private func writeAudio(_ buffer: CMSampleBuffer) {
+        guard CMSampleBufferDataIsReady(buffer), !paused, !resumed, writer != nil,
+              let audioInput, audioInput.isReadyForMoreMediaData, let shifted = shifted(buffer) else { return }
+        audioInput.append(shifted)
+    }
+
+    /// The buffer with the pauses taken out of its times.
+    private func shifted(_ buffer: CMSampleBuffer) -> CMSampleBuffer? {
+        var count: CMItemCount = 0
+        CMSampleBufferGetSampleTimingInfoArray(buffer, entryCount: 0, arrayToFill: nil, entriesNeededOut: &count)
+        guard count > 0 else { return nil }
+        var timing = [CMSampleTimingInfo](repeating: CMSampleTimingInfo(), count: count)
+        CMSampleBufferGetSampleTimingInfoArray(buffer, entryCount: count, arrayToFill: &timing, entriesNeededOut: &count)
+        for index in timing.indices {
+            timing[index].presentationTimeStamp = timing[index].presentationTimeStamp - offset
+            timing[index].decodeTimeStamp = .invalid
+        }
+        var copy: CMSampleBuffer?
+        CMSampleBufferCreateCopyWithNewTiming(allocator: nil, sampleBuffer: buffer, sampleTimingEntryCount: count,
+                                              sampleTimingArray: &timing, sampleBufferOut: &copy)
+        return copy
     }
 
     private func begin(with buffer: CMSampleBuffer, at time: CMTime) -> Bool {
@@ -186,6 +255,19 @@ final class VideoWriter: @unchecked Sendable {
         input.transform = Self.transform(for: buffer)
         guard writer.canAdd(input) else { return false }
         writer.add(input)
+        if withAudio {
+            let audio = AVAssetWriterInput(mediaType: .audio, outputSettings: [
+                AVFormatIDKey: kAudioFormatMPEG4AAC,
+                AVSampleRateKey: 44_100,
+                AVNumberOfChannelsKey: 2,
+                AVEncoderBitRateKey: 128_000,
+            ])
+            audio.expectsMediaDataInRealTime = true
+            if writer.canAdd(audio) {
+                writer.add(audio)
+                audioInput = audio
+            }
+        }
         guard writer.startWriting() else { return false }
         writer.startSession(atSourceTime: time)
         self.writer = writer

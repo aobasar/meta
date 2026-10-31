@@ -482,6 +482,8 @@ final class GuideModel: ObservableObject {
     }
 
     /// Said the moment a question is asked, in the language it was asked in, so the wait isn't silent.
+    var isSpeaking: Bool { speaker.isSpeaking }
+
     private func acknowledge(_ question: String) {
         if settings.isAutomaticLanguage { heardLanguage(UserLanguage.guess(question)?.serverName) }
         guard settings.speakAloud else { return }

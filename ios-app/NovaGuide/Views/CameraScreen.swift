@@ -81,10 +81,12 @@ struct CameraScreen: View {
                 ar.start()
             } else if phase == .background {
                 ar.pause()
-                screenRecorder.discard()
+                if !screenRecorder.isDemo { screenRecorder.discard() }
             }
         }
-        .onChange(of: model.isWaiting) { _, waiting in screenRecorder.setPaused(waiting) }
+        .onChange(of: model.isWaiting) { _, waiting in
+            if !screenRecorder.isDemo { screenRecorder.setPaused(waiting) }  // the demo's pauses wait for speech: see RootView
+        }
         .onChange(of: screenRecorder.state) { _, state in
             if state == .off && showStoppedVideo {
                 showStoppedVideo = false
@@ -104,6 +106,7 @@ struct CameraScreen: View {
             var taskIsRunning = old == .guiding || old == .confirming
             if case .choosing = old { taskIsRunning = true }
             if case .showing = old { taskIsRunning = true }
+            guard !screenRecorder.isDemo else { return }  // the demo runs until Home
             if phase == .thinking && !taskIsRunning && settings.screenRecording {
                 screenRecorder.beginTask(paused: true)
             } else if phase == .finished || phase == .asking {
@@ -342,7 +345,7 @@ private struct TopBar: View {
         #if DEBUG
         if UserDefaults.standard.bool(forKey: "NovaDemoRecording") { return true }  // simulator screenshots
         #endif
-        return screenRecorder.isActive
+        return screenRecorder.isActive && !screenRecorder.isDemo  // nothing of its own in the demo video
     }
 
     var body: some View {
@@ -388,6 +391,7 @@ private struct TopBar: View {
 private struct MoreMenu: View {
     @EnvironmentObject private var model: GuideModel
     @EnvironmentObject private var settings: GuideSettings
+    @EnvironmentObject private var screenRecorder: ScreenRecorder
     @Environment(\.dismiss) private var dismiss
     var open: (CameraScreen.Panel) -> Void
 
@@ -407,6 +411,9 @@ private struct MoreMenu: View {
                 Section {
                     row("Start over", "arrow.counterclockwise") { model.newTask(keepDevice: true) }
                     Button { open(.settings) } label: { Label("Settings", systemImage: "gearshape") }
+                    if screenRecorder.isDemo {
+                        row("Stop the demo video", "stop.circle") { screenRecorder.finishDemo() }
+                    }
                     row("Home", "house") { model.goHome() }
                 } footer: {
                     VStack(alignment: .leading, spacing: 4) {

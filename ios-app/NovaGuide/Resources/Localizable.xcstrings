@@ -212,6 +212,16 @@
         }
       }
     },
+    "Record a demo video from the next launch": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sonraki açılıştan demo videosu kaydet"
+          }
+        }
+      }
+    },
     "Recording mode is on": {
       "localizations": {
         "tr": {
@@ -638,12 +648,32 @@
         }
       }
     },
+    "Stop the demo video": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Demo videosunu durdur"
+          }
+        }
+      }
+    },
     "The AR guide can use only these on this iPhone: %@. The ultra wide lens isn't offered for tracking.": {
       "localizations": {
         "tr": {
           "stringUnit": {
             "state": "translated",
             "value": "AR rehber bu iPhone'da yalnız bunları kullanabilir: %@. Ultra geniş lens takip için sunulmuyor."
+          }
+        }
+      }
+    },
+    "The demo video couldn't be saved.": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Demo videosu kaydedilemedi."
           }
         }
       }

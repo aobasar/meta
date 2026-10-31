@@ -39,6 +39,9 @@ struct NovaGuideApp: App {
 struct RootView: View {
     @EnvironmentObject private var settings: GuideSettings
     @EnvironmentObject private var model: GuideModel
+    @EnvironmentObject private var screenRecorder: ScreenRecorder
+    @Environment(\.scenePhase) private var scenePhase
+    private static var demoStarted = false
     @State private var showHow = false
     @State private var showSettings = false
 
@@ -65,11 +68,38 @@ struct RootView: View {
         }
         .onAppear { OrientationLock.apply(settings.orientation) }
         .task { await model.checkConnection() }
+        .task { await filmDemo() }
+        .onChange(of: model.showWelcome) { _, home in
+            if home { screenRecorder.finishDemo() }
+        }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .background { screenRecorder.finishDemo() }  // ReplayKit stops here anyway: keep what was filmed
+        }
+        .sheet(isPresented: $screenRecorder.demoFinished) {
+            if let last = screenRecorder.last { RecordingPreview(video: last) }
+        }
+        .alert(String(localized: "The demo video couldn't be saved.", bundle: .ui), isPresented: $screenRecorder.demoFailed) {
+            Button(String(localized: "OK", bundle: .ui), role: .cancel) {}
+        }
         .onOpenURL { link in
             guard let code = Route.inviteCode(from: link) else { return }
             Task { _ = await model.tryInvite(code) }
         }
         .onChange(of: settings.orientation) { _, choice in OrientationLock.apply(choice) }
+    }
+}
+
+extension RootView {
+    /// Settings › Demo video: once per launch, from the first screen. Waiting is left out of the video, but a sentence
+    /// already being spoken is finished first, so words aren't cut.
+    private func filmDemo() async {
+        guard settings.demoVideo, !Self.demoStarted else { return }
+        Self.demoStarted = true
+        screenRecorder.beginDemo()
+        while !Task.isCancelled, screenRecorder.isDemo {
+            screenRecorder.setPaused(model.isWaiting && !model.isSpeaking)
+            try? await Task.sleep(for: .seconds(0.2))
+        }
     }
 }
 

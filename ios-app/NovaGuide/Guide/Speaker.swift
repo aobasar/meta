@@ -69,6 +69,8 @@ final class Speaker: NSObject, AVSpeechSynthesizerDelegate {
         DispatchQueue.main.async { finished?() }
     }
 
+    var isSpeaking: Bool { synthesizer.isSpeaking }
+
     func stop() {
         onFinish = nil
         synthesizer.stopSpeaking(at: .immediate)

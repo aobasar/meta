@@ -326,6 +326,8 @@ final class GuideSettings: ObservableObject {
     @Published var torch: TorchChoice { didSet { defaults.set(torch.rawValue, forKey: "torchMode") } }
     /// Record every task on screen (video only); the last recording is shared from Settings.
     @Published var screenRecording: Bool { didSet { defaults.set(screenRecording, forKey: "screenRecording") } }
+    /// Film the demo: the next launch records until Home, with the app's audio.
+    @Published var demoVideo: Bool { didSet { defaults.set(demoVideo, forKey: "demoVideo") } }
     @Published var sparkProvider: SparkProvider { didSet { defaults.set(sparkProvider.rawValue, forKey: "sparkProvider") } }
     @Published var sparkEffort: SparkEffort { didSet { defaults.set(sparkEffort.rawValue, forKey: "sparkEffort") } }
     /// A line on the camera screen with the current task's timings.
@@ -360,6 +362,7 @@ final class GuideSettings: ObservableObject {
         highDetail = defaults.bool(forKey: "highDetail")
         torch = TorchChoice(rawValue: defaults.string(forKey: "torchMode") ?? "") ?? .automatic
         screenRecording = defaults.bool(forKey: "screenRecording")
+        demoVideo = defaults.bool(forKey: "demoVideo")
         sparkProvider = SparkProvider(rawValue: defaults.string(forKey: "sparkProvider") ?? "") ?? .meta
         sparkEffort = SparkEffort(rawValue: defaults.string(forKey: "sparkEffort") ?? "") ?? .minimal
         showTimings = defaults.bool(forKey: "showTimings")
