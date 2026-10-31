@@ -102,6 +102,16 @@
         }
       }
     },
+    "Hand animation": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El animasyonu"
+          }
+        }
+      }
+    },
     "How do I get there?": {
       "localizations": {
         "tr": {

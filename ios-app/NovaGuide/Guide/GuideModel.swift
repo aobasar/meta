@@ -489,6 +489,10 @@ final class GuideModel: ObservableObject {
             finishUnsolved(note: part.uncertainty)
             return
         }
+        if correction?.kind == "continue", part.safe, part.steps.isEmpty, part.question == nil, part.showRequest == nil {
+            lookForResult(part)
+            return
+        }
         if correction != nil, !part.safe || (part.steps.isEmpty && part.question == nil && part.showRequest == nil) {
             phase = .guiding  // a wrong step is worse than none: the steps stay, and Nova says what it can't tell
             let note = part.uncertainty.isEmpty ? String(localized: "I'm not sure about this step. Check the device's manual, or use the button below to go on.", bundle: .ui) : part.uncertainty
@@ -497,6 +501,21 @@ final class GuideModel: ObservableObject {
             return
         }
         show(merged(part, from: start), capture: capture, from: start)
+    }
+
+    /// Nothing is left to do on the device: it is working on the task, or it is done. The last step isn't asked again;
+    /// the camera looks for the end of the task, and says so while the device is still busy.
+    private func lookForResult(_ part: GuidePlan) {
+        guard phase != .confirming, var whole = plan else { return }
+        let goal = part.goal ?? ""
+        whole.goal = goal.isEmpty ? (part.remaining ?? "the task is finished") : goal
+        plan = whole
+        ar.currentStep = nil
+        feedback = nil
+        reply = nil
+        phase = .confirming
+        goalCheck = nil
+        if settings.verifyEach { checkGoal() } else { askIfSolved() }
     }
 
     /// The steps already done, followed by a corrected plan's steps.
@@ -885,10 +904,10 @@ final class GuideModel: ObservableObject {
         checkTask = Task {
             do {
                 let language = self.language.serverName, record = settings.record
-                let spark = settings.sparkChoice, started = Date()
+                let spark = settings.sparkChoice, started = Date(), task = question
                 let check = try await send {
                     try await $0.verify(jpeg: jpeg, step: step, language: language, record: record, spark: spark,
-                                        wholeView: wholeView)
+                                        wholeView: wholeView, task: task)
                 }
                 guard !Task.isCancelled, index == stepIndex else { return }
                 timings.check = Date().timeIntervalSince(started)

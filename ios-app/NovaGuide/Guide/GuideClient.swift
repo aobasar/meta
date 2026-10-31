@@ -115,6 +115,7 @@ struct GuideClient {
         var frame: String
         var instruction: String
         var success: String
+        var task: String? = nil
         var language: String
         var record: Bool
         var spark: SparkChoice?
@@ -122,9 +123,9 @@ struct GuideClient {
     }
 
     func verify(jpeg: Data, step: GuideStep, language: String, record: Bool, spark: SparkChoice? = nil,
-                wholeView: Bool = false) async throws -> StepCheck {
+                wholeView: Bool = false, task: String = "") async throws -> StepCheck {
         try await check(jpeg: jpeg, instruction: step.instruction, success: step.success, language: language, record: record,
-                        spark: spark, view: wholeView ? "whole" : nil)
+                        spark: spark, view: wholeView ? "whole" : nil, task: wholeView && !task.isEmpty ? String(task.prefix(500)) : nil)
     }
 
     /// Is the whole task finished? Asked after the last step, on a photo of the whole device.
@@ -135,8 +136,8 @@ struct GuideClient {
     }
 
     private func check(jpeg: Data, instruction: String, success: String, language: String, record: Bool,
-                       spark: SparkChoice?, view: String?) async throws -> StepCheck {
-        let request = VerifyRequest(frame: jpeg.base64EncodedString(), instruction: instruction, success: success,
+                       spark: SparkChoice?, view: String?, task: String? = nil) async throws -> StepCheck {
+        let request = VerifyRequest(frame: jpeg.base64EncodedString(), instruction: instruction, success: success, task: task,
                                     language: language, record: record, spark: spark, view: view)
         let (data, _) = try await send(path: "api/guide/verify", body: try JSONEncoder().encode(request), timeout: 30)
         do {

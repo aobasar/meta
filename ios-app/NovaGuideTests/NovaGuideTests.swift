@@ -814,6 +814,31 @@ final class CardPlaceTests: XCTestCase {
     }
 }
 
+final class PictureBrightnessTests: XCTestCase {
+    func testTheMeanComesFromAroundThePoint() {
+        var pixels = [UInt8](repeating: 0, count: 100 * 100)
+        for y in 0..<100 { for x in 50..<100 { pixels[y * 100 + x] = 200 } }
+        let mean = { (x: CGFloat) in
+            pixels.withUnsafeBufferPointer { PictureBrightness.mean(luma: $0.baseAddress!, rowBytes: 100, width: 100, height: 100, around: CGPoint(x: x, y: 0.5)) }
+        }
+        XCTAssertEqual(mean(0.2), 0)
+        XCTAssertEqual(mean(0.8), 200)
+    }
+
+    func testAPointAtTheEdgeStaysInThePicture() {
+        let pixels = [UInt8](repeating: 90, count: 100)
+        let mean = pixels.withUnsafeBufferPointer { PictureBrightness.mean(luma: $0.baseAddress!, rowBytes: 10, width: 10, height: 10, around: CGPoint(x: 1, y: 1)) }
+        XCTAssertEqual(mean, 90)
+    }
+
+    func testTheHandKeepsItsColorInBetween() {
+        XCTAssertTrue(PictureBrightness.isDark(40, was: false))
+        XCTAssertFalse(PictureBrightness.isDark(200, was: true))
+        XCTAssertTrue(PictureBrightness.isDark(120, was: true))
+        XCTAssertFalse(PictureBrightness.isDark(120, was: false))
+    }
+}
+
 final class SwipeMotionTests: XCTestCase {
     func testEachSwipeHasItsWay() {
         XCTAssertEqual(GuideStep.Motion(rawValue: "swipe_left")?.swipe, CGVector(dx: -1, dy: 0))

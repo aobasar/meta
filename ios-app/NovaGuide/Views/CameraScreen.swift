@@ -195,7 +195,7 @@ struct CameraScreen: View {
                     .allowsHitTesting(false)
             }
             if model.phase == .guiding, let marker = ar.marker {
-                MarkerOverlay(marker: marker, tint: ringTint, motion: model.currentStep?.motionKind)
+                MarkerOverlay(marker: marker, tint: ringTint, motion: model.currentStep?.motionKind, brightness: handBrightness)
                     .id("\(model.stepIndex)-\(markerShown)")
             }
             if model.correcting == .moving {
@@ -229,6 +229,11 @@ struct CameraScreen: View {
 
     private var cameraOptions: CameraOptions {
         CameraOptions(lens: settings.lens, highDetail: settings.highDetail, torch: settings.torch)
+    }
+
+    /// Settings › Hand animation: how the hand reads the picture behind it, or nil for no hand.
+    private var handBrightness: ((CGPoint) -> Double?)? {
+        settings.handAnimation ? { ar.brightness(atScreen: $0) } : nil
     }
 
     private var ringTint: Color {
@@ -473,14 +478,17 @@ private struct CornerBrackets: Shape {
 struct Waveform: View {
     @ObservedObject var recorder: VoiceRecorder
     var color = Color.white
+    private static let height: CGFloat = 30
 
     var body: some View {
         HStack(spacing: 3) {
             ForEach([12.0, 20, 14, 22], id: \.self) { base in
                 Capsule().fill(color)
-                    .frame(width: 4, height: base * (0.6 + CGFloat(recorder.level) * 1.6))
+                    .frame(width: 4, height: min(base * (0.6 + CGFloat(recorder.level) * 1.6), Self.height))
             }
         }
+        // A fixed box: the voice moves the bars, never the card around them.
+        .frame(height: Self.height)
         .animation(.easeOut(duration: 0.12), value: recorder.level)
     }
 }

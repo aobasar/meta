@@ -255,6 +255,19 @@ final class ARGuideController: NSObject, ObservableObject, ARSessionDelegate {
         device.unlockForConfiguration()
     }
 
+    /// How bright the picture is around a point of this view, 0 to 255, for the hand's color.
+    func brightness(atScreen point: CGPoint) -> Double? {
+        #if DEBUG
+        let demo = UserDefaults.standard.double(forKey: "NovaDemoBrightness")  // simulator screenshots
+        if demo > 0 { return demo }
+        #endif
+        guard let frame = arView.session.currentFrame,
+              let orientation = arView.window?.windowScene?.interfaceOrientation else { return nil }
+        let size = arView.bounds.size
+        return FocusGeometry.point(tap: point, viewSize: size, displayTransform: frame.displayTransform(for: orientation, viewportSize: size))
+            .flatMap { PictureBrightness.mean(frame.capturedImage, around: $0) }
+    }
+
     /// The torch belongs to the back camera module; ARKit hands out the device it runs, and the wide camera has the
     /// torch when the ultra wide one doesn't.
     private func applyTorch() {
