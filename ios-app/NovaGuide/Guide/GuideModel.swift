@@ -147,6 +147,8 @@ final class GuideModel: ObservableObject {
     private let sounds = SoundEffects()
     private var task: Task<Void, Never>?
     private var prepared: PreparedPlan?
+    /// What the final check said is missing, while Kokobubu finds the control for it.
+    private var goalMiss: String?
     private var checkTask: Task<Void, Never>?
     private var voiceTask: Task<Void, Never>?
     /// The task's first sentence and the frame it was asked about; answers to Nova's questions plan on the same frame.
@@ -520,6 +522,16 @@ final class GuideModel: ObservableObject {
     /// the camera looks for the end of the task, and says so while the device is still busy.
     private func lookForResult(_ part: GuidePlan) {
         guard phase != .confirming, var whole = plan else { return }
+        if let miss = goalMiss {  // no step for it: the words are all there is, and looking again would only repeat them
+            goalMiss = nil
+            ar.currentStep = nil
+            feedback = nil
+            phase = .confirming
+            goalCheck = .unclear
+            reply = miss
+            speak(miss + " " + language.phrase("Did this solve it?"))
+            return
+        }
         let goal = part.goal ?? ""
         whole.goal = goal.isEmpty ? (part.remaining ?? "the task is finished") : goal
         plan = whole
@@ -577,6 +589,7 @@ final class GuideModel: ObservableObject {
         if plan.isLocated { ar.place(plan, from: capture, startingAt: start) }
         records = Array(records.prefix(start)) + plan.steps.dropFirst(start).map { StepRecord(expected: $0.success) }
         wrongSpots = wrongSpots.filter { $0.key < start }
+        goalMiss = nil
         phase = .guiding
         go(to: start)
     }
@@ -1146,6 +1159,12 @@ final class GuideModel: ObservableObject {
             let line = language.phrase("It's still working. When it finishes, point the camera here and check again.")
             reply = line
             speak(line)
+        case .notDone where !check.correction.isEmpty && goalMiss == nil && screensPassed < Self.maxScreens:
+            // It says what to do, so it shows where: a new step with its marker, not a sentence on the card.
+            goalCheck = nil
+            goalMiss = check.correction
+            plan?.remaining = check.correction
+            nextScreen()
         case .notDone, .unsure:
             goalCheck = .unclear
             let line = check.correction.isEmpty ? language.phrase("I can't confirm the result from here.") : check.correction
@@ -1198,6 +1217,7 @@ final class GuideModel: ObservableObject {
         failedChecks = [:]
         unsureChecks = [:]
         wrongSpots = [:]
+        goalMiss = nil
         goalCheck = nil
         lastShowRequest = nil
         answers = []
