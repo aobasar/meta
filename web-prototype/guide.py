@@ -369,8 +369,9 @@ Report:
 - observed: what you actually see on the device, in English.
 - correction: if not_done, one short sentence telling the person what to do, in {language}, with labels printed on the
   device wrapped in « »; otherwise "".
-- confirmation: if done, what is now true, in {language}, at most 8 words, using only what observed shows, with labels
-  printed on the device wrapped in « ». A plain statement, no praise. Otherwise "".
+- confirmation: if done, one plain sentence that answers their task, in {language}, at most 14 words: the result they
+  wanted, then the proof from observed (for example, for a Wi-Fi problem: "Wi-Fi works: a video list has loaded."). Claim
+  only what observed supports, with labels printed on the device wrapped in « ». No praise. Otherwise "".
 Do not guess. Prefer "unsure" over a wrong answer."""
 
 ANY_POSITION = "the control's pointer is at any of its labeled positions"

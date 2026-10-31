@@ -85,6 +85,8 @@ final class GuideModel: ObservableObject {
     @Published private(set) var correcting: Correcting?
     /// The task ended without solving the problem: the last screen says so.
     @Published private(set) var unsolved = false
+    /// What the finished task came to, for the completion card.
+    @Published private(set) var finishLine: String?
     /// "Re-evaluate" is running; and afterwards, Nova looked again and stands by the step.
     @Published private(set) var reassessing = false
     @Published private(set) var stepDefended = false
@@ -589,10 +591,21 @@ final class GuideModel: ObservableObject {
 
     func confirmSolved() {
         guard phase == .confirming else { return }
+        let line = language.phrase("Done. It should be working now.")
         finish()
+        finishLine = line
         note("solved")
         sound(.done)
-        speak(language.phrase("Done. It should be working now."))
+        speak(line)
+    }
+
+    /// The completion card's way back: the check can pass on a cached page, and only the user knows it's still broken.
+    func problemContinues() {
+        guard phase == .finished, !unsolved else { return }
+        finishLine = nil
+        finishedAt = nil
+        phase = .confirming
+        notSolved()
     }
 
     func notSolved() {
@@ -1019,6 +1032,7 @@ final class GuideModel: ObservableObject {
             goalCheck = nil
             let line = check.confirmation?.isEmpty == false ? check.confirmation! : language.phrase("Done. It should be working now.")
             finish()
+            finishLine = line
             note("solved")
             sound(.done)
             speak(line)
@@ -1041,6 +1055,7 @@ final class GuideModel: ObservableObject {
         if phase == .finished || phase == .confirming {
             checkTask?.cancel()
             goalCheck = nil
+            finishLine = nil
             phase = .guiding
             go(to: stepIndex)
         } else if stepIndex > 0 {
@@ -1069,6 +1084,7 @@ final class GuideModel: ObservableObject {
         screensPassed = 0
         pendingCorrection = nil
         unsolved = false
+        finishLine = nil
         correcting = nil
         reassessing = false
         stepDefended = false
@@ -1486,6 +1502,7 @@ final class GuideModel: ObservableObject {
             }
             stepIndex = plan.steps.count - 1
             finishedAt = Date()
+            finishLine = "Wi-Fi çalışıyor: video listesi yüklendi."
             phase = .finished
         default:
             knownDevice = nil

@@ -842,10 +842,17 @@ struct CompletionCard: View {
             if model.unsolved {
                 Text("I couldn't solve this. Check the device's manual or contact service.")
                     .font(.footnote).foregroundStyle(Color.sheetMuted).multilineTextAlignment(.center)
+            } else if let line = model.finishLine {
+                Text(verbatim: GuideText.display(line))
+                    .font(.subheadline).multilineTextAlignment(.center)
             }
             Text(verbatim: summary).font(.caption.monospacedDigit()).foregroundStyle(Color.sheetMuted).multilineTextAlignment(.center)
             Button(String(localized: "New task here", bundle: .ui)) { model.newTask(keepDevice: true) }
                 .buttonStyle(PrimaryButtonStyle())
+            if !model.unsolved {
+                Button(String(localized: "The problem continues", bundle: .ui)) { model.problemContinues() }
+                    .buttonStyle(SheetButtonStyle())
+            }
             Button(String(localized: "Something else", bundle: .ui)) { model.newTask(keepDevice: false) }
                 .buttonStyle(SheetButtonStyle())
         }

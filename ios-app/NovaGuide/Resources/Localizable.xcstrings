@@ -2328,6 +2328,16 @@
         }
       }
     },
+    "The problem continues": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sorun devam ediyor"
+          }
+        }
+      }
+    },
     "The server has no API key": {
       "localizations": {
         "tr": {

@@ -478,6 +478,10 @@ class VerifyTests(unittest.TestCase):
         opener = RoutingOpener(check={"status": "done", "observed": "hot", "correction": "x"})
         self.assertEqual(guide.verify(tiny_jpeg(520, 520), "i", "s", "Turkish", FAKE_KEY, opener)["correction"], "")
 
+    def test_the_goal_confirmation_answers_the_task(self):
+        for part in ("answers their task", "the result they", "the proof from observed", "Claim\n  only what observed supports"):
+            self.assertIn(part, guide.VERIFY_GOAL_PROMPT)
+
     def test_confirmation_only_comes_with_a_done_step(self):
         done = RoutingOpener(check={"status": "done", "observed": "hot", "correction": "", "confirmation": "«hot» seçildi."})
         self.assertEqual(guide.verify(tiny_jpeg(520, 520), "i", "s", "Turkish", FAKE_KEY, done)["confirmation"], "«hot» seçildi.")
