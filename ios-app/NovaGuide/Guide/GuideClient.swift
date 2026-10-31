@@ -118,12 +118,14 @@ struct GuideClient {
         var language: String
         var record: Bool
         var spark: SparkChoice?
+        var view: String?
     }
 
-    func verify(jpeg: Data, step: GuideStep, language: String, record: Bool,
-                spark: SparkChoice? = nil) async throws -> StepCheck {
+    func verify(jpeg: Data, step: GuideStep, language: String, record: Bool, spark: SparkChoice? = nil,
+                wholeView: Bool = false) async throws -> StepCheck {
         let request = VerifyRequest(frame: jpeg.base64EncodedString(), instruction: step.instruction,
-                                    success: step.success, language: language, record: record, spark: spark)
+                                    success: step.success, language: language, record: record, spark: spark,
+                                    view: wholeView ? "whole" : nil)
         let (data, _) = try await send(path: "api/guide/verify", body: try JSONEncoder().encode(request), timeout: 30)
         do {
             return try JSONDecoder().decode(StepCheck.self, from: data)

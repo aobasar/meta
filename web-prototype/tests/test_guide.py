@@ -49,10 +49,10 @@ PLAN = {
     "steps": [
         {"instruction": "Sıcaklık düğmesini sıcağa çevir.", "detail": "Soldaki düğme.", "target_phrase": "temperature knob", "x": 200, "y": 400,
          "set_to_label": "hot", "set_to_meaning": "sıcak", "success_condition": "the pointer is at 'hot'",
-         "visible_result": True},
+         "check_view": "close_up"},
         {"instruction": "Başlat düğmesine bas.", "target_phrase": "start button", "x": 800, "y": 400,
          "set_to_label": "", "set_to_meaning": "", "success_condition": "no visible change",
-         "visible_result": False},
+         "check_view": "none"},
     ],
 }
 GROUND = [{"object_name": "temperature knob", "x": 210, "y": 410}, {"object_name": "hot", "x": 260, "y": 300},
@@ -364,7 +364,7 @@ class SpokenLanguageTests(unittest.TestCase):
 
 class TourPromptTests(unittest.TestCase):
     def test_a_general_question_gets_a_tour_of_unchecked_controls(self):
-        for words in ('"How do I use this?"', "at most 5", "without asking them to press it", "visible_result is false",
+        for words in ('"How do I use this?"', "at most 5", "without asking them to press it", 'check_view is "none"',
                       "task_continues is false", "don't pick a task for them", "could not tell what they do"):
             self.assertIn(words, " ".join(guide.PLAN_PROMPT.split()))
 
@@ -372,8 +372,21 @@ class TourPromptTests(unittest.TestCase):
         self.assertIn("say in the same sentence what it means", " ".join(guide.PLAN_PROMPT.split()))
 
     def test_a_step_without_a_visible_result_is_not_checked(self):
-        step = {"instruction": "This is «Start».", "visible_result": False}
-        self.assertFalse(guide.step_entry(step, "start button", "", (500, 250), 1000, 500)["verifiable"])
+        step = {"instruction": "This is «Start».", "check_view": "none"}
+        entry = guide.step_entry(step, "start button", "", (500, 250), 1000, 500)
+        self.assertEqual(entry["check"], "none")
+        self.assertFalse(entry["verifiable"])
+
+    def test_a_result_away_from_the_control_is_checked_on_the_whole_view(self):
+        step = {"instruction": "Tap «Continue».", "check_view": "whole_view"}
+        entry = guide.step_entry(step, "continue button", "", (500, 250), 1000, 500)
+        self.assertEqual(entry["check"], "whole_view")
+        self.assertFalse(entry["verifiable"])  # the older app keeps skipping what it can't see on a close-up
+
+    def test_the_whole_view_check_takes_a_new_state_as_proof(self):
+        words = " ".join(guide.VERIFY_WHOLE_PROMPT.split())
+        for part in ("a dialog that is gone", "a state that can only come after this step", "the same dialog still open"):
+            self.assertIn(part, words)
 
 
 class RestrictedRegionTests(unittest.TestCase):

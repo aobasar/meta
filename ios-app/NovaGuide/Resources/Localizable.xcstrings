@@ -828,6 +828,16 @@
         }
       }
     },
+    "I did it, continue →": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yaptım, devam et →"
+          }
+        }
+      }
+    },
     "I did it, confirm": {
       "localizations": {
         "tr": {

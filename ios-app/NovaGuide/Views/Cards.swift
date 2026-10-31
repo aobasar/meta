@@ -146,28 +146,59 @@ private struct Handle: View {
     }
 }
 
+/// One line with what can't wait: the microphone at the left as on the open card, and at the right the step's main
+/// button, or the mascot with the way to open the card.
 private struct FoldedBar: View {
+    @EnvironmentObject private var model: GuideModel
+    @EnvironmentObject private var settings: GuideSettings
     var prefix: String
     var title: String
     var open: () -> Void
 
     var body: some View {
-        Button(action: open) {
-            HStack(spacing: 8) {
-                if !prefix.isEmpty {
-                    Text(prefix).font(.footnote.weight(.semibold)).foregroundStyle(Color.sheetMuted)
+        HStack(spacing: 8) {
+            MicButton()
+            Button(action: open) {
+                HStack(spacing: 8) {
+                    if !prefix.isEmpty {
+                        Text(prefix).font(.footnote.weight(.semibold)).foregroundStyle(Color.sheetMuted)
+                    }
+                    Text(title).font(.footnote.weight(.semibold)).lineLimit(1)
+                    Spacer(minLength: 4)
+                    if stepTitle == nil {
+                        Image(systemName: "chevron.up").font(.footnote.weight(.bold)).foregroundStyle(Color.sheetMuted)
+                    }
                 }
-                Text(title).font(.footnote.weight(.semibold)).lineLimit(1)
-                Spacer(minLength: 4)
-                Image(systemName: "chevron.up").font(.footnote.weight(.bold)).foregroundStyle(Color.sheetMuted)
+                .frame(minHeight: 44)
+                .contentShape(Rectangle())
             }
-            .padding(.horizontal, 14)
-            .frame(minHeight: 44)
-            .contentShape(Rectangle())
+            .foregroundStyle(.primary)
+            .accessibilityLabel(Text("Show the card"))
+            if let stepTitle {
+                Button { model.primary() } label: {
+                    Text(stepTitle)
+                        .font(.footnote.weight(.bold))
+                        .lineLimit(1)
+                        .fixedSize()
+                        .foregroundStyle(.black)
+                        .padding(.horizontal, 12)
+                        .frame(minHeight: 44)
+                        .background(Color.novaYellow, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                }
+                .disabled(model.isLocating || model.reassessing)
+            } else {
+                CardMascot()
+            }
         }
-        .foregroundStyle(.primary)
-        .accessibilityLabel(Text("Show the card"))
+        .padding(.horizontal, 8)
+        .padding(.vertical, 4)
         .sheetStyle()
+    }
+
+    /// The main button's words while a step is on screen. A check's result opens the card, so there is none here.
+    private var stepTitle: String? {
+        guard model.phase == .guiding, let step = model.currentStep else { return nil }
+        return StepCard.doneTitle(step: step, verifyEach: settings.verifyEach, isLastStep: model.isLastStep)
     }
 }
 
@@ -560,17 +591,23 @@ private struct StepCard: View {
         case .checking: return String(localized: "Checking…", bundle: .ui)
         case .correct: return model.isLastStep ? String(localized: "Finish", bundle: .ui) : String(localized: "Continue →", bundle: .ui)
         case .notDone, .error: return String(localized: "Check again", bundle: .ui)
-        case .unsure: return String(localized: "Show closer", bundle: .ui)
+        case .unsure:
+            if model.userLeadsCheck { return String(localized: "I did it, continue →", bundle: .ui) }
+            return (model.unsureChecks[index] ?? 0) > 0 ? String(localized: "Check again", bundle: .ui) : String(localized: "Show closer", bundle: .ui)
         case nil:
-            if step.isVerifiable && settings.verifyEach { return String(localized: "I've done it →", bundle: .ui) }
-            return model.isLastStep ? String(localized: "Finish", bundle: .ui) : String(localized: "Continue →", bundle: .ui)
+            return Self.doneTitle(step: step, verifyEach: settings.verifyEach, isLastStep: model.isLastStep)
         }
+    }
+
+    static func doneTitle(step: GuideStep, verifyEach: Bool, isLastStep: Bool) -> String {
+        if step.isVerifiable && verifyEach { return String(localized: "I've done it →", bundle: .ui) }
+        return isLastStep ? String(localized: "Finish", bundle: .ui) : String(localized: "Continue →", bundle: .ui)
     }
 
     private var secondaryTitle: String? {
         switch model.feedback {
         case .notDone, .error: String(localized: "Skip, I did it", bundle: .ui)
-        case .unsure: String(localized: "I did it, confirm", bundle: .ui)
+        case .unsure: model.userLeadsCheck ? String(localized: "Check again", bundle: .ui) : String(localized: "I did it, confirm", bundle: .ui)
         default: nil
         }
     }

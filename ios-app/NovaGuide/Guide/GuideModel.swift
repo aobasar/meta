@@ -90,6 +90,8 @@ final class GuideModel: ObservableObject {
     @Published private(set) var stepDefended = false
     /// How often each step failed its check; two in a row and Nova offers to look again.
     @Published private(set) var failedChecks: [Int: Int] = [:]
+    /// Checks that could not tell, per step: the next one looks at the whole device, and after two the user leads.
+    @Published private(set) var unsureChecks: [Int: Int] = [:]
     /// Live transcription: the words so far.
     @Published private(set) var liveWords: String?
     /// How often each step was planned again.
@@ -276,6 +278,7 @@ final class GuideModel: ObservableObject {
         shows = 0
         stepCorrections = [:]
         failedChecks = [:]
+        unsureChecks = [:]
         correcting = nil
         acknowledge(text)
         requestPlan(capture: capture)
@@ -746,6 +749,7 @@ final class GuideModel: ObservableObject {
             stepCorrections[stepIndex, default: 0] += 1
         }
         failedChecks[stepIndex] = 0
+        unsureChecks[stepIndex] = 0
         let start = restart ? 0 : stepIndex
         let done = restart ? [] : plan.steps.prefix(start).map(\.instruction)
         checkTask?.cancel()
@@ -781,21 +785,27 @@ final class GuideModel: ObservableObject {
         switch feedback {
         case .checking: return
         case .correct: next()
-        case .notDone, .unsure, .error: done()  // check again, closer
+        case .unsure where userLeadsCheck: mark(.confirmed)
+        case .notDone, .unsure, .error: done()  // check again
         case nil: done()
         }
     }
 
+    /// Two checks couldn't tell: going on becomes the main action, so the user isn't stuck on the step.
+    var userLeadsCheck: Bool { (unsureChecks[stepIndex] ?? 0) >= 2 }
+
     /// The step card's second button, shown after a check that didn't pass.
     func secondary() {
         switch feedback {
-        case .unsure: mark(.confirmed)
+        case .unsure:
+            if userLeadsCheck { done() } else { mark(.confirmed) }
         case .notDone, .error: mark(.skipped)
         default: break
         }
     }
 
-    /// The user says the step is done: check it on a close-up of the control, unless a close-up can't show it.
+    /// The user says the step is done: check it on a close-up of the control, or on the whole device when the result
+    /// shows elsewhere or a close-up couldn't tell.
     func done() {
         guard let step = currentStep, feedback != .checking, !isLocating else { return }
         guard settings.verifyEach else {
@@ -807,6 +817,14 @@ final class GuideModel: ObservableObject {
             mark(.unchecked)
             return
         }
+        if step.checksWholeView || (unsureChecks[stepIndex] ?? 0) > 0 {
+            guard let capture = ar.capture() else {
+                say(.unsure(language.phrase("Hold the phone steady, then check again.")))
+                return
+            }
+            check(step, jpeg: capture.jpeg, wholeView: true)
+            return
+        }
         switch ar.closeUp(step: stepIndex) {
         case .offScreen:
             say(.unsure(language.phrase("Point the camera at the control, then check again.")))
@@ -815,25 +833,30 @@ final class GuideModel: ObservableObject {
         case .notReady:
             say(.unsure(language.phrase("Hold the phone steady, then check again.")))
         case .jpeg(let jpeg):
-            feedback = .checking
-            reply = nil
-            let index = stepIndex, settings = self.settings
-            checkTask = Task {
-                do {
-                    let language = self.language.serverName, record = settings.record
-                    let spark = settings.sparkChoice, started = Date()
-                    let check = try await send {
-                        try await $0.verify(jpeg: jpeg, step: step, language: language, record: record, spark: spark)
-                    }
-                    guard !Task.isCancelled, index == stepIndex else { return }
-                    timings.check = Date().timeIntervalSince(started)
-                    timings.setting = settings.sparkLabel
-                    apply(check, to: index)
-                } catch is CancellationError {
-                } catch {
-                    guard index == stepIndex else { return }
-                    feedback = .error(error.localizedDescription)
+            check(step, jpeg: jpeg, wholeView: false)
+        }
+    }
+
+    private func check(_ step: GuideStep, jpeg: Data, wholeView: Bool) {
+        feedback = .checking
+        reply = nil
+        let index = stepIndex, settings = self.settings
+        checkTask = Task {
+            do {
+                let language = self.language.serverName, record = settings.record
+                let spark = settings.sparkChoice, started = Date()
+                let check = try await send {
+                    try await $0.verify(jpeg: jpeg, step: step, language: language, record: record, spark: spark,
+                                        wholeView: wholeView)
                 }
+                guard !Task.isCancelled, index == stepIndex else { return }
+                timings.check = Date().timeIntervalSince(started)
+                timings.setting = settings.sparkLabel
+                apply(check, to: index)
+            } catch is CancellationError {
+            } catch {
+                guard index == stepIndex else { return }
+                feedback = .error(error.localizedDescription)
             }
         }
     }
@@ -866,6 +889,7 @@ final class GuideModel: ObservableObject {
             if seemsStuck { speak(correction + " " + language.phrase("We seem stuck. Shall I look at this again?")) }
         case .unsure:
             records[index].result = .uncertain
+            unsureChecks[index, default: 0] += 1
             say(.unsure(check.reason == "too_small"
                 ? String(localized: "Move the phone closer to the control, then check again.", bundle: .ui)
                 : String(localized: "I can't see it clearly. Move closer, or confirm it yourself.", bundle: .ui)))
@@ -958,6 +982,7 @@ final class GuideModel: ObservableObject {
         reassessing = false
         stepDefended = false
         failedChecks = [:]
+        unsureChecks = [:]
         answers = []
         findings = []
         shows = 0

@@ -684,6 +684,29 @@ final class SoundEffectsTests: XCTestCase {
     }
 }
 
+final class StepCheckViewTests: XCTestCase {
+    private func step(check: String?, verifiable: Bool?) -> GuideStep {
+        GuideStep(instruction: "", target: "", success: "", point: NormalizedPoint(x: 0, y: 0), box: nil, boxMethod: "none",
+                  setTo: nil, check: check, verifiable: verifiable)
+    }
+
+    func testAWholeViewStepIsCheckedThoughAnOlderFieldSaysNo() {
+        let whole = step(check: "whole_view", verifiable: false)
+        XCTAssertTrue(whole.isVerifiable)
+        XCTAssertTrue(whole.checksWholeView)
+    }
+
+    func testAStepWithNoVisibleResultIsNotChecked() {
+        XCTAssertFalse(step(check: "none", verifiable: false).isVerifiable)
+    }
+
+    func testAnOlderServerStillDecides() {
+        XCTAssertFalse(step(check: nil, verifiable: false).isVerifiable)
+        XCTAssertTrue(step(check: nil, verifiable: nil).isVerifiable)
+        XCTAssertFalse(step(check: "close_up", verifiable: true).checksWholeView)
+    }
+}
+
 final class CardPlaceTests: XCTestCase {
     private let bottomRight = CardPlace(top: false, left: false)
 

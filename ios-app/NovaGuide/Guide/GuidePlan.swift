@@ -103,19 +103,23 @@ struct GuideStep: Decodable, Equatable {
     /// One line in the user's language that helps find the control or tell the step is done.
     var detail: String? = nil
     var target: String
-    /// What a close-up of the control shows once the step is done; used by step verification.
+    /// What the camera shows once the step is done; used by step verification.
     var success: String
     var point: NormalizedPoint
     var box: NormalizedBox?
     var boxMethod: String
     var setTo: SetTo?
-    /// False when a close-up can't show the result (a momentary press); such steps are not checked.
+    /// Where a photo can show the result: "close_up", "whole_view" or "none". An older server sends only `verifiable`.
+    var check: String? = nil
     var verifiable: Bool? = nil
 
     /// How the hand moves the control; an older server sends none, and Spark says "unknown" when it can't tell.
     var motion: String? = nil
 
-    var isVerifiable: Bool { verifiable ?? true }
+    /// False when nothing visible changes (a momentary press); such steps are not checked.
+    var isVerifiable: Bool { check.map { $0 != "none" } ?? verifiable ?? true }
+    /// The result shows away from the control, so a close-up can't show it.
+    var checksWholeView: Bool { check == "whole_view" }
 
     enum Motion: String {
         case press
