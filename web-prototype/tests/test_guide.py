@@ -383,6 +383,11 @@ class TourPromptTests(unittest.TestCase):
         self.assertEqual(entry["check"], "whole_view")
         self.assertFalse(entry["verifiable"])  # the older app keeps skipping what it can't see on a close-up
 
+    def test_a_screen_on_the_same_device_gets_a_step_and_not_a_request(self):
+        words = " ".join(guide.SHOW_RULE.split())
+        for part in ("they may not know the way", "bring the phone closer", "they don't know how to get there"):
+            self.assertIn(part, words)
+
     def test_the_goal_check_can_say_the_device_is_still_working(self):
         self.assertIn("in_progress", guide.VERIFY_GOAL_SCHEMA["json_schema"]["schema"]["properties"]["status"]["enum"])
         self.assertNotIn("in_progress", guide.VERIFY_SCHEMA["json_schema"]["schema"]["properties"]["status"]["enum"])

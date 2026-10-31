@@ -98,6 +98,7 @@ final class GuideModel: ObservableObject {
     }
 
     @Published private(set) var goalCheck: GoalCheck?
+    private var lastShowRequest: String?
     /// Live transcription: the words so far.
     @Published private(set) var liveWords: String?
     /// How often each step was planned again.
@@ -334,7 +335,9 @@ final class GuideModel: ObservableObject {
 
     /// The camera now shows what Kokobubu asked for; `said` is what the user added, or why they can't show it.
     func shown(said: String? = nil) {
-        guard case .showing = phase else { return }
+        guard case .showing(let asked) = phase else { return }
+        lastShowRequest = asked.what
+        remember("You asked them: \(asked.what)")
         if let said { remember("They said: \(said)") }
         shows += 1
         phase = .thinking
@@ -358,6 +361,19 @@ final class GuideModel: ObservableObject {
 
     func cantShow() {
         shown(said: "I can't show this.")
+    }
+
+    /// The user doesn't know the way to what Kokobubu asked to see, so the next plan has to lead there.
+    func showTheWay() {
+        shown(said: "I don't know how to get there. Give me the step that leads there.")
+    }
+
+    nonisolated static func sameRequest(_ new: String, _ old: String?) -> Bool {
+        guard let old else { return false }
+        func plain(_ text: String) -> String {
+            text.lowercased().filter { $0.isLetter || $0.isNumber }
+        }
+        return plain(new) == plain(old)
     }
 
     private func remember(_ finding: String) {
@@ -494,8 +510,12 @@ final class GuideModel: ObservableObject {
         self.plan = plan
         if !plan.device.type.isEmpty { knownDevice = plan.deviceLabel }
         if plan.isLocated, let finding = plan.finding { remember(finding) }
-        if let asked = plan.showRequest, plan.safe {
+        if var asked = plan.showRequest, plan.safe {
             ar.currentStep = nil
+            // The same words again would leave the user where they were.
+            if Self.sameRequest(asked.what, lastShowRequest) {
+                asked = GuidePlan.ShowRequest(what: language.phrase("Bring the phone closer, then show me again."), why: "")
+            }
             phase = .showing(asked)
             sound(.question)
             speak(asked.what)
@@ -1055,6 +1075,7 @@ final class GuideModel: ObservableObject {
         failedChecks = [:]
         unsureChecks = [:]
         goalCheck = nil
+        lastShowRequest = nil
         answers = []
         findings = []
         shows = 0

@@ -510,10 +510,12 @@ private struct ShowCard: View {
                 Button(String(localized: "I'm showing it", bundle: .ui)) { model.shown() }
                     .buttonStyle(PrimaryButtonStyle(fill: .novaYellow))
             }
-            Button(String(localized: "I can't show this", bundle: .ui)) { model.cantShow() }
-                .font(.footnote.weight(.semibold))
-                .foregroundStyle(Color.sheetMuted)
-                .frame(maxWidth: .infinity, minHeight: 28)
+            HStack(spacing: 8) {
+                Button(String(localized: "How do I get there?", bundle: .ui)) { model.showTheWay() }
+                    .buttonStyle(SheetButtonStyle())
+                Button(String(localized: "I can't show this", bundle: .ui)) { model.cantShow() }
+                    .buttonStyle(SheetButtonStyle())
+            }
         }
     }
 }

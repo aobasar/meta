@@ -20,6 +20,7 @@ enum SpokenPhrases {
             "We seem stuck. Shall I look at this again?": "Parece que estamos atascados. ¿Lo reviso de nuevo?",
             "Okay.": "Está bien.",
             "Did this solve it?": "¿Se resolvió?",
+            "Bring the phone closer, then show me again.": "Acerca el teléfono y vuelve a mostrármelo.",
             "It's still working. When it finishes, point the camera here and check again.": "Aún está trabajando. Cuando termine, apunta la cámara aquí y vuelve a comprobar.",
             "I can't confirm the result from here.": "No puedo confirmar el resultado desde aquí.",
             "I couldn't solve this. Check the device's manual or contact service.":
@@ -43,6 +44,7 @@ enum SpokenPhrases {
             "We seem stuck. Shall I look at this again?": "好像卡住了。要我再看一遍吗?",
             "Okay.": "好的。",
             "Did this solve it?": "问题解决了吗?",
+            "Bring the phone closer, then show me again.": "请把手机靠近一些,然后再给我看一次。",
             "It's still working. When it finishes, point the camera here and check again.": "它还在进行中。完成后,请把相机对准这里再检查一次。",
             "I can't confirm the result from here.": "我无法从这里确认结果。",
             "I couldn't solve this. Check the device's manual or contact service.":
@@ -66,6 +68,7 @@ enum SpokenPhrases {
             "We seem stuck. Shall I look at this again?": "लगता है हम अटक गए हैं। क्या मैं इसे फिर से देखूँ?",
             "Okay.": "ठीक है।",
             "Did this solve it?": "क्या इससे समस्या हल हुई?",
+            "Bring the phone closer, then show me again.": "फ़ोन पास लाकर मुझे फिर से दिखाएँ।",
             "It's still working. When it finishes, point the camera here and check again.": "यह अभी भी चल रहा है। पूरा होने पर कैमरा यहाँ रखकर फिर से जाँचें।",
             "I can't confirm the result from here.": "मैं यहाँ से नतीजे की पुष्टि नहीं कर सकता।",
             "I couldn't solve this. Check the device's manual or contact service.":
@@ -89,6 +92,7 @@ enum SpokenPhrases {
             "We seem stuck. Shall I look at this again?": "يبدو أننا عالقون. هل أنظر إليه مرة أخرى؟",
             "Okay.": "حسنًا.",
             "Did this solve it?": "هل حلّ هذا المشكلة؟",
+            "Bring the phone closer, then show me again.": "قرّب الهاتف ثم أرني مرة أخرى.",
             "It's still working. When it finishes, point the camera here and check again.": "ما زال يعمل. عند انتهائه، وجّه الكاميرا إلى هنا وتحقق مرة أخرى.",
             "I can't confirm the result from here.": "لا أستطيع تأكيد النتيجة من هنا.",
             "I couldn't solve this. Check the device's manual or contact service.":
@@ -112,6 +116,7 @@ enum SpokenPhrases {
             "We seem stuck. Shall I look at this again?": "Parece que travamos. Quer que eu olhe de novo?",
             "Okay.": "Certo.",
             "Did this solve it?": "Isso resolveu?",
+            "Bring the phone closer, then show me again.": "Aproxime o telefone e me mostre de novo.",
             "It's still working. When it finishes, point the camera here and check again.": "Ainda está em andamento. Quando terminar, aponte a câmera para cá e verifique de novo.",
             "I can't confirm the result from here.": "Não consigo confirmar o resultado daqui.",
             "I couldn't solve this. Check the device's manual or contact service.":

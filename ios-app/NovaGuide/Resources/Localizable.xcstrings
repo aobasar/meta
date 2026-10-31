@@ -12,6 +12,16 @@
         }
       }
     },
+    "Bring the phone closer, then show me again.": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Telefonu yaklaştırıp bana yeniden gösterin."
+          }
+        }
+      }
+    },
     "Build": {
       "localizations": {
         "tr": {
@@ -58,6 +68,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Geri dön"
+          }
+        }
+      }
+    },
+    "How do I get there?": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nasıl açarım?"
           }
         }
       }

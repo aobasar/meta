@@ -417,7 +417,7 @@ final class AutoLanguageTests: XCTestCase {
             "Tap the right control on the screen.", "Okay, next step.", "No problem, let's try again.",
             "We seem stuck. Shall I look at this again?", "Okay.", "Did this solve it?",
             "It's still working. When it finishes, point the camera here and check again.",
-            "I can't confirm the result from here.",
+            "I can't confirm the result from here.", "Bring the phone closer, then show me again.",
             "I couldn't solve this. Check the device's manual or contact service.",
             "Point the camera at the control, then check again.",
             "Move the phone closer to the control, then check again.", "Hold the phone steady, then check again.",
@@ -722,6 +722,14 @@ final class BuildStampTests: XCTestCase {
     func testAMissingStampStillSaysSomething() {
         XCTAssertEqual(BuildStamp.text(commit: "2ab53c1", built: nil), "2ab53c1")
         XCTAssertFalse(BuildStamp.text(commit: nil, built: nil).isEmpty)
+    }
+}
+
+final class ShowRequestTests: XCTestCase {
+    func testTheSameRequestIsSeenThroughSmallChanges() {
+        XCTAssertTrue(GuideModel.sameRequest("Ayarlar'ı açın!", "ayarları açın"))
+        XCTAssertFalse(GuideModel.sameRequest("Modemi gösterin", "Ayarları açın"))
+        XCTAssertFalse(GuideModel.sameRequest("Ayarları açın", nil))
     }
 }
 
