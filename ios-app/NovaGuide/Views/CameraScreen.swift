@@ -2,7 +2,7 @@ import RealityKit
 import SwiftUI
 
 /// The camera screen: the camera fills the screen, with one card over it (at the bottom in portrait, at the right in
-/// landscape, under the thumb). Everything used rarely is behind the ⋯ button.
+/// landscape, under the thumb, until the user drags it elsewhere). Everything used rarely is behind the ⋯ button.
 struct CameraScreen: View {
     @EnvironmentObject private var model: GuideModel
     @EnvironmentObject private var ar: ARGuideController
@@ -21,12 +21,13 @@ struct CameraScreen: View {
     var body: some View {
         GeometryReader { geometry in
             let land = geometry.size.width > geometry.size.height
-            ZStack(alignment: land ? .bottomTrailing : .bottom) {
-                cameraArea(land: land)
+            let place = land ? settings.cardLandscape : settings.cardPortrait
+            ZStack(alignment: place.alignment(land: land)) {
+                cameraArea(land: land, card: place)
                 SidePanel(land: land)
                     .frame(maxWidth: land ? 300 : .infinity)
                     .padding(.horizontal, 8)
-                    .padding(.bottom, 8)
+                    .padding(.vertical, 8)
             }
         }
         .background(Color.black.ignoresSafeArea())
@@ -97,8 +98,10 @@ struct CameraScreen: View {
         screenRecorder.finishTask()
     }
 
-    private func cameraArea(land: Bool) -> some View {
-        ZStack {
+    private func cameraArea(land: Bool, card: CardPlace) -> some View {
+        // The top bar stays clear of the card: at the bottom under a card on top, and beside it in landscape.
+        let barsAtBottom = !land && card.top
+        return ZStack {
             ARViewContainer(arView: ar.arView).ignoresSafeArea()
             #if DEBUG
             if DemoMode.screen != nil { DemoBackdrop().ignoresSafeArea() }
@@ -120,10 +123,13 @@ struct CameraScreen: View {
                     .onTapGesture(coordinateSpace: .local) { model.markerTapped(at: $0) }
             }
             if model.phase == .thinking {
-                ScanOverlay().padding(.horizontal, 20).padding(.top, land ? 60 : 110).padding(.bottom, land ? 60 : 300)
+                ScanOverlay().padding(.horizontal, 20)
+                    .padding(.top, land ? 60 : barsAtBottom ? 300 : 110)
+                    .padding(.bottom, land ? 60 : barsAtBottom ? 110 : 300)
                     .allowsHitTesting(false)
             }
             VStack(spacing: 8) {
+                if barsAtBottom { Spacer() }
                 TopBar(openMore: { panel = .more }, stopRecording: stopRecording)
                 #if DEBUG
                 if settings.showTimings && !model.timings.isEmpty {
@@ -134,7 +140,6 @@ struct CameraScreen: View {
                         .padding(.horizontal, 10)
                         .padding(.vertical, 4)
                         .background(Color.black.opacity(0.65), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
-                        .padding(.trailing, land ? 310 : 0)  // beside the card, which can be tall in landscape
                         .allowsHitTesting(false)
                 }
                 #endif
@@ -159,10 +164,12 @@ struct CameraScreen: View {
                         .padding(.vertical, 9)
                         .background(Color.novaCard.opacity(0.92), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
                 }
-                Spacer()
+                if !barsAtBottom { Spacer() }
             }
             .padding(.horizontal, 14)
-            .padding(.top, 12)
+            .padding(.leading, land && card.left ? 300 : 0)
+            .padding(.trailing, land && !card.left ? 300 : 0)
+            .padding(barsAtBottom ? .bottom : .top, 12)
         }
         #if DEBUG
         .background(GeometryReader { geometry in
@@ -191,6 +198,18 @@ struct CameraScreen: View {
         case .noKey: String(localized: "The server has no API key", bundle: .ui)
         case .unreachable: String(localized: "Kokobubu is not reachable", bundle: .ui)
         case .connected, .unknown: nil
+        }
+    }
+}
+
+extension CardPlace {
+    func alignment(land: Bool) -> Alignment {
+        guard land else { return top ? .top : .bottom }
+        switch (top, left) {
+        case (true, true): return .topLeading
+        case (true, false): return .topTrailing
+        case (false, true): return .bottomLeading
+        case (false, false): return .bottomTrailing
         }
     }
 }

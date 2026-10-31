@@ -1228,6 +1228,16 @@
         }
       }
     },
+    "Move the card": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kartı taşı"
+          }
+        }
+      }
+    },
     "Move the phone closer to the control, then check again.": {
       "localizations": {
         "tr": {

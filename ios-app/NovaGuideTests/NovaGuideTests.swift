@@ -683,3 +683,51 @@ final class SoundEffectsTests: XCTestCase {
         XCTAssertNil(Color(hex: nil))
     }
 }
+
+final class CardPlaceTests: XCTestCase {
+    private let bottomRight = CardPlace(top: false, left: false)
+
+    func testADragAwayFromTheEdgeMovesTheCard() {
+        XCTAssertEqual(bottomRight.afterDrag(CGSize(width: 0, height: -200), land: false),
+                       .move(CardPlace(top: true, left: false)))
+        XCTAssertEqual(CardPlace(top: true, left: false).afterDrag(CGSize(width: 0, height: 200), land: false),
+                       .move(bottomRight))
+    }
+
+    func testLandscapeReachesEveryCorner() {
+        XCTAssertEqual(bottomRight.afterDrag(CGSize(width: -200, height: 0), land: true),
+                       .move(CardPlace(top: false, left: true)))
+        XCTAssertEqual(bottomRight.afterDrag(CGSize(width: -200, height: -200), land: true),
+                       .move(CardPlace(top: true, left: true)))
+    }
+
+    func testPortraitIgnoresASidewaysDrag() {
+        XCTAssertEqual(bottomRight.afterDrag(CGSize(width: -200, height: 0), land: false), .stay)
+    }
+
+    func testADragTowardTheEdgeFoldsTheCardAndASmallOneDoesNothing() {
+        XCTAssertEqual(bottomRight.afterDrag(CGSize(width: 0, height: 40), land: false), .fold)
+        XCTAssertEqual(CardPlace(top: true, left: false).afterDrag(CGSize(width: 0, height: -40), land: false), .fold)
+        XCTAssertEqual(bottomRight.afterDrag(CGSize(width: 0, height: -20), land: false), .stay)
+    }
+
+    func testVoiceOverVisitsEveryCornerInTurn() {
+        var place = bottomRight
+        var seen: [String] = []
+        for _ in 0..<4 {
+            place = place.next(land: true)
+            seen.append(place.rawValue)
+        }
+        XCTAssertEqual(Set(seen).count, 4)
+        XCTAssertEqual(place, bottomRight)
+    }
+
+    func testThePlaceSurvivesARestart() throws {
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: "CardPlaceTests"))
+        defaults.removePersistentDomain(forName: "CardPlaceTests")
+        GuideSettings(defaults: defaults).cardLandscape = CardPlace(top: true, left: true)
+        let reopened = GuideSettings(defaults: defaults)
+        XCTAssertEqual(reopened.cardLandscape, CardPlace(top: true, left: true))
+        XCTAssertEqual(reopened.cardPortrait, .portraitDefault)
+    }
+}

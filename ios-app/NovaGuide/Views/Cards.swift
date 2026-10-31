@@ -4,8 +4,11 @@ import SwiftUI
 /// it shows the microphone or the choices only when Nova is waiting for them.
 struct SidePanel: View {
     @EnvironmentObject private var model: GuideModel
+    @EnvironmentObject private var settings: GuideSettings
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     var land: Bool
     @State private var folded = false
+    @GestureState(resetTransaction: Transaction(animation: .easeOut(duration: 0.2))) private var dragged = CGSize.zero
 
     var body: some View {
         Group {
@@ -25,6 +28,8 @@ struct SidePanel: View {
                 } else {
                     VStack(alignment: .leading, spacing: 8) {
                         Handle { folded = true }
+                            .simultaneousGesture(moving)
+                            .accessibilityAction(named: Text("Move the card")) { place(cardPlace.next(land: land)) }
                         ScrollView {
                             content.padding(.bottom, 2)
                         }
@@ -39,12 +44,34 @@ struct SidePanel: View {
                 }
             }
         }
+        .offset(dragged)
         .environment(\.colorScheme, .light)
         .animation(.easeOut(duration: 0.2), value: folded)
         .onChange(of: model.phase) { _, _ in folded = false }
         .onChange(of: model.stepIndex) { _, _ in folded = false }
         .onChange(of: model.feedback) { _, feedback in
             if feedback != nil { folded = false }  // the result of a check is always seen
+        }
+    }
+
+    private var cardPlace: CardPlace { land ? settings.cardLandscape : settings.cardPortrait }
+
+    /// The card follows the finger, then settles in the nearest place. Global, because the handle moves with the card.
+    private var moving: some Gesture {
+        DragGesture(minimumDistance: 12, coordinateSpace: .global)
+            .updating($dragged) { value, state, _ in state = value.translation }
+            .onEnded { value in
+                switch cardPlace.afterDrag(value.translation, land: land) {
+                case .move(let next): place(next)
+                case .fold: folded = true
+                case .stay: break
+                }
+            }
+    }
+
+    private func place(_ next: CardPlace) {
+        withAnimation(reduceMotion ? nil : .spring(response: 0.35, dampingFraction: 0.85)) {
+            if land { settings.cardLandscape = next } else { settings.cardPortrait = next }
         }
     }
 
@@ -107,13 +134,15 @@ private struct Handle: View {
     var action: () -> Void
 
     var body: some View {
-        Button(action: action) {
-            Capsule().fill(Color.black.opacity(0.22)).frame(width: 38, height: 5)
-                .frame(maxWidth: .infinity, minHeight: 20)
-                .contentShape(Rectangle())
-        }
-        .accessibilityLabel(Text("Hide the card"))
-        .simultaneousGesture(DragGesture(minimumDistance: 12).onEnded { if $0.translation.height > 16 { action() } })
+        // Not a Button: it moves with the finger, so letting go after a drag would count as a tap on it.
+        Capsule().fill(Color.black.opacity(0.22)).frame(width: 38, height: 5)
+            .frame(maxWidth: .infinity, minHeight: 20)
+            .contentShape(Rectangle())
+            .onTapGesture(perform: action)
+            .accessibilityElement()
+            .accessibilityAddTraits(.isButton)
+            .accessibilityLabel(Text("Hide the card"))
+            .accessibilityAction { action() }
     }
 }
 

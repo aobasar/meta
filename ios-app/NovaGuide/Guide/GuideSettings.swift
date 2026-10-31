@@ -121,6 +121,59 @@ enum InterfaceLanguage: String, CaseIterable, Identifiable {
 }
 
 /// Which way the screen may turn: Settings › Screen orientation.
+/// Where the card sits on the camera screen: top or bottom in portrait, one of the corners in landscape.
+struct CardPlace: Equatable {
+    var top: Bool
+    var left: Bool
+
+    static let portraitDefault = CardPlace(top: false, left: false)
+    static let landscapeDefault = CardPlace(top: false, left: false)
+    /// A drag this long carries the card across the screen.
+    static let moveDistance: CGFloat = 60
+    static let foldDistance: CGFloat = 16
+
+    enum DragResult: Equatable {
+        case move(CardPlace), fold, stay
+    }
+
+    /// Away from the edge it sits on, the card moves. Toward that edge it folds, as a sheet does when pulled down.
+    func afterDrag(_ translation: CGSize, land: Bool) -> DragResult {
+        var next = self
+        if top ? translation.height > Self.moveDistance : translation.height < -Self.moveDistance { next.top.toggle() }
+        if land, left ? translation.width > Self.moveDistance : translation.width < -Self.moveDistance { next.left.toggle() }
+        if next != self { return .move(next) }
+        return (top ? translation.height < -Self.foldDistance : translation.height > Self.foldDistance) ? .fold : .stay
+    }
+
+    /// For VoiceOver, which can't drag: the next place, clockwise.
+    func next(land: Bool) -> CardPlace {
+        guard land else { return CardPlace(top: !top, left: left) }
+        switch (top, left) {
+        case (false, false): return CardPlace(top: false, left: true)
+        case (false, true): return CardPlace(top: true, left: true)
+        case (true, true): return CardPlace(top: true, left: false)
+        case (true, false): return CardPlace(top: false, left: false)
+        }
+    }
+
+    var rawValue: String { (top ? "top" : "bottom") + "-" + (left ? "left" : "right") }
+
+    init(top: Bool, left: Bool) {
+        self.top = top
+        self.left = left
+    }
+
+    init?(rawValue: String?) {
+        switch rawValue {
+        case "top-left": self.init(top: true, left: true)
+        case "top-right": self.init(top: true, left: false)
+        case "bottom-left": self.init(top: false, left: true)
+        case "bottom-right": self.init(top: false, left: false)
+        default: return nil
+        }
+    }
+}
+
 enum OrientationChoice: String, CaseIterable, Identifiable {
     case automatic, portrait, landscape
 
@@ -243,6 +296,9 @@ final class GuideSettings: ObservableObject {
     @Published var autoContinue: Bool { didSet { defaults.set(autoContinue, forKey: "autoContinue") } }
     @Published var haptics: Bool { didSet { defaults.set(haptics, forKey: "haptics") } }
     @Published var orientation: OrientationChoice { didSet { defaults.set(orientation.rawValue, forKey: "orientation") } }
+    /// Each orientation remembers its own place for the card.
+    @Published var cardPortrait: CardPlace { didSet { defaults.set(cardPortrait.rawValue, forKey: "cardPortrait") } }
+    @Published var cardLandscape: CardPlace { didSet { defaults.set(cardLandscape.rawValue, forKey: "cardLandscape") } }
     /// The widest camera ARKit can track with is the default: more of a wide panel fits in one frame.
     @Published var lens: LensChoice { didSet { defaults.set(lens.rawValue, forKey: "lens") } }
     /// The camera's highest-resolution format, for small labels (close-ups are cut from the full frame).
@@ -271,6 +327,8 @@ final class GuideSettings: ObservableObject {
         liveTranscription = defaults.object(forKey: "liveTranscription") as? Bool ?? true
         soundEffects = defaults.object(forKey: "soundEffects") as? Bool ?? true
         showMascot = defaults.object(forKey: "showMascot") as? Bool ?? true
+        cardPortrait = CardPlace(rawValue: defaults.string(forKey: "cardPortrait")) ?? .portraitDefault
+        cardLandscape = CardPlace(rawValue: defaults.string(forKey: "cardLandscape")) ?? .landscapeDefault
         speakAloud = defaults.object(forKey: "speakAloud") as? Bool ?? true
         verifyEach = defaults.object(forKey: "verifyEach") as? Bool ?? true
         autoContinue = defaults.object(forKey: "autoContinue") as? Bool ?? true
