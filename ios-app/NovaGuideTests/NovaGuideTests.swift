@@ -1,6 +1,7 @@
 import AVFoundation
 import CoreGraphics
 import simd
+import SwiftUI
 import XCTest
 @testable import Kokobubu
 
@@ -372,6 +373,60 @@ final class AutoLanguageTests: XCTestCase {
         XCTAssertEqual(UserLanguage.guess("How do I set the clock?")?.serverName, "English")
         XCTAssertNil(UserLanguage.guess("Bosch"))
     }
+
+    func testExperimentalLanguagesAreGuessedFromTheirWriting() {
+        XCTAssertEqual(UserLanguage.guess("¿Cómo enciendo esto?")?.serverName, "Spanish")
+        XCTAssertEqual(UserLanguage.guess("Quero começar a lavar")?.serverName, "Portuguese")
+        XCTAssertEqual(UserLanguage.guess("यह कैसे चालू करें")?.serverName, "Hindi")
+        XCTAssertEqual(UserLanguage.guess("كيف أشغل هذا")?.serverName, "Arabic")
+        XCTAssertEqual(UserLanguage.guess("怎么打开这个")?.serverName, "Mandarin Chinese")
+    }
+
+    func testExperimentalCommandsAndAnswers() {
+        XCTAssertEqual(VoiceCommand.matchWithLanguage("Listo.")?.language, "Spanish")
+        XCTAssertEqual(VoiceCommand.match("Incorrecto"), .wrong)
+        XCTAssertEqual(VoiceCommand.match("Isso não"), .wrong)
+        XCTAssertEqual(VoiceCommand.matchWithLanguage("हो गया")?.command, .done)
+        XCTAssertEqual(VoiceCommand.matchWithLanguage("फिर से शुरू")?.command, .newQuestion)
+        XCTAssertEqual(VoiceCommand.matchWithLanguage("تم")?.language, "Arabic")
+        XCTAssertEqual(VoiceCommand.matchWithLanguage("下一步。")?.command, .skip)
+        XCTAssertNil(VoiceCommand.match("¿Qué hago?"))
+        XCTAssertEqual(VoiceCommand.confirmation("Sí"), true)
+        XCTAssertEqual(VoiceCommand.confirmation("Não"), false)
+        XCTAssertEqual(VoiceCommand.confirmation("नहीं"), false)
+        XCTAssertEqual(VoiceCommand.confirmation("نعم"), true)
+        XCTAssertEqual(VoiceCommand.confirmation("没解决"), false)
+    }
+
+    func testTheLanguageSpokenNowWinsASharedWord() {
+        XCTAssertEqual(VoiceCommand.matchWithLanguage("anterior", preferring: "Portuguese")?.language, "Portuguese")
+        XCTAssertEqual(VoiceCommand.matchWithLanguage("anterior", preferring: "Spanish")?.language, "Spanish")
+        XCTAssertEqual(VoiceCommand.matchWithLanguage("ok", preferring: "Hindi")?.language, "Hindi")
+        XCTAssertEqual(VoiceCommand.matchWithLanguage("ok", preferring: "Turkish")?.language, "English")
+    }
+
+    func testAnIPhoneInAnExperimentalLanguageStartsInIt() {
+        XCTAssertEqual(UserLanguage.matching(preferred: ["es-US"]).serverName, "Spanish")
+        XCTAssertEqual(UserLanguage.matching(preferred: ["zh-Hans-US"]).serverName, "Mandarin Chinese")
+        XCTAssertEqual(UserLanguage.matching(preferred: ["fr-FR"]).serverName, "English")
+    }
+
+    func testEveryExperimentalLanguageSpeaksEveryFixedLine() {
+        let lines = GuideModel.lookingPhrases + [
+            "Kokobubu is ready to help.", "How can I help you?", "Done. It should be working now.",
+            "Tap the right control on the screen.", "Okay, next step.", "No problem, let's try again.",
+            "We seem stuck. Shall I look at this again?", "Okay.", "Did this solve it?",
+            "I couldn't solve this. Check the device's manual or contact service.",
+            "Point the camera at the control, then check again.",
+            "Move the phone closer to the control, then check again.", "Hold the phone steady, then check again.",
+        ]
+        for language in UserLanguage.all where language.experimental {
+            for line in lines {
+                XCTAssertNotEqual(language.phrase(line), line, "\(language.serverName): \(line)")
+            }
+            XCTAssertNotNil(Speaker.bestVoice(for: language.voice), language.serverName)
+        }
+    }
 }
 
 final class SpeedTestTests: XCTestCase {
@@ -521,6 +576,7 @@ final class GreetingTests: XCTestCase {
 
     func testInviteLinkGivesTheCode() throws {
         XCTAssertEqual(Route.inviteCode(from: try XCTUnwrap(URL(string: "kokobubu://invite/ABCD-1234"))), "ABCD-1234")
+        XCTAssertEqual(Route.inviteCode(from: try XCTUnwrap(URL(string: "kokobubu-dev://invite/ABCD-1234"))), "ABCD-1234")
         XCTAssertNil(Route.inviteCode(from: try XCTUnwrap(URL(string: "https://invite/ABCD-1234"))))
         XCTAssertNil(Route.inviteCode(from: try XCTUnwrap(URL(string: "kokobubu://other/ABCD-1234"))))
         XCTAssertNil(Route.inviteCode(from: try XCTUnwrap(URL(string: "kokobubu://invite/ab"))))
@@ -619,5 +675,11 @@ final class SoundEffectsTests: XCTestCase {
             XCTAssertGreaterThan(player.duration, 0.03)
             XCTAssertLessThan(player.duration, 0.7)
         }
+    }
+
+    func testAColorFromTheServerIsReadOnlyWhenItIsAHexCode() {
+        XCTAssertNotNil(Color(hex: "#F28C28"))
+        XCTAssertNil(Color(hex: "orange"))
+        XCTAssertNil(Color(hex: nil))
     }
 }

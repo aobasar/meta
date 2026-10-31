@@ -2,6 +2,12 @@ import SwiftUI
 
 /// Nova's colors (the prototype's palette): near-black ground, signal yellow for the one thing to do next.
 extension Color {
+    /// "#RRGGBB"; nil for anything else.
+    init?(hex: String?) {
+        guard let hex, hex.count == 7, hex.hasPrefix("#"), let value = Int(hex.dropFirst(), radix: 16) else { return nil }
+        self.init(red: Double(value >> 16 & 255) / 255, green: Double(value >> 8 & 255) / 255, blue: Double(value & 255) / 255)
+    }
+
     static let novaYellow = Color(red: 1, green: 0.784, blue: 0.102)  // #FFC81A
     static let novaGround = Color(red: 0.043, green: 0.043, blue: 0.047)  // #0B0B0C
     static let novaColumn = Color(red: 0.078, green: 0.078, blue: 0.086)  // #141416

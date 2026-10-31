@@ -44,6 +44,7 @@ final class Speaker: NSObject, AVSpeechSynthesizerDelegate {
         }
         let best = candidates.max { rank($0, language) < rank($1, language) }
         return best ?? AVSpeechSynthesisVoice(language: language)
+            ?? AVSpeechSynthesisVoice.speechVoices().first { $0.language.hasPrefix(language.prefix(2)) }
     }
 
     private static func rank(_ voice: AVSpeechSynthesisVoice, _ language: String) -> Int {

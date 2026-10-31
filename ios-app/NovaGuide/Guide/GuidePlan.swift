@@ -53,6 +53,8 @@ struct GuidePlan: Decodable, Equatable {
             var label: String
             /// What the label means, or the plain answer, in the user's language.
             var meaning: String
+            /// The control's own color as "#RRGGBB", when it has a distinctive one.
+            var color: String?
 
             var id: String { label + meaning }
             var title: String { label.isEmpty ? meaning : label }

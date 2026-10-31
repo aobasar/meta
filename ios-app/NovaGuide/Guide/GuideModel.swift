@@ -163,7 +163,7 @@ final class GuideModel: ObservableObject {
     /// The language Nova speaks and answers in now.
     var language: UserLanguage { settings.isAutomaticLanguage ? spokenLanguage : settings.language }
 
-    /// Automatic language: a Turkish sentence switches Nova to Turkish, an English one to English.
+    /// Automatic language: a sentence in one of the listed languages switches Nova to it.
     private func heardLanguage(_ name: String?) {
         guard settings.isAutomaticLanguage, let name, let heard = UserLanguage.all.first(where: { $0.serverName == name }) else { return }
         spokenLanguage = heard
@@ -464,7 +464,7 @@ final class GuideModel: ObservableObject {
         }
         if correction != nil, !part.safe || (part.steps.isEmpty && part.question == nil && part.showRequest == nil) {
             phase = .guiding  // a wrong step is worse than none: the steps stay, and Nova says what it can't tell
-            let note = part.uncertainty.isEmpty ? String(localized: "I'm not sure about this step. Check the device's manual, or skip it.", bundle: .ui) : part.uncertainty
+            let note = part.uncertainty.isEmpty ? String(localized: "I'm not sure about this step. Check the device's manual, or use the button below to go on.", bundle: .ui) : part.uncertainty
             reply = note
             speak(note)
             return
@@ -581,7 +581,7 @@ final class GuideModel: ObservableObject {
         finish()
         note("gave_up")
         sound(.notSolved)
-        speak(text.isEmpty ? String(localized: "I couldn't solve this. Check the device's manual or contact service.", bundle: .ui) : text)
+        speak(text.isEmpty ? language.phrase("I couldn't solve this. Check the device's manual or contact service.") : text)
     }
 
     private func finish() {
@@ -738,7 +738,7 @@ final class GuideModel: ObservableObject {
             stepCorrections = [:]
         } else {
             guard canCorrectStep else {
-                let note = String(localized: "I'm not sure about this step. Check the device's manual, or skip it.", bundle: .ui)
+                let note = String(localized: "I'm not sure about this step. Check the device's manual, or use the button below to go on.", bundle: .ui)
                 reply = note
                 speak(note)
                 return
@@ -809,11 +809,11 @@ final class GuideModel: ObservableObject {
         }
         switch ar.closeUp(step: stepIndex) {
         case .offScreen:
-            say(.unsure(String(localized: "Point the camera at the control, then check again.", bundle: .ui)))
+            say(.unsure(language.phrase("Point the camera at the control, then check again.")))
         case .tooSmall:
-            say(.unsure(String(localized: "Move the phone closer to the control, then check again.", bundle: .ui)))
+            say(.unsure(language.phrase("Move the phone closer to the control, then check again.")))
         case .notReady:
-            say(.unsure(String(localized: "Hold the phone steady, then check again.", bundle: .ui)))
+            say(.unsure(language.phrase("Hold the phone steady, then check again.")))
         case .jpeg(let jpeg):
             feedback = .checking
             reply = nil
@@ -1131,7 +1131,7 @@ final class GuideModel: ObservableObject {
         let settings = self.settings
         voiceTask = Task {
             do {
-                let language = settings.isAutomaticLanguage ? "Turkish" : settings.language.serverName
+                let language = settings.isAutomaticLanguage && !self.language.experimental ? "Turkish" : self.language.serverName
                 let started = Date()
                 let text = try await send { try await $0.transcribe(wav: wav, language: language) }
                 listening = .idle
@@ -1164,7 +1164,7 @@ final class GuideModel: ObservableObject {
             try? await Task.sleep(for: .seconds(5))
             if heard == text { heard = nil }
         }
-        let matched = VoiceCommand.matchWithLanguage(text)
+        let matched = VoiceCommand.matchWithLanguage(text, preferring: language.serverName)
         let command = matched?.command
         heardLanguage(matched?.language)
         switch phase {

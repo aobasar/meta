@@ -260,15 +260,20 @@ private struct MessageCard: View {
 private struct ChoiceRow: View {
     var title: String
     var subtitle: String?
+    /// The button's color on the device, so it is easy to find.
+    var color: Color?
     var action: () -> Void
 
     var body: some View {
         Button(action: action) {
+            HStack(spacing: 10) {
+            if let color { RoundedRectangle(cornerRadius: 3).fill(color).frame(width: 7).padding(.vertical, 6) }
             VStack(alignment: .leading, spacing: 1) {
                 Text(title).font(.subheadline.weight(.bold)).foregroundStyle(.primary)
                 if let subtitle {
                     Text(subtitle).font(.caption).foregroundStyle(Color.sheetMuted)
                 }
+            }
             }
             .multilineTextAlignment(.leading)
             .frame(maxWidth: .infinity, minHeight: 42, alignment: .leading)
@@ -313,7 +318,7 @@ private struct QuestionCard: View {
         VStack(alignment: .leading, spacing: 7) {
             Text(GuideText.display(asked.text)).font(.headline).fixedSize(horizontal: false, vertical: true).clearsMascot()
             ForEach(asked.options) { option in
-                ChoiceRow(title: option.title, subtitle: option.subtitle) { model.answerQuestion(option.answer) }
+                ChoiceRow(title: option.title, subtitle: option.subtitle, color: Color(hex: option.color)) { model.answerQuestion(option.answer) }
             }
             HStack(spacing: 8) {
                 Button(String(localized: "You choose", bundle: .ui)) { model.letNovaChoose() }.buttonStyle(SheetButtonStyle())
@@ -363,7 +368,7 @@ private struct CorrectionCard: View {
                 if model.canCorrectStep {
                     ChoiceRow(title: String(localized: "This step is wrong", bundle: .ui), subtitle: nil) { model.tellWhatIsWrong(kind: "step") }
                 } else {
-                    Text("I'm not sure about this step. Check the device's manual, or skip it.")
+                    Text("I'm not sure about this step. Check the device's manual, or use the button below to go on.")
                         .font(.footnote).foregroundStyle(Color.sheetMuted).fixedSize(horizontal: false, vertical: true)
                     ChoiceRow(title: String(localized: "Skip this step", bundle: .ui), subtitle: nil) {
                         model.closeCorrection()
@@ -393,12 +398,23 @@ private struct CorrectionCard: View {
 
 private struct ThinkingCard: View {
     @EnvironmentObject private var model: GuideModel
+    @State private var askingToStop = false
 
     var body: some View {
         HStack(spacing: 10) {
             Orb(size: 22)
             Text(model.statusLine).font(.subheadline.weight(.semibold))
             Spacer(minLength: 0)
+            Button { askingToStop = true } label: {
+                Image(systemName: "xmark").font(.subheadline.weight(.bold))
+                    .frame(width: 44, height: 44).contentShape(Rectangle())
+            }
+            .foregroundStyle(Color.sheetMuted)
+            .accessibilityLabel(String(localized: "Stop", bundle: .ui))
+        }
+        .alert(String(localized: "Stop and start over?", bundle: .ui), isPresented: $askingToStop) {
+            Button(String(localized: "Start over", bundle: .ui), role: .destructive) { model.newTask(keepDevice: true) }
+            Button(String(localized: "Keep going", bundle: .ui), role: .cancel) {}
         }
     }
 }

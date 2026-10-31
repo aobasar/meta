@@ -6,11 +6,21 @@ struct UserLanguage: Identifiable, Hashable {
     var serverName: String
     var voice: String
     var title: String
+    /// Not tested with native speakers yet. The voice and the plan use the language; the screen stays English or Turkish.
+    var experimental = false
 
     static let all = [
         UserLanguage(serverName: "Turkish", voice: "tr-TR", title: "Türkçe"),
         UserLanguage(serverName: "English", voice: "en-US", title: "English"),
+        UserLanguage(serverName: "Spanish", voice: "es-MX", title: "Español", experimental: true),
+        UserLanguage(serverName: "Mandarin Chinese", voice: "zh-CN", title: "中文", experimental: true),
+        UserLanguage(serverName: "Hindi", voice: "hi-IN", title: "हिन्दी", experimental: true),
+        UserLanguage(serverName: "Arabic", voice: "ar-001", title: "العربية", experimental: true),
+        UserLanguage(serverName: "Portuguese", voice: "pt-BR", title: "Português", experimental: true),
     ]
+
+    /// The name in Settings › I speak.
+    var pickerTitle: String { experimental ? String(localized: "\(title) (experimental)", bundle: .ui) : title }
 
     static func named(_ name: String) -> UserLanguage { all.first { $0.serverName == name } ?? all[0] }
 
@@ -18,8 +28,8 @@ struct UserLanguage: Identifiable, Hashable {
     static func voice(forLanguageNamed name: String?) -> String {
         let voices = ["English": "en-US", "Turkish": "tr-TR", "German": "de-DE", "French": "fr-FR", "Spanish": "es-ES",
                       "Italian": "it-IT", "Portuguese": "pt-PT", "Dutch": "nl-NL", "Polish": "pl-PL", "Swedish": "sv-SE",
-                      "Greek": "el-GR", "Russian": "ru-RU", "Arabic": "ar-SA", "Japanese": "ja-JP", "Korean": "ko-KR",
-                      "Chinese": "zh-CN"]
+                      "Greek": "el-GR", "Russian": "ru-RU", "Arabic": "ar-001", "Japanese": "ja-JP", "Korean": "ko-KR",
+                      "Chinese": "zh-CN", "Mandarin Chinese": "zh-CN", "Hindi": "hi-IN"]
         return name.flatMap { voices[$0] } ?? "en-US"
     }
 
@@ -27,8 +37,20 @@ struct UserLanguage: Identifiable, Hashable {
     /// names the language for real. Nil when the words give no hint.
     static func guess(_ text: String) -> UserLanguage? {
         let lower = text.lowercased()
-        if lower.rangeOfCharacter(from: CharacterSet(charactersIn: "çğıöşü")) != nil { return all[0] }
+        func has(_ first: UInt32, _ last: UInt32) -> Bool {
+            lower.unicodeScalars.contains { (first...last).contains($0.value) }
+        }
+        if has(0x0900, 0x097F) { return named("Hindi") }
+        if has(0x0600, 0x06FF) { return named("Arabic") }
+        if has(0x4E00, 0x9FFF) { return named("Mandarin Chinese") }
+        if lower.rangeOfCharacter(from: CharacterSet(charactersIn: "ñ¿¡")) != nil { return named("Spanish") }
+        if lower.rangeOfCharacter(from: CharacterSet(charactersIn: "ãõ")) != nil { return named("Portuguese") }
         let words = Set(lower.components(separatedBy: CharacterSet.letters.inverted))
+        let spanish: Set = ["quiero", "cómo", "qué", "necesito", "dónde", "lavadora", "encender", "apagar"]
+        let portuguese: Set = ["quero", "você", "preciso", "ligar", "desligar", "estou", "começar"]
+        if !words.isDisjoint(with: spanish) { return named("Spanish") }
+        if !words.isDisjoint(with: portuguese) { return named("Portuguese") }
+        if lower.rangeOfCharacter(from: CharacterSet(charactersIn: "çğıöşü")) != nil { return all[0] }
         let turkish: Set = ["bu", "ne", "nasil", "mi", "ve", "bir", "icin", "istiyorum", "yap", "ac", "kapat", "nerede"]
         let english: Set = ["the", "how", "what", "i", "to", "do", "this", "is", "want", "turn", "set", "my", "where"]
         if !words.isDisjoint(with: turkish) { return all[0] }
@@ -39,6 +61,7 @@ struct UserLanguage: Identifiable, Hashable {
     /// A fixed phrase from the string catalog in this language, whatever the iPhone's language: the screen follows
     /// the iPhone, the voice follows the user.
     func phrase(_ key: String) -> String {
+        if let line = SpokenPhrases.table[serverName]?[key] { return line }
         let code = String(voice.prefix(2))
         guard let path = Bundle.main.path(forResource: code, ofType: "lproj"), let bundle = Bundle(path: path) else {
             return key
@@ -48,7 +71,7 @@ struct UserLanguage: Identifiable, Hashable {
 
     /// The spoken language that matches the iPhone's language, so the voice and the screen agree by default.
     static func matching(preferred languages: [String]) -> UserLanguage {
-        languages.first?.hasPrefix("tr") == true ? all[0] : all[1]
+        all.first { languages.first?.hasPrefix($0.voice.prefix(2)) == true } ?? all[1]
     }
 }
 

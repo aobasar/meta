@@ -37,7 +37,7 @@ struct SettingsView: View {
                     DisclosureGroup(String(localized: "Advanced", bundle: .ui), isExpanded: $showAdvanced) {
                         Picker(String(localized: "I speak", bundle: .ui), selection: $settings.languageName) {
                             Text("Automatic").tag(GuideSettings.automaticLanguage)
-                            ForEach(UserLanguage.all) { Text($0.title).tag($0.serverName) }
+                            ForEach(UserLanguage.all) { Text($0.pickerTitle).tag($0.serverName) }
                         }
                         Toggle(String(localized: "Live transcription", bundle: .ui), isOn: $settings.liveTranscription)
                         Picker(String(localized: "Screen orientation", bundle: .ui), selection: $settings.orientation) {

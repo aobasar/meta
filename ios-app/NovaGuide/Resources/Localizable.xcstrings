@@ -2,6 +2,46 @@
   "sourceLanguage": "en",
   "version": "1.0",
   "strings": {
+    "%@ (experimental)": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ (deneysel)"
+          }
+        }
+      }
+    },
+    "Stop": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Durdur"
+          }
+        }
+      }
+    },
+    "Stop and start over?": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Durdurup baştan başlansın mı?"
+          }
+        }
+      }
+    },
+    "Keep going": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Devam et"
+          }
+        }
+      }
+    },
     "%@ s": {
       "localizations": {
         "tr": {
@@ -838,12 +878,12 @@
         }
       }
     },
-    "I'm not sure about this step. Check the device's manual, or skip it.": {
+    "I'm not sure about this step. Check the device's manual, or use the button below to go on.": {
       "localizations": {
         "tr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Bu adımdan emin değilim. Cihazın kılavuzuna bak ya da adımı atla."
+            "value": "Bu adımdan emin değilim. Cihazın kılavuzuna bak ya da devam etmek için alttaki düğmeye bas."
           }
         }
       }
