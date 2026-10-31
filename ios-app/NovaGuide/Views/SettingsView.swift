@@ -45,12 +45,16 @@ struct SettingsView: View {
                         Picker(String(localized: "Screen orientation", bundle: .ui), selection: $settings.orientation) {
                             ForEach(OrientationChoice.allCases) { Text($0.title).tag($0) }
                         }
+                        Picker(String(localized: "Camera", bundle: .ui), selection: $settings.highDetail) {
+                            Text(ARGuideController.cameraName(lens: settings.lens, highDetail: false)).tag(false)
+                            Text(String(localized: "\(ARGuideController.cameraName(lens: settings.lens, highDetail: true)) (small labels)", bundle: .ui)).tag(true)
+                        }
                         if ARGuideController.hasUltraWide {
                             Picker(String(localized: "Field of view", bundle: .ui), selection: $settings.lens) {
                                 ForEach(LensChoice.allCases) { Text($0.title).tag($0) }
                             }
                         }
-                        Toggle(String(localized: "High detail (small labels)", bundle: .ui), isOn: $settings.highDetail)
+                        Text(cameraNote).font(.caption).foregroundStyle(.secondary)
                         Toggle(String(localized: "Verify each step", bundle: .ui), isOn: $settings.verifyEach)
                         Toggle(String(localized: "Continue 5 s after a check", bundle: .ui), isOn: $settings.autoContinue)
                             .disabled(!settings.verifyEach)
@@ -138,12 +142,19 @@ struct SettingsView: View {
         (settings.sparkProvider == .baseten ? "muse-spark-open-1026" : "muse-spark-1.3") + " · " + settings.sparkEffort.rawValue
     }
 
+    private var cameraNote: String {
+        let list = ARGuideController.trackingCameras.joined(separator: ", ")
+        return ARGuideController.hasUltraWide
+            ? String(localized: "Cameras the AR guide can use on this iPhone: \(list).", bundle: .ui)
+            : String(localized: "On this iPhone the AR guide can use only the wide lens: the ultra wide isn't offered for tracking.", bundle: .ui)
+    }
+
     /// For pasting into a bug report; no frames, words or keys.
     private var debugReport: String {
         ["Kokobubu debug report", "version: \(version)", "build: \(BuildStamp.text)", "phase: \(model.phase)", "step: \(model.stepIndex + 1)",
          "reasoning: \(reasoningModel)", "provider: \(settings.sparkProvider.rawValue)", "controls: sam-3.1",
          "voice: muse-voice-transcribe-1.0, live: \(settings.liveTranscription)", "connection: \(model.connection)",
-         "camera: \(ar.activeCamera), depth: \(ar.hasLiDAR)", "tracking: \(ar.trackingIssue ?? "normal")",
+         "camera: \(ar.activeCamera), depth: \(ar.hasLiDAR)", "cameras: \(ARGuideController.trackingCameras.joined(separator: ", "))", "tracking: \(ar.trackingIssue ?? "normal")",
          "torch: \(settings.torch.rawValue), lit: \(ar.torchOn)", "timings: \(model.timings.summary)"].joined(separator: "\n")
     }
 

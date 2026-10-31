@@ -157,6 +157,24 @@ final class ARGuideController: NSObject, ObservableObject, ARSessionDelegate {
         ARWorldTrackingConfiguration.supportedVideoFormats.contains { $0.captureDeviceType == .builtInUltraWideCamera }
     }
 
+    /// What this iPhone lets ARKit track with, unique and in its own order: lens, size. Only these can be chosen.
+    static var trackingCameras: [String] {
+        var seen: [String] = []
+        for format in ARWorldTrackingConfiguration.supportedVideoFormats {
+            let text = describe(format)
+            if !seen.contains(text) { seen.append(text) }
+        }
+        return seen
+    }
+
+    /// The camera these options would use, also before the session has started.
+    static func cameraName(lens: LensChoice, highDetail: Bool) -> String {
+        var options = CameraOptions()
+        options.lens = lens
+        options.highDetail = highDetail
+        return videoFormat(for: options, from: ARWorldTrackingConfiguration.supportedVideoFormats).map(describe) ?? ""
+    }
+
     /// Settings › Camera changed: a new lens or resolution restarts the session; the torch just switches.
     func apply(_ new: CameraOptions) {
         let restart = new.lens != options.lens || new.highDetail != options.highDetail

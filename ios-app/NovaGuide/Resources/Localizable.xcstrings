@@ -12,6 +12,16 @@
         }
       }
     },
+    "%@ (small labels)": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ (küçük yazılar)"
+          }
+        }
+      }
+    },
     "Bring the phone closer, then show me again.": {
       "localizations": {
         "tr": {
@@ -28,6 +38,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Derleme"
+          }
+        }
+      }
+    },
+    "Camera in use": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kullanılan kamera"
+          }
+        }
+      }
+    },
+    "Cameras the AR guide can use on this iPhone: %@.": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "AR rehberin bu iPhone'da kullanabildiği kameralar: %@."
           }
         }
       }
@@ -98,6 +128,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Hâlâ çalışıyor. Bitince kamerayı buraya tutup yeniden kontrol edin."
+          }
+        }
+      }
+    },
+    "On this iPhone the AR guide can use only the wide lens: the ultra wide isn't offered for tracking.": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bu iPhone'da AR rehber yalnız geniş lensi kullanabilir: ultra geniş lens takip için sunulmuyor."
           }
         }
       }
@@ -514,6 +554,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Güzel."
+          }
+        }
+      }
+    },
+    "The AR guide can use only these on this iPhone: %@. The ultra wide lens isn't offered for tracking.": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "AR rehber bu iPhone'da yalnız bunları kullanabilir: %@. Ultra geniş lens takip için sunulmuyor."
           }
         }
       }
