@@ -110,11 +110,15 @@ private struct MotionCue: View {
     @State private var touched = 0.0
     @State private var onDark = true
 
-    /// A press, a swipe, a drag or a step with no named motion shows the hand. A turn keeps its arrow: one finger can't
-    /// show turning a dial.
-    private var showsHand: Bool { brightness != nil && (motion == .press || motion == .point || motion.swipe != nil) }
+    /// Every motion but a turn shows a hand. A turn keeps its arrow: one finger can't show turning a dial.
+    private var showsHand: Bool {
+        brightness != nil && motion != .turnClockwise && motion != .turnCounterclockwise
+    }
+    private var gripScale: CGFloat { GripCue.scale(radius: radius) }
     private var flipX: Bool { center.x + HandCue.width * 0.72 > room.width }
-    private var flipY: Bool { center.y + HandCue.height > room.height }
+    private var flipY: Bool {
+        center.y + (motion == .pull || motion == .push ? GripCue.below * gripScale : HandCue.height) > room.height
+    }
 
     var body: some View {
         Group {
@@ -132,6 +136,10 @@ private struct MotionCue: View {
                     HandCue(onDark: onDark, flipX: flipX, flipY: flipY)
                         .offset(x: (1 - progress) * (flipX ? -16 : 16), y: (1 - progress) * (flipY ? -24 : 24))
                 }
+            case .pull where showsHand, .push where showsHand:
+                // Coming toward the user the hand grows, going away it shrinks; the arrows say the same.
+                GripCue(onDark: onDark, inward: motion == .push, flipY: flipY, scale: gripScale)
+                    .scaleEffect(motion == .pull ? 1 + progress * 0.2 : 1.2 - progress * 0.2)
             case .point:
                 if showsHand { HandCue(onDark: onDark, flipX: flipX, flipY: flipY) }
             case .pull, .push, .press:
@@ -221,6 +229,82 @@ private struct SwipeTrail: View {
         }
         .shadow(color: .black.opacity(0.8), radius: 2)
         .rotationEffect(.radians(atan2(way.dy, way.dx)))
+    }
+}
+
+/// A hand seen from the front, gripping a knob with the thumb and two fingers, as a thin open line. The knob's center is
+/// on the center of this view.
+private struct GripCue: View {
+    static let side: CGFloat = 220
+    static let knob = CGPoint(x: 110, y: 100)
+    /// How far the wrist reaches below the knob's center, in the drawing's points.
+    static let below: CGFloat = 114
+
+    /// The drawing's knob (36 points) to the marker's size, within what stays readable.
+    static func scale(radius: CGFloat) -> CGFloat {
+        min(max(radius / 48, 0.55), 1.2)
+    }
+
+    var onDark: Bool
+    var inward: Bool
+    var flipY: Bool
+    var scale: CGFloat
+
+    var body: some View {
+        let color = onDark ? Color.white : Color.black
+        let halo = (onDark ? Color.black : Color.white).opacity(0.55)
+        ZStack {
+            GripShape().stroke(halo, style: StrokeStyle(lineWidth: 5 / scale, lineCap: .round, lineJoin: .round))
+            GripShape().stroke(color, style: StrokeStyle(lineWidth: 2.4 / scale, lineCap: .round, lineJoin: .round))
+            GripArrows(inward: inward).stroke(color, style: StrokeStyle(lineWidth: 2.4 / scale, lineCap: .round, lineJoin: .round))
+        }
+        .frame(width: Self.side, height: Self.side)
+        .offset(x: Self.side / 2 - Self.knob.x, y: Self.side / 2 - Self.knob.y)
+        .scaleEffect(x: scale, y: flipY ? -scale : scale)
+    }
+}
+
+private struct GripShape: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        func p(_ x: CGFloat, _ y: CGFloat) -> CGPoint { CGPoint(x: x, y: y) }
+        path.move(to: p(82, 214))
+        path.addLine(to: p(74, 166))
+        path.addCurve(to: p(60, 104), control1: p(70, 150), control2: p(58, 130))
+        path.addCurve(to: p(79, 102), control1: p(61, 92), control2: p(76, 91))
+        path.addCurve(to: p(92, 140), control1: p(81, 116), control2: p(84, 130))
+        path.addCurve(to: p(136, 138), control1: p(104, 146), control2: p(122, 146))
+        path.addLine(to: p(136, 94))
+        path.addCurve(to: p(156, 94), control1: p(137, 80), control2: p(154, 80))
+        path.addLine(to: p(156, 124))
+        path.addCurve(to: p(172, 132), control1: p(162, 114), control2: p(174, 118))
+        path.addCurve(to: p(152, 214), control1: p(170, 160), control2: p(158, 188))
+        path.move(to: p(136, 138))
+        path.addLine(to: p(136, 112))
+        path.move(to: p(156, 124))
+        path.addLine(to: p(156, 142))
+        return path
+    }
+}
+
+/// Out from the knob for a pull, in toward it for a push.
+private struct GripArrows: Shape {
+    var inward: Bool
+
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        func p(_ x: CGFloat, _ y: CGFloat) -> CGPoint { CGPoint(x: x, y: y) }
+        for (near, far) in [(p(62, 58), p(46, 42)), (p(158, 58), p(174, 42))] {
+            let (start, tip) = inward ? (far, near) : (near, far)
+            let step: CGFloat = 12
+            let dx: CGFloat = tip.x > start.x ? -step : step, dy: CGFloat = tip.y > start.y ? -step : step
+            path.move(to: start)
+            path.addLine(to: tip)
+            path.move(to: p(tip.x + dx, tip.y))
+            path.addLine(to: tip)
+            path.addLine(to: p(tip.x, tip.y + dy))
+        }
+        return path
     }
 }
 
