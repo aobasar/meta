@@ -394,6 +394,12 @@ class TourPromptTests(unittest.TestCase):
                      "when the way is the same on any model"):
             self.assertIn(part, words)
 
+    def test_the_way_through_menus_comes_from_knowledge_and_the_marks_from_the_photo(self):
+        words = " ".join(guide.PLAN_PROMPT.split())
+        for part in ("Only describe and mark controls you can actually see", "even while you ask to see something first",
+                     "trust the screen", "never name a button from memory"):
+            self.assertIn(part, words)
+
     def test_a_problem_is_tested_before_anything_is_changed(self):
         words = " ".join(guide.PLAN_PROMPT.split())
         for part in ("test it before changing anything", "open the browser and load a page", "already selected"):

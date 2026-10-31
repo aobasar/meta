@@ -501,6 +501,10 @@ private struct ShowCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(GuideText.display(asked.what)).font(.headline).fixedSize(horizontal: false, vertical: true).clearsMascot()
+            if let way = model.plan?.remaining, !way.isEmpty {
+                Text("Way: \(GuideText.display(way))").font(.footnote.weight(.semibold))
+                    .fixedSize(horizontal: false, vertical: true)
+            }
             if !asked.why.isEmpty {
                 Text(GuideText.display(asked.why)).font(.footnote).foregroundStyle(Color.sheetMuted)
                     .fixedSize(horizontal: false, vertical: true)

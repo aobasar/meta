@@ -2093,6 +2093,16 @@
         }
       }
     },
+    "Way: %@": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yol: %@"
+          }
+        }
+      }
+    },
     "You only need to do this once.": {
       "extractionState": "manual",
       "localizations": {
