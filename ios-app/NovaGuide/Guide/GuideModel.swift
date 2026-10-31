@@ -144,6 +144,7 @@ final class GuideModel: ObservableObject {
     private let speaker = Speaker()
     private let sounds = SoundEffects()
     private var task: Task<Void, Never>?
+    private var prepared: PreparedPlan?
     private var checkTask: Task<Void, Never>?
     private var voiceTask: Task<Void, Never>?
     /// The task's first sentence and the frame it was asked about; answers to Nova's questions plan on the same frame.
@@ -388,7 +389,8 @@ final class GuideModel: ObservableObject {
     func letNovaChoose() { answerQuestion("You choose the most common option and tell me which one you chose.") }
 
     /// Plans from a frame. A correction keeps the steps before `start`, and doesn't ask anything first.
-    private func requestPlan(capture: CapturedFrame, correction: GuideClient.Correction? = nil, from start: Int = 0) {
+    private func requestPlan(capture: CapturedFrame, correction: GuideClient.Correction? = nil, from start: Int = 0,
+                             prepared: PreparedPlan? = nil) {
         let text = taskQuestion, answers = self.answers, findings = self.findings, shows = self.shows
         let allowQuestions = correction == nil || (correction?.kind == "outcome" && answers.isEmpty)
         let settings = self.settings
@@ -398,14 +400,21 @@ final class GuideModel: ObservableObject {
             do {
                 let language = self.language.serverName, auto = settings.isAutomaticLanguage, record = settings.record
                 let spark = settings.sparkChoice, started = Date()
-                let plan = try await send {
-                    try await $0.plan(jpeg: capture.jpeg, question: text, language: language, autoLanguage: auto,
-                                      record: record, camera: capture.cameraInfo, spark: spark, answers: answers,
-                                      correction: correction, allowQuestions: allowQuestions, findings: findings, shows: shows) { steps in
-                        status.cancel()
-                        self.timings.steps = Date().timeIntervalSince(started)
-                        self.heardLanguage(steps.language)
-                        self.received(steps, capture: capture, from: start, correction: correction)
+                let arrived: @MainActor (GuidePlan) -> Void = { steps in
+                    status.cancel()
+                    self.timings.steps = Date().timeIntervalSince(started)
+                    self.heardLanguage(steps.language)
+                    self.received(steps, capture: capture, from: start, correction: correction)
+                }
+                let plan: GuidePlan
+                if let prepared {
+                    plan = try await prepared.result(onSteps: arrived)
+                } else {
+                    plan = try await send {
+                        try await $0.plan(jpeg: capture.jpeg, question: text, language: language, autoLanguage: auto,
+                                          record: record, camera: capture.cameraInfo, spark: spark, answers: answers,
+                                          correction: correction, allowQuestions: allowQuestions, findings: findings, shows: shows,
+                                          onSteps: arrived)
                     }
                 }
                 let elapsed = Date().timeIntervalSince(started)
@@ -423,7 +432,9 @@ final class GuideModel: ObservableObject {
             } catch where Task.isCancelled {
                 // Home or a new task canceled the request (URLSession reports it as its own error).
             } catch {
-                if correction != nil, self.plan?.isLocated == true {
+                if prepared != nil, let correction {  // the background try failed: the user is waiting, so ask again now
+                    requestPlan(capture: capture, correction: correction, from: start)
+                } else if correction != nil, self.plan?.isLocated == true {
                     phase = correction?.kind == "outcome" ? .confirming : .guiding  // the old steps are still there
                     reply = error.localizedDescription
                 } else {
@@ -589,10 +600,15 @@ final class GuideModel: ObservableObject {
         reply = nil
         phase = .thinking
         timings = TaskTimings(setting: settings.sparkLabel)
-        acknowledge("")
         let start = plan.steps.count
-        let correction = GuideClient.Correction(kind: "continue", wrongStep: "", said: plan.remaining ?? "",
-                                                 done: plan.steps.map(\.instruction))
+        if let ready = takePrepared(from: start) {
+            if !ready.isReady { acknowledge("") }
+            planCapture = ready.capture
+            requestPlan(capture: ready.capture, correction: ready.correction, from: start, prepared: ready)
+            return
+        }
+        acknowledge("")
+        let correction = Self.continuing(plan)
         task = Task {
             try? await Task.sleep(for: .seconds(Self.screenSettleSeconds))
             if Task.isCancelled { return }
@@ -604,6 +620,50 @@ final class GuideModel: ObservableObject {
             planCapture = capture
             requestPlan(capture: capture, correction: correction, from: start)
         }
+    }
+
+    private static func continuing(_ plan: GuidePlan) -> GuideClient.Correction {
+        GuideClient.Correction(kind: "continue", wrongStep: "", said: plan.remaining ?? "", done: plan.steps.map(\.instruction))
+    }
+
+    /// The last step passed and the task goes on: start on the next screen now, while the user reads the check.
+    private func prepareNextScreen() {
+        discardPrepared()
+        guard let plan, plan.goesOn, stepIndex == plan.steps.count - 1, screensPassed < Self.maxScreens,
+              let capture = ar.capture() else { return }
+        let waiting = PreparedPlan(capture: capture, correction: Self.continuing(plan), start: plan.steps.count)
+        let text = taskQuestion, answers = self.answers, findings = self.findings, shows = self.shows, settings = self.settings
+        let language = self.language.serverName
+        waiting.task = Task {
+            defer { waiting.finished() }
+            return try await send {
+                try await $0.plan(jpeg: capture.jpeg, question: text, language: language, autoLanguage: settings.isAutomaticLanguage,
+                                  record: settings.record, camera: capture.cameraInfo, spark: settings.sparkChoice, answers: answers,
+                                  correction: waiting.correction, allowQuestions: false, findings: findings, shows: shows) { steps in
+                    waiting.received(steps: steps)
+                }
+            }
+        }
+        prepared = waiting
+    }
+
+    /// The prepared plan if it fits this screen and still stands; one that doesn't is dropped and the camera looks again.
+    private func takePrepared(from start: Int) -> PreparedPlan? {
+        guard let waiting = prepared else { return nil }
+        prepared = nil
+        if waiting.start == start, let now = ar.cameraTransform {
+            let change = PreparedPlan.change(from: waiting.capture.cameraTransform, to: now)
+            if PreparedPlan.isFresh(age: Date().timeIntervalSince(waiting.asked), moved: change.moved, turned: change.turned) {
+                return waiting
+            }
+        }
+        waiting.task?.cancel()
+        return nil
+    }
+
+    private func discardPrepared() {
+        prepared?.task?.cancel()
+        prepared = nil
     }
 
     // MARK: Is the problem solved?
@@ -649,6 +709,7 @@ final class GuideModel: ObservableObject {
 
     private func finish() {
         checkTask?.cancel()
+        discardPrepared()
         correcting = nil
         reply = nil
         phase = .finished
@@ -667,6 +728,7 @@ final class GuideModel: ObservableObject {
     /// "Re-evaluate": one tap, no choices. Nova looks at the step again from a new frame: it locates the control again,
     /// plans again if the step doesn't fit, or says what it can't tell.
     func reassess() {
+        discardPrepared()
         guard phase == .guiding, !reassessing, !isLocating, let step = currentStep else { return }
         guard let capture = ar.capture() else {
             show(message: String(localized: "The camera isn't ready yet. Point it at the device and try again.", bundle: .ui))
@@ -719,6 +781,7 @@ final class GuideModel: ObservableObject {
 
     func openCorrection() {
         guard phase == .guiding else { return }
+        discardPrepared()
         checkTask?.cancel()
         speaker.stop()
         correcting = .menu
@@ -933,6 +996,7 @@ final class GuideModel: ObservableObject {
                                      phrase: language.phrase)
             doneText = line
             say(.correct, line: line)
+            prepareNextScreen()
             guard settings.autoContinue else { return }
             checkTask = Task {
                 try? await Task.sleep(for: .seconds(Self.autoContinueSeconds))
@@ -1071,6 +1135,7 @@ final class GuideModel: ObservableObject {
 
     /// Back one step; from the first step, back to the question with the same thing in view.
     func back() {
+        discardPrepared()
         if phase == .finished || phase == .confirming {
             checkTask?.cancel()
             goalCheck = nil
@@ -1095,6 +1160,7 @@ final class GuideModel: ObservableObject {
     /// Home, "New task here" and "Something else": back to "What do you want to do?".
     func newTask(keepDevice: Bool) {
         task?.cancel()
+        discardPrepared()
         checkTask?.cancel()
         greeted = false
         awaitingFirstTap = true
@@ -1437,6 +1503,7 @@ final class GuideModel: ObservableObject {
 
     private func go(to index: Int) {
         checkTask?.cancel()
+        discardPrepared()
         stepDefended = false
         feedback = nil
         reply = nil

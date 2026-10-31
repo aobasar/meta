@@ -814,6 +814,24 @@ final class CardPlaceTests: XCTestCase {
     }
 }
 
+final class PreparedPlanTests: XCTestCase {
+    func testAPlanStandsWhileTheUserStaysAndGoesOnSoon() {
+        XCTAssertTrue(PreparedPlan.isFresh(age: 8, moved: 0.1, turned: 0.2))
+        XCTAssertFalse(PreparedPlan.isFresh(age: 31, moved: 0.1, turned: 0.2))
+        XCTAssertFalse(PreparedPlan.isFresh(age: 8, moved: 0.5, turned: 0.2))
+        XCTAssertFalse(PreparedPlan.isFresh(age: 8, moved: 0.1, turned: 1))
+    }
+
+    func testTheChangeBetweenTwoPoses() {
+        var moved = matrix_identity_float4x4
+        moved.columns.3 = SIMD4<Float>(0.3, 0, 0.4, 1)
+        XCTAssertEqual(PreparedPlan.change(from: matrix_identity_float4x4, to: moved).moved, 0.5, accuracy: 0.001)
+        XCTAssertEqual(PreparedPlan.change(from: matrix_identity_float4x4, to: moved).turned, 0, accuracy: 0.001)
+        let turned = simd_float4x4(simd_quatf(angle: .pi / 2, axis: SIMD3<Float>(0, 1, 0)))
+        XCTAssertEqual(PreparedPlan.change(from: matrix_identity_float4x4, to: turned).turned, .pi / 2, accuracy: 0.001)
+    }
+}
+
 final class PictureBrightnessTests: XCTestCase {
     func testTheMeanComesFromAroundThePoint() {
         var pixels = [UInt8](repeating: 0, count: 100 * 100)

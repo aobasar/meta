@@ -195,7 +195,7 @@ private struct SwipeTrail: View {
 /// The pointing hand, with its fingertip on the center of this view: white on a dark picture, black on a light one. It
 /// turns away from the picture's edge so it stays whole.
 private struct HandCue: View {
-    static let height: CGFloat = 112
+    static let height: CGFloat = 84
     static let width: CGFloat = height * HandShape.size.width / HandShape.size.height
 
     var onDark: Bool

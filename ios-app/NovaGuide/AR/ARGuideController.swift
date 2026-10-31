@@ -255,6 +255,9 @@ final class ARGuideController: NSObject, ObservableObject, ARSessionDelegate {
         device.unlockForConfiguration()
     }
 
+    /// Where the camera is now.
+    var cameraTransform: simd_float4x4? { arView.session.currentFrame?.camera.transform }
+
     /// How bright the picture is around a point of this view, 0 to 255, for the hand's color.
     func brightness(atScreen point: CGPoint) -> Double? {
         #if DEBUG

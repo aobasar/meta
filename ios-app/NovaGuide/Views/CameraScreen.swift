@@ -195,7 +195,7 @@ struct CameraScreen: View {
                     .allowsHitTesting(false)
             }
             if model.phase == .guiding, let marker = ar.marker {
-                MarkerOverlay(marker: marker, tint: ringTint, motion: model.currentStep?.motionKind, brightness: handBrightness)
+                MarkerOverlay(marker: marker, tint: ringTint, motion: model.feedback == .correct ? nil : model.currentStep?.motionKind, brightness: handBrightness)
                     .id("\(model.stepIndex)-\(markerShown)")
             }
             if model.correcting == .moving {
