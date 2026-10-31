@@ -752,6 +752,16 @@ class InviteTests(unittest.TestCase):
         self.assertTrue(self.invites.revoke(created["id"]))
         self.assertIsNone(self.invites.find(code))
 
+    def test_the_maintainers_code_has_its_own_limits_and_leaves_the_total_alone(self):
+        _, maintainer = self.invites.create("me", record=True)
+        _, tester = self.invites.create("tester")
+        for _ in range(5):
+            self.invites.consume(maintainer, "plan")  # past the per-code limit of 2 and the total of 3
+        self.invites.consume(tester, "plan")
+        self.invites.consume(tester, "plan")
+        with self.assertRaises(guide.LimitReached):
+            self.invites.consume(tester, "plan")
+
     def test_per_code_and_total_limits(self):
         first, second = (self.invites.find(self.invites.create(name)[0]) for name in ("a", "b"))
         self.invites.consume(first, "plan")

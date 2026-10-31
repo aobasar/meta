@@ -1105,6 +1105,8 @@ def record(recordings: Path, frame: bytes, body: dict, result: dict, kind: str =
 CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"  # no 0/O or 1/I: codes are read aloud and typed on a phone
 PER_CODE_LIMITS = {"plan": 40, "verify": 300, "ask": 100, "transcribe": 150}
 TOTAL_LIMITS = {"plan": 150, "verify": 1000, "ask": 300, "transcribe": 500}
+# Codes created with --record: the maintainer's own testing, which doesn't use up the testers' total.
+MAINTAINER_LIMITS = {"plan": 400, "verify": 3000, "ask": 1000, "transcribe": 1500}
 
 
 class LimitReached(Exception):
@@ -1178,12 +1180,15 @@ class Invites:
             if usage.get("date") != today:
                 usage = {"date": today, "codes": {}, "total": {}}
             mine = usage["codes"].setdefault(invite["id"], {})
-            if mine.get(kind, 0) >= self.per_code.get(kind, 0):
+            maintainer = bool(invite.get("record"))
+            limit = MAINTAINER_LIMITS if maintainer else self.per_code
+            if mine.get(kind, 0) >= limit.get(kind, 0):
                 raise LimitReached(kind)
-            if usage["total"].get(kind, 0) >= self.total.get(kind, 0):
+            if not maintainer and usage["total"].get(kind, 0) >= self.total.get(kind, 0):
                 raise LimitReached(kind)
             mine[kind] = mine.get(kind, 0) + 1
-            usage["total"][kind] = usage["total"].get(kind, 0) + 1
+            if not maintainer:
+                usage["total"][kind] = usage["total"].get(kind, 0) + 1
             self._save(self.usage_path, usage)
 
 
