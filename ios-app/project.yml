@@ -28,12 +28,21 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.aobasar.kokobubu
         PRODUCT_NAME: Kokobubu
-        INFOPLIST_KEY_CFBundleDisplayName: Kokobubu
+        APP_DISPLAY_NAME: Kokobubu
+        APP_URL_SCHEME: kokobubu
+        INFOPLIST_KEY_CFBundleDisplayName: $(APP_DISPLAY_NAME)
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+      # The maintainer's own build sits beside the TestFlight one on the phone, and looks different.
+      configs:
+        Debug:
+          PRODUCT_BUNDLE_IDENTIFIER: com.aobasar.kokobubu.dev
+          APP_DISPLAY_NAME: Kokobubu Dev
+          APP_URL_SCHEME: kokobubu-dev
+          ASSETCATALOG_COMPILER_APPICON_NAME: AppIconDev
     info:
       path: NovaGuide/Info.plist
       properties:
-        CFBundleDisplayName: Kokobubu
+        CFBundleDisplayName: $(APP_DISPLAY_NAME)
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         CFBundleLocalizations: [en, tr]
@@ -41,7 +50,7 @@ targets:
         LSRequiresIPhoneOS: true
         CFBundleURLTypes:
           - CFBundleURLName: com.aobasar.kokobubu.invite
-            CFBundleURLSchemes: [kokobubu]
+            CFBundleURLSchemes: [$(APP_URL_SCHEME)]
         UILaunchScreen: {}
         UIRequiresFullScreen: true
         UIStatusBarHidden: true
