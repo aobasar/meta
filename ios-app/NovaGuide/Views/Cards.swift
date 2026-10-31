@@ -849,14 +849,28 @@ struct CompletionCard: View {
             Text(verbatim: summary).font(.caption.monospacedDigit()).foregroundStyle(Color.sheetMuted).multilineTextAlignment(.center)
             Button(String(localized: "New task here", bundle: .ui)) { model.newTask(keepDevice: true) }
                 .buttonStyle(PrimaryButtonStyle())
-            if !model.unsolved {
-                Button(String(localized: "The problem continues", bundle: .ui)) { model.problemContinues() }
-                    .buttonStyle(SheetButtonStyle())
+            // Side by side; one under the other only where the side panel has no room for both.
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 8) { otherChoices }
+                VStack(spacing: 8) { otherChoices }
             }
-            Button(String(localized: "Something else", bundle: .ui)) { model.newTask(keepDevice: false) }
-                .buttonStyle(SheetButtonStyle())
+            Button { model.goHome() } label: {
+                Label(String(localized: "Home", bundle: .ui), systemImage: "house")
+            }
+            .buttonStyle(SheetButtonStyle())
         }
         .frame(maxWidth: .infinity)
+    }
+
+    @ViewBuilder private var otherChoices: some View {
+        if !model.unsolved {
+            Button(String(localized: "The problem continues", bundle: .ui)) { model.problemContinues() }
+                .buttonStyle(SheetButtonStyle())
+                .lineLimit(1)
+        }
+        Button(String(localized: "Something else", bundle: .ui)) { model.newTask(keepDevice: false) }
+            .buttonStyle(SheetButtonStyle())
+            .lineLimit(1)
     }
 
     /// "Maytag · washing machine · 4/4 · 3:12"

@@ -478,6 +478,9 @@ class VerifyTests(unittest.TestCase):
         opener = RoutingOpener(check={"status": "done", "observed": "hot", "correction": "x"})
         self.assertEqual(guide.verify(tiny_jpeg(520, 520), "i", "s", "Turkish", FAKE_KEY, opener)["correction"], "")
 
+    def test_an_unread_brand_stays_empty(self):
+        self.assertIn("If you can't read one, leave it empty", guide.PLAN_PROMPT)
+
     def test_a_busy_device_ends_the_steps_with_a_goal(self):
         self.assertIn("already doing what they asked", guide.PLAN_PROMPT)
         self.assertIn("task_continues false", guide.PLAN_PROMPT)
