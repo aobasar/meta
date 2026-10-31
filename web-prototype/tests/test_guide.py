@@ -385,7 +385,13 @@ class TourPromptTests(unittest.TestCase):
 
     def test_a_screen_on_the_same_device_gets_a_step_and_not_a_request(self):
         words = " ".join(guide.SHOW_RULE.split())
-        for part in ("they may not know the way", "bring the phone closer", "they don't know how to get there"):
+        for part in ("they may not know the way", "bring the phone closer", "they don't know how to get there", "wipe the camera lens"):
+            self.assertIn(part, words)
+
+    def test_the_model_label_is_asked_for_only_when_the_steps_depend_on_it(self):
+        words = " ".join(guide.SHOW_RULE.split())
+        for part in ("depend on the exact make or model", "ask once to see the model label", "not a serial number",
+                     "when the way is the same on any model"):
             self.assertIn(part, words)
 
     def test_the_goal_check_can_say_the_device_is_still_working(self):

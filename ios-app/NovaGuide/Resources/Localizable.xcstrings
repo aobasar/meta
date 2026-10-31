@@ -908,12 +908,12 @@
         }
       }
     },
-    "I can't see it clearly. Move closer, or confirm it yourself.": {
+    "I can't see it clearly. Wipe the camera lens, move closer, or confirm it yourself.": {
       "localizations": {
         "tr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Net göremiyorum. Biraz yaklaş ya da kendin onayla."
+            "value": "Net göremiyorum. Kamera lensini silin, yaklaşın ya da kendiniz onaylayın."
           }
         }
       }

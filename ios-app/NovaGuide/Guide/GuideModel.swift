@@ -920,7 +920,7 @@ final class GuideModel: ObservableObject {
             unsureChecks[index, default: 0] += 1
             say(.unsure(check.reason == "too_small"
                 ? String(localized: "Move the phone closer to the control, then check again.", bundle: .ui)
-                : String(localized: "I can't see it clearly. Move closer, or confirm it yourself.", bundle: .ui)))
+                : String(localized: "I can't see it clearly. Wipe the camera lens, move closer, or confirm it yourself.", bundle: .ui)))
         }
     }
 
