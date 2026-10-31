@@ -814,6 +814,21 @@ final class CardPlaceTests: XCTestCase {
     }
 }
 
+final class DemoCanvasTests: XCTestCase {
+    func testTheCanvasIsWideAndEvenEitherWayUp() {
+        XCTAssertEqual(VideoWriter.canvas(for: CGSize(width: 887, height: 1920)), CGSize(width: 1920, height: 886))
+        XCTAssertEqual(VideoWriter.canvas(for: CGSize(width: 1920, height: 887)), CGSize(width: 1920, height: 886))
+    }
+
+    func testAWideFrameFillsItAndATallOneStaysWholeInTheMiddle() {
+        let canvas = CGSize(width: 1920, height: 886)
+        XCTAssertEqual(VideoWriter.fit(CGSize(width: 1920, height: 886), in: canvas), CGRect(origin: .zero, size: canvas))
+        let tall = VideoWriter.fit(CGSize(width: 886, height: 1920), in: canvas)
+        XCTAssertEqual(tall.height, 886, accuracy: 0.01)
+        XCTAssertEqual(tall.midX, 960, accuracy: 0.01)
+    }
+}
+
 final class CameraWatchTests: XCTestCase {
     func testASilentCameraIsRestartedOnlyNowAndThen() {
         XCTAssertFalse(CameraWatch.isStalled(sinceFrame: 0.1, sinceRestart: 100))

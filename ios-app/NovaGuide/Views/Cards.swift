@@ -801,7 +801,7 @@ private struct StepCard: View {
         switch model.feedback {
         case .correct: ("checkmark", .green, model.doneText.map(GuideText.display) ?? String(localized: "Verified.", bundle: .ui), "")
         case .notDone(let text): ("xmark", .red, nil, text)
-        case .unsure(let text): ("questionmark.circle", .orange, nil, text)
+        case .unsure(let text), .confirmDial(let text): ("questionmark.circle", .orange, nil, text)
         case .error(let text): ("exclamationmark.triangle", .orange, nil, text)
         case .checking, nil: nil
         }
@@ -814,6 +814,7 @@ private struct StepCard: View {
         case .checking: return String(localized: "Checking…", bundle: .ui)
         case .correct: return model.isLastStep ? String(localized: "Finish", bundle: .ui) : String(localized: "Continue →", bundle: .ui)
         case .notDone, .error: return String(localized: "Check again", bundle: .ui)
+        case .confirmDial: return String(localized: "Yes, it's right →", bundle: .ui)
         case .unsure:
             if model.userLeadsCheck { return String(localized: "I did it, continue →", bundle: .ui) }
             return (model.unsureChecks[index] ?? 0) > 0 ? String(localized: "Check again", bundle: .ui) : String(localized: "Show closer", bundle: .ui)
@@ -830,6 +831,7 @@ private struct StepCard: View {
     private var secondaryTitle: String? {
         switch model.feedback {
         case .notDone, .error: String(localized: "Skip, I did it", bundle: .ui)
+        case .confirmDial: String(localized: "Look again", bundle: .ui)
         case .unsure: model.userLeadsCheck ? String(localized: "Check again", bundle: .ui) : String(localized: "I did it, confirm", bundle: .ui)
         default: nil
         }

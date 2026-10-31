@@ -50,6 +50,8 @@ final class GuideModel: ObservableObject {
         case notDone(String)
         case unsure(String)
         case error(String)
+        /// A dial the check couldn't confirm: the user is asked, not told it failed.
+        case confirmDial(String)
     }
 
     /// Pulse, the one round button: what it shows and what a tap does.
@@ -946,6 +948,7 @@ final class GuideModel: ObservableObject {
         case .checking: return
         case .correct: next()
         case .unsure where userLeadsCheck: mark(.confirmed)
+        case .confirmDial: mark(.confirmed)
         case .notDone, .unsure, .error: done()  // check again
         case nil: done()
         }
@@ -960,6 +963,7 @@ final class GuideModel: ObservableObject {
         case .unsure:
             if userLeadsCheck { done() } else { mark(.confirmed) }
         case .notDone, .error: mark(.skipped)
+        case .confirmDial: done()  // look again
         default: break
         }
     }
@@ -1039,6 +1043,22 @@ final class GuideModel: ObservableObject {
                 try? await Task.sleep(for: .seconds(Self.autoContinueSeconds))
                 if !Task.isCancelled, index == stepIndex, feedback == .correct { next() }
             }
+        case .notDone, .unsure, .inProgress:
+            // A dial's pointer is often a small mark on the rim, and Spark misreads it on a setting that is right. A red
+            // failure would be wrong there, so the user is asked instead. A photo too small to read says so as before.
+            if let label = plan?.steps[index].setTo?.label, check.reason != "too_small" {
+                records[index].result = .uncertain
+                let question = language.phrase("I can't read it clearly. Is the pointer on %@? Hold the phone straight in front of the dial.")
+                say(.confirmDial(question.replacingOccurrences(of: "%@", with: "«\(label)»")))
+                return
+            }
+            applyMiss(check, to: index)
+        }
+    }
+
+    private func applyMiss(_ check: StepCheck, to index: Int) {
+        switch check.status {
+        case .done: break
         case .notDone:
             records[index].result = .failed
             let correction = check.correction.isEmpty
@@ -1087,6 +1107,9 @@ final class GuideModel: ObservableObject {
         case .unsure(let text):
             haptic(.warning)
             sound(.wrong)
+            speak(text)
+        case .confirmDial(let text):
+            sound(.question)
             speak(text)
         case .checking, .error: break
         }
@@ -1614,7 +1637,7 @@ final class GuideModel: ObservableObject {
             self.plan = nil
             statusLine = String(localized: "Planning the steps…", bundle: .ui)
             phase = .thinking
-        case "guiding", "verified", "correction":
+        case "guiding", "verified", "correction", "dialconfirm":
             phase = .guiding
             stepIndex = 1
             records[0].result = .verified
@@ -1624,6 +1647,9 @@ final class GuideModel: ObservableObject {
             } else if screen == "correction" {
                 records[1].result = .failed
                 feedback = .notDone(correction)
+            } else if screen == "dialconfirm" {
+                records[1].result = .uncertain
+                feedback = .confirmDial("Net okuyamadım. İbre «regular soil» üzerinde mi? Telefonu düğmeye tam karşıdan tut.")
             }
         case "finished":
             records = records.enumerated().map { index, record in

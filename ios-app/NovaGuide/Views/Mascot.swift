@@ -223,6 +223,7 @@ struct CardMascot: View {
             case .checking: return .looking
             case .correct: return .yes
             case .notDone, .unsure, .error: return .no
+            case .confirmDial: return .looking  // a question, not a failure
             case nil:
                 guard let target = ar.marker?.center.x else { return .idle }
                 return .lean(target < ar.arView.bounds.midX ? -1 : 1)

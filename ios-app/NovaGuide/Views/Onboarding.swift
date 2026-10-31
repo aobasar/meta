@@ -55,7 +55,7 @@ struct WelcomeView: View {
                 Color.sheetGround.ignoresSafeArea()
                 if land {
                     HStack(spacing: 32) {
-                        mark(logo: 192, word: 40)
+                        mark(logo: 192, word: 25)
                         text(land: true).frame(width: 410)
                     }
                     .padding(.horizontal, 34)
@@ -87,6 +87,9 @@ struct WelcomeView: View {
                 .font(.system(size: word, weight: .light))
                 .tracking(word * 0.35)
                 .padding(.leading, word * 0.35)
+                .lineLimit(1)
+                .minimumScaleFactor(0.6)
+                .fixedSize(horizontal: true, vertical: false)
         }
     }
 

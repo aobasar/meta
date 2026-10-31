@@ -1,4 +1,5 @@
 import AVFoundation
+import CoreImage
 import ReplayKit
 
 /// The last screen recording, kept until the next one replaces it or the user deletes it.
@@ -11,8 +12,9 @@ struct RecordedVideo: Identifiable, Equatable {
 /// Records Nova's own screen (camera view, markers, cards) with ReplayKit while a task runs, when Settings › Screen
 /// recording is on. Video only. It pauses while Nova waits for a model, so the video holds only the action. Only the
 /// last recording is kept, on the phone; it never goes to the server. Settings shares, saves or deletes it.
-/// The demo video (Settings › Demo video) runs from launch to Home and adds the app's own audio, so Kokobubu's spoken
-/// words are heard. Never the microphone: no one else's voice is ever captured (HACKATHON.md, design rule 6).
+/// The demo video (Settings › Demo video) runs from launch to Home with the app's audio and the microphone, so both
+/// Kokobubu and the maintainer are heard. It is only ever on by their choice, and it stays on the phone. A task's video
+/// never has sound: no one else's voice is captured by it (HACKATHON.md, design rule 6).
 @MainActor
 final class ScreenRecorder: ObservableObject {
     enum State: Equatable {
@@ -63,7 +65,7 @@ final class ScreenRecorder: ObservableObject {
             failure = String(localized: "Screen recording isn't available on this iPhone right now.", bundle: .ui)
             return
         }
-        recorder.isMicrophoneEnabled = false
+        recorder.isMicrophoneEnabled = audio
         let writer = VideoWriter(url: FileManager.default.temporaryDirectory.appendingPathComponent("Nova-\(UUID().uuidString).mp4"), audio: audio)
         writer.setPaused(paused)
         wantPaused = paused
@@ -74,7 +76,8 @@ final class ScreenRecorder: ObservableObject {
             switch type {
             case .video: writer.append(buffer)
             case .audioApp: if audio { writer.appendAudio(buffer) }
-            default: break  // never the microphone
+            case .audioMic: if audio { writer.appendMic(buffer) }
+            @unknown default: break
             }
         }, completionHandler: { error in
             Task { @MainActor in
@@ -166,7 +169,13 @@ final class VideoWriter: @unchecked Sendable {
     private var writer: AVAssetWriter?
     private var input: AVAssetWriterInput?
     private var audioInput: AVAssetWriterInput?
+    private var micInput: AVAssetWriterInput?
     private let withAudio: Bool
+    /// The demo: one wide picture whichever way the phone is held, so the video follows every turn.
+    private let fitsCanvas: Bool
+    private var adaptor: AVAssetWriterInputPixelBufferAdaptor?
+    private var canvas = CGSize.zero
+    private let context = CIContext(options: [.cacheIntermediates: false])
     private var paused = false
     private var resumed = false
     private var offset = CMTime.zero
@@ -175,6 +184,21 @@ final class VideoWriter: @unchecked Sendable {
     init(url: URL, audio: Bool = false) {
         self.url = url
         withAudio = audio
+        fitsCanvas = audio
+    }
+
+    /// The wide picture for a screen of this size, either way up. Video sizes must be even.
+    static func canvas(for size: CGSize) -> CGSize {
+        let long = max(size.width, size.height), short = min(size.width, size.height)
+        return CGSize(width: floor(long / 2) * 2, height: floor(short / 2) * 2)
+    }
+
+    /// Where a frame goes on the canvas: whole, centered, with black beside it when it is the other way up.
+    static func fit(_ frame: CGSize, in canvas: CGSize) -> CGRect {
+        guard frame.width > 0, frame.height > 0 else { return .zero }
+        let scale = min(canvas.width / frame.width, canvas.height / frame.height)
+        let width = frame.width * scale, height = frame.height * scale
+        return CGRect(x: (canvas.width - width) / 2, y: (canvas.height - height) / 2, width: width, height: height)
     }
 
     func setPaused(_ paused: Bool) {
@@ -189,7 +213,11 @@ final class VideoWriter: @unchecked Sendable {
     }
 
     func appendAudio(_ buffer: CMSampleBuffer) {
-        queue.async { self.writeAudio(buffer) }
+        queue.async { self.writeSound(buffer, to: self.audioInput) }
+    }
+
+    func appendMic(_ buffer: CMSampleBuffer) {
+        queue.async { self.writeSound(buffer, to: self.micInput) }
     }
 
     func finish(_ completion: @escaping (URL?) -> Void) {
@@ -200,8 +228,13 @@ final class VideoWriter: @unchecked Sendable {
             }
             self.input?.markAsFinished()
             self.audioInput?.markAsFinished()
-            let url = self.url
-            writer.finishWriting { completion(writer.status == .completed ? url : nil) }
+            self.micInput?.markAsFinished()
+            let url = self.url, hasMic = self.micInput != nil
+            writer.finishWriting {
+                guard writer.status == .completed else { return completion(nil) }
+                guard hasMic else { return completion(url) }
+                Task { completion(await Self.mixSound(in: url)) }
+            }
         }
     }
 
@@ -215,14 +248,58 @@ final class VideoWriter: @unchecked Sendable {
             resumed = false
         }
         guard let input, input.isReadyForMoreMediaData else { return }
+        if fitsCanvas {
+            // 30 frames a second is enough for a demo, and it keeps the drawing light.
+            if let last = lastSourceTime, (time - last).seconds < 1.0 / 31 { return }
+            if drawOnCanvas(buffer, at: time - offset) { lastSourceTime = time }
+            return
+        }
         if let shifted = shifted(buffer), input.append(shifted) { lastSourceTime = time }
     }
 
+    private func drawOnCanvas(_ buffer: CMSampleBuffer, at time: CMTime) -> Bool {
+        guard let adaptor, let pool = adaptor.pixelBufferPool, let source = CMSampleBufferGetImageBuffer(buffer) else { return false }
+        var image = CIImage(cvPixelBuffer: source).oriented(Self.orientation(of: buffer))
+        image = image.transformed(by: CGAffineTransform(translationX: -image.extent.minX, y: -image.extent.minY))
+        let place = Self.fit(image.extent.size, in: canvas)
+        let scale = place.width / max(image.extent.width, 1)
+        image = image.transformed(by: CGAffineTransform(scaleX: scale, y: scale))
+            .transformed(by: CGAffineTransform(translationX: place.minX, y: place.minY))
+        let picture = image.composited(over: CIImage(color: .black).cropped(to: CGRect(origin: .zero, size: canvas)))
+        var target: CVPixelBuffer?
+        guard CVPixelBufferPoolCreatePixelBuffer(nil, pool, &target) == kCVReturnSuccess, let target else { return false }
+        context.render(picture, to: target)
+        return adaptor.append(target, withPresentationTime: time)
+    }
+
     /// Sound follows the picture: it waits for the first frame, stops with the pause and takes the same time shift.
-    private func writeAudio(_ buffer: CMSampleBuffer) {
+    private func writeSound(_ buffer: CMSampleBuffer, to sound: AVAssetWriterInput?) {
         guard CMSampleBufferDataIsReady(buffer), !paused, !resumed, writer != nil,
-              let audioInput, audioInput.isReadyForMoreMediaData, let shifted = shifted(buffer) else { return }
-        audioInput.append(shifted)
+              let sound, sound.isReadyForMoreMediaData, let shifted = shifted(buffer) else { return }
+        sound.append(shifted)
+    }
+
+    /// Players often play only a file's first sound track, so the app's sound and the voice become one. If that fails the
+    /// video with its two tracks is still kept.
+    private static func mixSound(in url: URL) async -> URL {
+        let asset = AVURLAsset(url: url)
+        guard let video = try? await asset.loadTracks(withMediaType: .video).first,
+              let sounds = try? await asset.loadTracks(withMediaType: .audio), sounds.count > 1,
+              let duration = try? await asset.load(.duration) else { return url }
+        let mix = AVMutableComposition()
+        let range = CMTimeRange(start: .zero, duration: duration)
+        for track in [video] + sounds {
+            let copy = mix.addMutableTrack(withMediaType: track.mediaType, preferredTrackID: kCMPersistentTrackID_Invalid)
+            try? copy?.insertTimeRange(range, of: track, at: .zero)
+        }
+        let output = url.deletingPathExtension().appendingPathExtension("mixed.mp4")
+        guard let export = AVAssetExportSession(asset: mix, presetName: AVAssetExportPresetHighestQuality) else { return url }
+        export.outputURL = output
+        export.outputFileType = .mp4
+        await export.export()
+        guard export.status == .completed else { return url }
+        try? FileManager.default.removeItem(at: url)
+        return output
     }
 
     /// The buffer with the pauses taken out of its times.
@@ -246,13 +323,22 @@ final class VideoWriter: @unchecked Sendable {
         guard let format = CMSampleBufferGetFormatDescription(buffer),
               let writer = try? AVAssetWriter(outputURL: url, fileType: .mp4) else { return false }
         let size = CMVideoFormatDescriptionGetDimensions(format)
+        if fitsCanvas { canvas = Self.canvas(for: CGSize(width: Int(size.width), height: Int(size.height))) }
         let input = AVAssetWriterInput(mediaType: .video, outputSettings: [
             AVVideoCodecKey: AVVideoCodecType.h264,
-            AVVideoWidthKey: size.width,
-            AVVideoHeightKey: size.height,
+            AVVideoWidthKey: fitsCanvas ? Int32(canvas.width) : size.width,
+            AVVideoHeightKey: fitsCanvas ? Int32(canvas.height) : size.height,
         ])
         input.expectsMediaDataInRealTime = true
-        input.transform = Self.transform(for: buffer)
+        if fitsCanvas {
+            adaptor = AVAssetWriterInputPixelBufferAdaptor(assetWriterInput: input, sourcePixelBufferAttributes: [
+                kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA,
+                kCVPixelBufferWidthKey as String: Int(canvas.width),
+                kCVPixelBufferHeightKey as String: Int(canvas.height),
+            ])
+        } else {
+            input.transform = Self.transform(for: buffer)
+        }
         guard writer.canAdd(input) else { return false }
         writer.add(input)
         if withAudio {
@@ -267,6 +353,17 @@ final class VideoWriter: @unchecked Sendable {
                 writer.add(audio)
                 audioInput = audio
             }
+            let mic = AVAssetWriterInput(mediaType: .audio, outputSettings: [
+                AVFormatIDKey: kAudioFormatMPEG4AAC,
+                AVSampleRateKey: 44_100,
+                AVNumberOfChannelsKey: 1,
+                AVEncoderBitRateKey: 96_000,
+            ])
+            mic.expectsMediaDataInRealTime = true
+            if writer.canAdd(mic) {
+                writer.add(mic)
+                micInput = mic
+            }
         }
         guard writer.startWriting() else { return false }
         writer.startSession(atSourceTime: time)
@@ -275,7 +372,13 @@ final class VideoWriter: @unchecked Sendable {
         return true
     }
 
-    /// ReplayKit sends frames in the device's native portrait orientation and says how to turn them; the video keeps
+    private static func orientation(of buffer: CMSampleBuffer) -> CGImagePropertyOrientation {
+        guard let value = CMGetAttachment(buffer, key: RPVideoSampleOrientationKey as CFString, attachmentModeOut: nil) as? NSNumber
+        else { return .up }
+        return CGImagePropertyOrientation(rawValue: value.uint32Value) ?? .up
+    }
+
+    /// ReplayKit sends frames in the device's native portrait orientation and says how to turn them; a task's video keeps
     /// the orientation it started in.
     private static func transform(for buffer: CMSampleBuffer) -> CGAffineTransform {
         guard let value = CMGetAttachment(buffer, key: RPVideoSampleOrientationKey as CFString, attachmentModeOut: nil) as? NSNumber,
