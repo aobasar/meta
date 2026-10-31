@@ -128,6 +128,21 @@ struct GuideStep: Decodable, Equatable {
         case turnClockwise = "turn_clockwise"
         case turnCounterclockwise = "turn_counterclockwise"
         case pull, push
+        case swipeLeft = "swipe_left"
+        case swipeRight = "swipe_right"
+        case swipeUp = "swipe_up"
+        case swipeDown = "swipe_down"
+
+        /// The way the finger moves on the screen (y down), for a swipe.
+        var swipe: CGVector? {
+            switch self {
+            case .swipeLeft: CGVector(dx: -1, dy: 0)
+            case .swipeRight: CGVector(dx: 1, dy: 0)
+            case .swipeUp: CGVector(dx: 0, dy: -1)
+            case .swipeDown: CGVector(dx: 0, dy: 1)
+            default: nil
+            }
+        }
 
         var title: String {
             switch self {
@@ -136,6 +151,10 @@ struct GuideStep: Decodable, Equatable {
             case .turnCounterclockwise: String(localized: "Turn counterclockwise", bundle: .ui)
             case .pull: String(localized: "Pull toward you", bundle: .ui)
             case .push: String(localized: "Push in", bundle: .ui)
+            case .swipeLeft: String(localized: "Swipe left", bundle: .ui)
+            case .swipeRight: String(localized: "Swipe right", bundle: .ui)
+            case .swipeUp: String(localized: "Swipe up", bundle: .ui)
+            case .swipeDown: String(localized: "Swipe down", bundle: .ui)
             }
         }
 
@@ -146,6 +165,10 @@ struct GuideStep: Decodable, Equatable {
             case .turnCounterclockwise: "arrow.counterclockwise"
             case .pull: "arrow.up.left.and.arrow.down.right"
             case .push: "arrow.down.right.and.arrow.up.left"
+            case .swipeLeft: "arrow.left"
+            case .swipeRight: "arrow.right"
+            case .swipeUp: "arrow.up"
+            case .swipeDown: "arrow.down"
             }
         }
     }

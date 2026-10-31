@@ -32,7 +32,7 @@ struct MarkerOverlay: View {
                         .opacity(cornersShown ? 1 : 0)
                         .position(marker.center)
                     if let motion {
-                        MotionCue(motion: motion, radius: ringRadius + 14).position(marker.center)
+                        MotionCue(motion: motion, radius: ringRadius + 14, center: marker.center, room: geometry.size).position(marker.center)
                     }
                 }
             } else {
@@ -84,6 +84,8 @@ private struct MotionCue: View {
 
     var motion: GuideStep.Motion
     var radius: CGFloat
+    var center: CGPoint = .zero
+    var room: CGSize = .zero
     @State private var progress = 0.0
     @State private var opacity = 0.0
 
@@ -100,6 +102,9 @@ private struct MotionCue: View {
                     .frame(width: radius * 2, height: radius * 2)
                     .scaleEffect(motion == .pull ? 0.7 + progress * 0.8 : 1.4 - progress * 0.7)
                     .shadow(color: .black.opacity(0.7), radius: 2)
+            case .swipeLeft, .swipeRight, .swipeUp, .swipeDown:
+                let way = motion.swipe ?? CGVector(dx: 0, dy: -1)
+                SwipeTrail(way: way, length: SwipeTrail.length(from: center, way: way, room: room), progress: progress)
             }
         }
         .opacity(opacity)
@@ -113,6 +118,37 @@ private struct MotionCue: View {
                 try? await Task.sleep(for: .seconds(Self.pauseSeconds))
             }
         }
+    }
+}
+
+/// A fingertip leaving the marker the way the finger should go, drawing its line behind it, toward an arrowhead.
+private struct SwipeTrail: View {
+    var way: CGVector
+    var length: CGFloat
+    var progress: Double
+
+    /// Up to 120 pt, shorter where the picture ends sooner, with room left for the arrowhead.
+    static func length(from center: CGPoint, way: CGVector, room: CGSize) -> CGFloat {
+        let free = way.dx != 0 ? (way.dx < 0 ? center.x : room.width - center.x) : (way.dy < 0 ? center.y : room.height - center.y)
+        return max(min(120, free - 34), 40)
+    }
+
+    var body: some View {
+        ZStack {
+            Capsule().fill(Color.white.opacity(0.85))
+                .frame(width: max(length * progress, 1), height: 5)
+                .offset(x: length * progress / 2)
+            Image(systemName: "arrowtriangle.right.fill")
+                .font(.system(size: 18))
+                .foregroundStyle(Color.white)
+                .offset(x: length + 10)
+            Circle().fill(Color.white)
+                .overlay(Circle().stroke(Color.novaYellow, lineWidth: 3))
+                .frame(width: 26, height: 26)
+                .offset(x: length * progress)
+        }
+        .shadow(color: .black.opacity(0.8), radius: 2)
+        .rotationEffect(.radians(atan2(way.dy, way.dx)))
     }
 }
 

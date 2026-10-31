@@ -814,6 +814,16 @@ final class CardPlaceTests: XCTestCase {
     }
 }
 
+final class SwipeMotionTests: XCTestCase {
+    func testEachSwipeHasItsWay() {
+        XCTAssertEqual(GuideStep.Motion(rawValue: "swipe_left")?.swipe, CGVector(dx: -1, dy: 0))
+        XCTAssertEqual(GuideStep.Motion(rawValue: "swipe_right")?.swipe, CGVector(dx: 1, dy: 0))
+        XCTAssertEqual(GuideStep.Motion(rawValue: "swipe_up")?.swipe, CGVector(dx: 0, dy: -1))
+        XCTAssertEqual(GuideStep.Motion(rawValue: "swipe_down")?.swipe, CGVector(dx: 0, dy: 1))
+        XCTAssertNil(GuideStep.Motion.press.swipe)
+    }
+}
+
 final class FrameSharpnessTests: XCTestCase {
     private func score(_ pixels: [UInt8], side: Int) -> Double {
         pixels.withUnsafeBufferPointer { FrameSharpness.score(luma: $0.baseAddress!, rowBytes: side, width: side, height: side) }

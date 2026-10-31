@@ -2328,6 +2328,46 @@
         }
       }
     },
+    "Swipe down": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aşağı kaydır"
+          }
+        }
+      }
+    },
+    "Swipe left": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sola kaydır"
+          }
+        }
+      }
+    },
+    "Swipe right": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sağa kaydır"
+          }
+        }
+      }
+    },
+    "Swipe up": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yukarı kaydır"
+          }
+        }
+      }
+    },
     "The problem continues": {
       "localizations": {
         "tr": {

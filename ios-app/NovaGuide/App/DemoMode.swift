@@ -43,7 +43,7 @@ enum DemoMode {
          "remaining": "«General» › «Language & Region» › «Türkçe»", "frame": {"width": 1600, "height": 900}, "served": [],
          "steps": [
           {"instruction": "«Settings» uygulamasını açın.", "detail": "Gri dişli simgesi.", "target": "Settings icon", "success": "",
-           "point": {"x": 0.5, "y": 0.42}, "boxMethod": "point", "motion": "press", "verifiable": false}
+           "point": {"x": 0.5, "y": 0.42}, "boxMethod": "point", "motion": "\(UserDefaults.standard.string(forKey: "NovaDemoMotion") ?? "press")", "verifiable": false}
          ]}
         """
         return try! JSONDecoder().decode(GuidePlan.self, from: Data(json.utf8))

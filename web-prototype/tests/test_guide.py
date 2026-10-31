@@ -478,6 +478,12 @@ class VerifyTests(unittest.TestCase):
         opener = RoutingOpener(check={"status": "done", "observed": "hot", "correction": "x"})
         self.assertEqual(guide.verify(tiny_jpeg(520, 520), "i", "s", "Turkish", FAKE_KEY, opener)["correction"], "")
 
+    def test_a_swipe_keeps_its_direction(self):
+        plan = {**PLAN, "steps": [{**PLAN["steps"][0], "motion": "swipe_left"}, {**PLAN["steps"][1], "motion": "swipe_diagonal"}]}
+        first, second = guide.plan(tiny_jpeg(), "q", "English", FAKE_KEY, RoutingOpener(plan=plan))["steps"]
+        self.assertEqual((first["motion"], second["motion"]), ("swipe_left", "unknown"))
+        self.assertIn("the way the finger moves", guide.PLAN_PROMPT)
+
     def test_the_goal_confirmation_answers_the_task(self):
         for part in ("answers their task", "the result they", "the proof from observed", "Claim\n  only what observed supports"):
             self.assertIn(part, guide.VERIFY_GOAL_PROMPT)
