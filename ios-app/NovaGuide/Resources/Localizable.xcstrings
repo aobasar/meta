@@ -212,6 +212,16 @@
         }
       }
     },
+    "Recording mode is on": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kayıt modu açık"
+          }
+        }
+      }
+    },
     "Side panel": {
       "localizations": {
         "tr": {

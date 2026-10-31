@@ -336,7 +336,6 @@ private struct TopBar: View {
     @EnvironmentObject private var ar: ARGuideController
     var openMore: () -> Void
     var stopRecording: () -> Void
-    @EnvironmentObject private var settings: GuideSettings
     @EnvironmentObject private var screenRecorder: ScreenRecorder
 
     private var isRecordingScreen: Bool {
@@ -348,11 +347,6 @@ private struct TopBar: View {
 
     var body: some View {
         HStack(spacing: 6) {
-            if settings.record {  // frames are being kept on the Mac: never silently
-                Text(verbatim: "REC").font(.caption2.weight(.heavy)).foregroundStyle(.white)
-                    .padding(.horizontal, 7).padding(.vertical, 3)
-                    .background(Color.novaRed, in: Capsule())
-            }
             if isRecordingScreen {
                 Button(action: stopRecording) {
                     Label(String(localized: "Stop recording", bundle: .ui), systemImage: "stop.fill")
@@ -393,6 +387,7 @@ private struct TopBar: View {
 /// ⋯: everything used rarely, two taps away.
 private struct MoreMenu: View {
     @EnvironmentObject private var model: GuideModel
+    @EnvironmentObject private var settings: GuideSettings
     @Environment(\.dismiss) private var dismiss
     var open: (CameraScreen.Panel) -> Void
 
@@ -416,6 +411,8 @@ private struct MoreMenu: View {
                 } footer: {
                     VStack(alignment: .leading, spacing: 4) {
                         if let device = model.knownDevice { Text(device) }
+                        // Frames are being kept: not on the camera, so it stays out of videos, but never silently.
+                        if settings.record { Text("Recording mode is on") }
                         Text("AI-generated guidance. Check before you press.")
                     }
                 }
