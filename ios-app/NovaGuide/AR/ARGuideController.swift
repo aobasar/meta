@@ -85,10 +85,14 @@ final class ARGuideController: NSObject, ObservableObject, ARSessionDelegate {
     @Published private(set) var activeCamera = ""
     /// The running format's long side over its short side: the screen shows the whole frame, the same one Spark gets.
     @Published private(set) var frameAspect: CGFloat = 4.0 / 3.0
-    /// The last half second, for the sharpest frame. ARKit stalls when too many of its frames are held.
-    private var recentFrames: [RecentFrame] = []
+    /// The sharpest frame of the last half second. Only this one is held: ARKit runs out of buffers and the camera stops
+    /// when an app keeps its frames.
+    private var bestFrame: RecentFrame?
     private var recentTime: TimeInterval = 0
-    private static let recentFrameCount = 5
+    /// When ARKit last gave a frame, and when it was last restarted for giving none.
+    private var lastFrameAt = Date()
+    private var lastRestartAt = Date.distantPast
+    private var interrupted = false
     private(set) var options = CameraOptions()
     private var running = false
     /// Whether the torch is lit now, for the top bar's torch button.
@@ -123,7 +127,8 @@ final class ARGuideController: NSObject, ObservableObject, ARSessionDelegate {
         activeCamera = Self.describe(configuration.videoFormat)
         let resolution = configuration.videoFormat.imageResolution
         if resolution.height > 0 { frameAspect = resolution.width / resolution.height }
-        recentFrames = []
+        bestFrame = nil
+        lastFrameAt = Date()
         configuration.planeDetection = [.horizontal, .vertical]
         if ARWorldTrackingConfiguration.supportsFrameSemantics(.sceneDepth) {
             configuration.frameSemantics.insert(.sceneDepth)
@@ -154,7 +159,7 @@ final class ARGuideController: NSObject, ObservableObject, ARSessionDelegate {
         running = false
         applyTorch()  // off while the camera is paused
         arView.session.pause()
-        recentFrames = []
+        bestFrame = nil
         displayLink?.invalidate()
         displayLink = nil
     }
@@ -314,17 +319,17 @@ final class ARGuideController: NSObject, ObservableObject, ARSessionDelegate {
     private func remember(_ frame: ARFrame) {
         guard frame.timestamp - recentTime >= 0.1 else { return }
         recentTime = frame.timestamp
-        recentFrames.append(RecentFrame(frame: frame, sharpness: FrameSharpness.score(frame.capturedImage)))
-        if recentFrames.count > Self.recentFrameCount { recentFrames.removeFirst() }
+        let sharpness = FrameSharpness.score(frame.capturedImage)
+        if let best = bestFrame, frame.timestamp - best.frame.timestamp <= FrameSharpness.window,
+           sharpness < best.sharpness * FrameSharpness.closeEnough { return }
+        bestFrame = RecentFrame(frame: frame, sharpness: sharpness)
     }
 
     /// The sharpest moment of the last half second; each frame carries its own camera, so markers still land right.
     private func sharpestFrame() -> ARFrame? {
         guard let current = arView.session.currentFrame else { return nil }
-        let frames = recentFrames.filter { current.timestamp - $0.frame.timestamp <= 0.6 }.map(\.frame)
-        let scores = recentFrames.filter { current.timestamp - $0.frame.timestamp <= 0.6 }.map(\.sharpness)
-        let all = frames + [current]
-        return FrameSharpness.choose(scores: scores + [FrameSharpness.score(current.capturedImage)]).map { all[$0] } ?? current
+        guard let best = bestFrame, current.timestamp - best.frame.timestamp <= FrameSharpness.window else { return current }
+        return FrameSharpness.choose(scores: [best.sharpness, FrameSharpness.score(current.capturedImage)]) == 0 ? best.frame : current
     }
 
     /// The sharpest recent frame, or nil while tracking is not ready.
@@ -494,7 +499,22 @@ final class ARGuideController: NSObject, ObservableObject, ARSessionDelegate {
 
     // MARK: Projection
 
-    @objc private func tick() { updateMarker() }
+    @objc private func tick() {
+        updateMarker()
+        restartIfStalled()
+    }
+
+    /// The picture stops without any error when ARKit stops giving frames, and every check then reads the same old photo.
+    /// A run with the same configuration brings it back and keeps the world, so the markers stay on their controls.
+    private func restartIfStalled() {
+        guard running, !interrupted, ARWorldTrackingConfiguration.isSupported,
+              arView.window?.windowScene?.activationState == .foregroundActive,
+              CameraWatch.isStalled(sinceFrame: Date().timeIntervalSince(lastFrameAt), sinceRestart: Date().timeIntervalSince(lastRestartAt))
+        else { return }
+        NSLog("Kokobubu camera: no frame for %.1f s, restarting ARKit", Date().timeIntervalSince(lastFrameAt))
+        lastRestartAt = Date()
+        start()
+    }
 
     private func updateMarker() {
         #if DEBUG
@@ -545,6 +565,7 @@ final class ARGuideController: NSObject, ObservableObject, ARSessionDelegate {
     // MARK: ARSessionDelegate
 
     func session(_ session: ARSession, didUpdate frame: ARFrame) {
+        lastFrameAt = Date()
         updateGaze(frame)
         remember(frame)
         guard options.torch == .automatic, let lumens = frame.lightEstimate?.ambientIntensity else { return }
@@ -569,6 +590,21 @@ final class ARGuideController: NSObject, ObservableObject, ARSessionDelegate {
         let forward = -simd_float3(transform.columns.2.x, transform.columns.2.y, transform.columns.2.z)
         gazePoint = position + forward
         if look != gaze.look { gaze.look = look }
+    }
+
+    func sessionWasInterrupted(_ session: ARSession) {
+        NSLog("Kokobubu camera: ARKit interrupted")
+        interrupted = true
+    }
+
+    func sessionInterruptionEnded(_ session: ARSession) {
+        NSLog("Kokobubu camera: ARKit interruption ended")
+        interrupted = false
+        lastFrameAt = Date()
+    }
+
+    func session(_ session: ARSession, didFailWithError error: Error) {
+        NSLog("Kokobubu camera: ARKit failed: %@", error.localizedDescription)
     }
 
     func session(_ session: ARSession, cameraDidChangeTrackingState camera: ARCamera) {

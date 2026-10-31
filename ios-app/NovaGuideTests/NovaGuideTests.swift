@@ -814,6 +814,14 @@ final class CardPlaceTests: XCTestCase {
     }
 }
 
+final class CameraWatchTests: XCTestCase {
+    func testASilentCameraIsRestartedOnlyNowAndThen() {
+        XCTAssertFalse(CameraWatch.isStalled(sinceFrame: 0.1, sinceRestart: 100))
+        XCTAssertTrue(CameraWatch.isStalled(sinceFrame: 2.5, sinceRestart: 100))
+        XCTAssertFalse(CameraWatch.isStalled(sinceFrame: 2.5, sinceRestart: 1))
+    }
+}
+
 final class WrongSpotGeometryTests: XCTestCase {
     func testAWorldPointFallsOnThePixelItCameFrom() {
         let intrinsics = simd_float3x3(SIMD3<Float>(1400, 0, 0), SIMD3<Float>(0, 1400, 0), SIMD3<Float>(960, 720, 1))

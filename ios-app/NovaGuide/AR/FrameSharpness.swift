@@ -6,6 +6,8 @@ import CoreVideo
 enum FrameSharpness {
     /// The newest frame this close to the sharpest one wins, so a task doesn't read an older moment for nothing.
     static let closeEnough = 0.85
+    /// How long a sharp frame may stand in for the present, in seconds.
+    static let window = 0.6
 
     /// How much fine detail the middle of the picture has: the mean squared Laplacian of the brightness, on a sparse
     /// grid so it costs well under a millisecond. Only comparable between frames of the same scene.
@@ -43,6 +45,16 @@ enum FrameSharpness {
     static func choose(scores: [Double]) -> Int? {
         guard let best = scores.max() else { return nil }
         return scores.lastIndex { $0 >= best * closeEnough }
+    }
+}
+
+/// Notices a camera that has stopped giving frames.
+enum CameraWatch {
+    static let stallSeconds = 2.0
+    static let restartEverySeconds = 5.0
+
+    static func isStalled(sinceFrame: TimeInterval, sinceRestart: TimeInterval) -> Bool {
+        sinceFrame > stallSeconds && sinceRestart > restartEverySeconds
     }
 }
 
