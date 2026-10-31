@@ -31,7 +31,8 @@ enum DemoMode {
 
     static func placeMarker(in size: CGSize, ar: ARGuideController) {
         guard let screen, ["guiding", "verified", "correction", "screens"].contains(screen), size.width > 0 else { return }
-        ar.showDemoMarker(MarkerState(center: CGPoint(x: size.width * 0.72, y: size.height * 0.4), radius: 22, onScreen: true,
+        let y = UserDefaults.standard.double(forKey: "NovaDemoMarkerY")  // how far down the picture, for the aim hint
+        ar.showDemoMarker(MarkerState(center: CGPoint(x: size.width * 0.72, y: size.height * (y > 0 ? y : 0.4)), radius: 22, onScreen: true,
                                       direction: CGVector(dx: 0, dy: -1),
                                       label: CGPoint(x: size.width * 0.8, y: size.height * 0.24), precise: true))
     }

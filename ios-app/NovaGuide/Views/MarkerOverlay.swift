@@ -8,7 +8,10 @@ struct MarkerOverlay: View {
     var tint: Color = .novaYellow
     var motion: GuideStep.Motion? = nil
     var brightness: ((CGPoint) -> Double?)? = nil
+    var card: CGRect = .zero
+    var aims = true
     @State private var ringShown = false
+    @State private var aim: CGVector?
     @State private var cornersShown = false
 
     var body: some View {
@@ -35,7 +38,16 @@ struct MarkerOverlay: View {
                     if let motion {
                         MotionCue(motion: motion, radius: ringRadius + 14, center: marker.center, room: geometry.size, brightness: brightness).position(marker.center)
                     }
+                    if aims, let aim {
+                        // Beside the target, on the side away from the edge, so it doesn't cover what it points at.
+                        AimHint(direction: aim)
+                            .position(x: min(max(marker.center.x - aim.dx * 110, 110), max(geometry.size.width - 110, 110)),
+                                      y: min(max(marker.center.y - aim.dy * 96, 60), max(geometry.size.height - 60, 60)))
+                    }
                 }
+                .onAppear { updateAim(in: geometry.size) }
+                .onChange(of: marker) { _, _ in updateAim(in: geometry.size) }
+                .onChange(of: card) { _, _ in updateAim(in: geometry.size) }
             } else {
                 EdgeHint(direction: marker.direction, size: geometry.size)
             }
@@ -52,6 +64,11 @@ struct MarkerOverlay: View {
     }
 
     static let ringSeconds = 1.9
+
+    private func updateAim(in size: CGSize) {
+        let next = MarkerPlacement.aim(marker: marker.center, picture: size, card: card, aiming: aim != nil)
+        if next != aim { aim = next }
+    }
 
     private var ringRadius: CGFloat { min(max(marker.radius * 1.25, 26), 140) }
 }
@@ -289,6 +306,15 @@ private struct EdgeHint: View {
         let scale = min(abs(direction.dx) > 0.001 ? (size.width / 2 - 70) / abs(direction.dx) : .infinity,
                         abs(direction.dy) > 0.001 ? (size.height / 2 - 60) / abs(direction.dy) : .infinity)
         let point = CGPoint(x: center.x + direction.dx * scale, y: center.y + direction.dy * scale)
+        AimHint(direction: direction).position(point)
+    }
+}
+
+/// Which way to move the phone: a yellow arrow and a few words.
+private struct AimHint: View {
+    var direction: CGVector
+
+    var body: some View {
         VStack(spacing: 6) {
             Image(systemName: "arrow.up.circle.fill")
                 .font(.system(size: 44))
@@ -296,7 +322,6 @@ private struct EdgeHint: View {
                 .rotationEffect(.radians(atan2(direction.dy, direction.dx) + .pi / 2))
             Chip(text: hint, systemImage: "iphone.gen3")
         }
-        .position(point)
     }
 
     private var hint: String {

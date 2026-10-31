@@ -814,6 +814,52 @@ final class CardPlaceTests: XCTestCase {
     }
 }
 
+final class WrongSpotGeometryTests: XCTestCase {
+    func testAWorldPointFallsOnThePixelItCameFrom() {
+        let intrinsics = simd_float3x3(SIMD3<Float>(1400, 0, 0), SIMD3<Float>(0, 1400, 0), SIMD3<Float>(960, 720, 1))
+        let camera = matrix_identity_float4x4
+        let world = CameraGeometry.worldPoint(pixel: CGPoint(x: 300, y: 1000), depth: 0.6, intrinsics: intrinsics, cameraTransform: camera)
+        let pixel = CameraGeometry.pixel(world: world, intrinsics: intrinsics, cameraTransform: camera)
+        XCTAssertEqual(pixel?.x ?? 0, 300, accuracy: 0.5)
+        XCTAssertEqual(pixel?.y ?? 0, 1000, accuracy: 0.5)
+        XCTAssertNil(CameraGeometry.pixel(world: SIMD3<Float>(0, 0, 1), intrinsics: intrinsics, cameraTransform: camera))
+    }
+
+    func testUprightAndSensorPointsUndoEachOther() {
+        let point = CGPoint(x: 0.2, y: 0.7)
+        for orientation in [FrameOrientation.landscapeRight, .portrait, .landscapeLeft] {
+            let back = orientation.uprightPoint(orientation.sensorPoint(point))
+            XCTAssertEqual(back.x, point.x, accuracy: 0.0001)
+            XCTAssertEqual(back.y, point.y, accuracy: 0.0001)
+        }
+    }
+}
+
+final class MarkerPlacementTests: XCTestCase {
+    private let picture = CGSize(width: 390, height: 520)
+
+    func testATargetInTheClearNeedsNoHint() {
+        XCTAssertNil(MarkerPlacement.aim(marker: CGPoint(x: 200, y: 250), picture: picture, card: .zero, aiming: false))
+    }
+
+    func testALowTargetAsksToTiltDown() {
+        XCTAssertEqual(MarkerPlacement.aim(marker: CGPoint(x: 200, y: 500), picture: picture, card: .zero, aiming: false), CGVector(dx: 0, dy: 1))
+    }
+
+    func testTheHintStaysAWhileOnTheLine() {
+        let spot = CGPoint(x: 200, y: 520 - 65)
+        XCTAssertNil(MarkerPlacement.aim(marker: spot, picture: picture, card: .zero, aiming: false))
+        XCTAssertNotNil(MarkerPlacement.aim(marker: spot, picture: picture, card: .zero, aiming: true))
+    }
+
+    func testATargetUnderACardAsksToMoveTowardTheCard() {
+        let card = CGRect(x: 8, y: 300, width: 374, height: 200)
+        XCTAssertEqual(MarkerPlacement.aim(marker: CGPoint(x: 200, y: 350), picture: picture, card: card, aiming: false), CGVector(dx: 0, dy: 1))
+        let top = CGRect(x: 8, y: 0, width: 374, height: 200)
+        XCTAssertEqual(MarkerPlacement.aim(marker: CGPoint(x: 200, y: 150), picture: picture, card: top, aiming: false), CGVector(dx: 0, dy: -1))
+    }
+}
+
 final class PreparedPlanTests: XCTestCase {
     func testAPlanStandsWhileTheUserStaysAndGoesOnSoon() {
         XCTAssertTrue(PreparedPlan.isFresh(age: 8, moved: 0.1, turned: 0.2))

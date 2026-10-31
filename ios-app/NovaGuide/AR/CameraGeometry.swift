@@ -30,6 +30,15 @@ enum CameraGeometry {
         return (origin, simd_normalize(target - origin))
     }
 
+    /// Where a world-space point falls in the sensor image, in pixels; nil behind the camera.
+    static func pixel(world: SIMD3<Float>, intrinsics: simd_float3x3, cameraTransform: simd_float4x4) -> CGPoint? {
+        let local = simd_inverse(cameraTransform) * SIMD4<Float>(world, 1)
+        guard local.z < 0 else { return nil }
+        let x = local.x / -local.z * intrinsics[0][0] + intrinsics[2][0]
+        let y = -local.y / -local.z * intrinsics[1][1] + intrinsics[2][1]
+        return CGPoint(x: CGFloat(x), y: CGFloat(y))
+    }
+
     /// The physical size (meters) that `pixels` span at `depth`.
     static func meters(pixels: Double, depth: Float, intrinsics: simd_float3x3) -> Float {
         Float(pixels) / intrinsics[0][0] * depth
@@ -52,6 +61,15 @@ enum FrameOrientation: String, Equatable {
 
     func uprightSize(_ sensor: CGSize) -> CGSize {
         self == .portrait ? CGSize(width: sensor.height, height: sensor.width) : sensor
+    }
+
+    /// A normalized point (0-1, top-left) in the sensor image, in the upright frame.
+    func uprightPoint(_ sensor: CGPoint) -> CGPoint {
+        switch self {
+        case .landscapeRight: sensor
+        case .portrait: CGPoint(x: 1 - sensor.y, y: sensor.x)
+        case .landscapeLeft: CGPoint(x: 1 - sensor.x, y: 1 - sensor.y)
+        }
     }
 
     /// A normalized point (0-1, top-left) in the upright frame, in the sensor image.
@@ -190,6 +208,26 @@ enum FocusGeometry {
         let inView = CGPoint(x: tap.x / viewSize.width, y: tap.y / viewSize.height)
         let inImage = inView.applying(displayTransform.inverted())
         return CGPoint(x: min(max(inImage.x, 0), 1), y: min(max(inImage.y, 0), 1))
+    }
+}
+
+/// When the target is on screen but the user can't reach it well: under the card, or at the edge of the picture.
+enum MarkerPlacement {
+    static let edge: CGFloat = 60
+    /// Wider than `edge`, so the hint doesn't flicker on the line.
+    static let clear: CGFloat = 72
+
+    /// The way to move the phone so the target comes into the clear, or nil when it is clear. The marker stays on the
+    /// target in the world, so a phone tilted down brings a low target up the screen.
+    static func aim(marker: CGPoint, picture: CGSize, card: CGRect, aiming: Bool) -> CGVector? {
+        if card.contains(marker) {
+            let dx = card.midX - picture.width / 2, dy = card.midY - picture.height / 2
+            return abs(dy) >= abs(dx) ? CGVector(dx: 0, dy: dy < 0 ? -1 : 1) : CGVector(dx: dx < 0 ? -1 : 1, dy: 0)
+        }
+        let gaps = [(marker.y, CGVector(dx: 0, dy: -1)), (picture.height - marker.y, CGVector(dx: 0, dy: 1)),
+                    (marker.x, CGVector(dx: -1, dy: 0)), (picture.width - marker.x, CGVector(dx: 1, dy: 0))]
+        guard let nearest = gaps.min(by: { $0.0 < $1.0 }), nearest.0 < (aiming ? clear : edge) else { return nil }
+        return nearest.1
     }
 }
 

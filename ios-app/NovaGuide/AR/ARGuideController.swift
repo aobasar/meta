@@ -219,6 +219,11 @@ final class ARGuideController: NSObject, ObservableObject, ARSessionDelegate {
         arView.convert(point, from: nil)
     }
 
+    /// A rectangle of the window, such as the card, in this view's own points.
+    func cameraRect(fromGlobal rect: CGRect) -> CGRect {
+        arView.convert(rect, from: nil)
+    }
+
     /// A tap on the camera: focus and exposure go to that point, then back to automatic so a moving phone stays sharp.
     func focus(atScreen tap: CGPoint) {
         guard running, let frame = arView.session.currentFrame,
@@ -427,6 +432,17 @@ final class ARGuideController: NSObject, ObservableObject, ARSessionDelegate {
         }
         let label = step.setTo?.point.map { locate($0, capture).position }
         return StepAnchor(control: control, radius: radius, label: label, precise: precise)
+    }
+
+    /// Where a step's marker falls in a frame that was sent, 0 to 1 in the upright image; nil when it is out of that frame.
+    func markerPoint(step index: Int, in capture: CapturedFrame) -> NormalizedPoint? {
+        guard anchors.indices.contains(index),
+              let pixel = CameraGeometry.pixel(world: anchors[index].control, intrinsics: capture.intrinsics, cameraTransform: capture.cameraTransform)
+        else { return nil }
+        let sensor = CGPoint(x: pixel.x / capture.imageSize.width, y: pixel.y / capture.imageSize.height)
+        guard (0...1).contains(sensor.x), (0...1).contains(sensor.y) else { return nil }
+        let upright = capture.orientation.uprightPoint(sensor)
+        return NormalizedPoint(x: Double(upright.x), y: Double(upright.y))
     }
 
     func clear() {

@@ -142,6 +142,16 @@
         }
       }
     },
+    "Let me show it": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ben göstereyim"
+          }
+        }
+      }
+    },
     "On this iPhone the AR guide can use only the wide lens: the ultra wide isn't offered for tracking.": {
       "localizations": {
         "tr": {
@@ -2109,6 +2119,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Yol: %@"
+          }
+        }
+      }
+    },
+    "Wrong spot": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yanlış yer"
           }
         }
       }

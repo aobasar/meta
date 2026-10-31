@@ -8,10 +8,16 @@ struct SidePanel: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     var land: Bool
     var docked = false
+    var targetCovered = false
     static let width: CGFloat = 300
     /// Narrower than the floating card: the camera is what the user needs most.
     static let dockedWidth: CGFloat = 240
     @State private var folded = false
+    /// The user opened the folded card on this step: it stays open.
+    @State private var openedByUser = false
+    @State private var stepShownAt = Date()
+    private static let readSeconds = 2.5
+    private static let coveredSeconds = 0.7
     @GestureState(resetTransaction: Transaction(animation: .easeOut(duration: 0.2))) private var dragged = CGSize.zero
     // The ready card's first view: the mascot stands where the microphone will be, hops twice and goes to its corner.
     private enum Intro { case center, leaving }
@@ -36,7 +42,10 @@ struct SidePanel: View {
                     .cardSurface(docked: docked)
             } else {
                 if folded, !docked, let line = foldedLine {
-                    FoldedBar(prefix: line.prefix, title: line.title) { folded = false }
+                    FoldedBar(prefix: line.prefix, title: line.title) {
+                        folded = false
+                        openedByUser = true
+                    }
                 } else {
                     VStack(alignment: .leading, spacing: 8) {
                         Handle { if !docked { folded = true } }
@@ -104,10 +113,25 @@ struct SidePanel: View {
         .environment(\.colorScheme, .light)
         .animation(.easeOut(duration: 0.2), value: folded)
         .onChange(of: model.phase) { _, _ in folded = false }
-        .onChange(of: model.stepIndex) { _, _ in folded = false }
+        .onChange(of: model.stepIndex) { _, _ in
+            folded = false
+            openedByUser = false
+            stepShownAt = Date()
+        }
+        // A new step is read first. It doesn't open again by itself when the target comes clear, so it can't flip.
+        .task(id: "\(foldsSoon)-\(model.stepIndex)") {
+            guard foldsSoon else { return }
+            let wait = max(Self.coveredSeconds, Self.readSeconds - Date().timeIntervalSince(stepShownAt))
+            try? await Task.sleep(for: .seconds(wait))
+            if !Task.isCancelled, foldsSoon { folded = true }
+        }
         .onChange(of: model.feedback) { _, feedback in
             if feedback != nil { folded = false }  // the result of a check is always seen
         }
+    }
+
+    private var foldsSoon: Bool {
+        targetCovered && !docked && !folded && !openedByUser && model.feedback == nil
     }
 
     private var cardPlace: CardPlace { land ? settings.cardLandscape : settings.cardPortrait }
@@ -609,7 +633,7 @@ private struct CorrectionCard: View {
             switch correcting {
             case .menu:
                 Text("What's wrong?").font(.headline)
-                ChoiceRow(title: String(localized: "It's pointing at the wrong place", bundle: .ui), subtitle: nil) { model.startMovingMarker() }
+                ChoiceRow(title: String(localized: "It's pointing at the wrong place", bundle: .ui), subtitle: nil) { model.wrongSpot() }
                 ChoiceRow(title: String(localized: "Explain it in more detail", bundle: .ui), subtitle: nil) { model.explainMore() }
                 if model.canCorrectStep {
                     ChoiceRow(title: String(localized: "This step is wrong", bundle: .ui), subtitle: nil) { model.tellWhatIsWrong(kind: "step") }
@@ -754,9 +778,13 @@ private struct StepCard: View {
 
     private var busy: Bool { model.feedback == .checking || model.isLocating || model.reassessing }
 
-    /// Shown only when something went wrong; everything else is in the ⋯ menu.
+    /// The marker can always be called wrong; the rest shows only when something went wrong, and is otherwise in the ⋯ menu.
     private var extraButtons: [(title: String, action: () -> Void)] {
         var buttons: [(title: String, action: () -> Void)] = []
+        if model.feedback == nil {
+            buttons.append((String(localized: "Wrong spot", bundle: .ui), { model.wrongSpot() }))
+            if model.canShowByHand { buttons.append((String(localized: "Let me show it", bundle: .ui), { model.startMovingMarker() })) }
+        }
         if model.seemsStuck { buttons.append((String(localized: "Re-evaluate", bundle: .ui), { model.reassess() })) }
         if model.stepDefended { buttons.append((String(localized: "Still wrong", bundle: .ui), { model.openCorrection() })) }
         if let secondary = secondaryTitle { buttons.append((secondary, { model.secondary() })) }

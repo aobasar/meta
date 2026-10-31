@@ -478,6 +478,13 @@ class VerifyTests(unittest.TestCase):
         opener = RoutingOpener(check={"status": "done", "observed": "hot", "correction": "x"})
         self.assertEqual(guide.verify(tiny_jpeg(520, 520), "i", "s", "Turkish", FAKE_KEY, opener)["correction"], "")
 
+    def test_a_wrong_marker_position_is_read_or_refused(self):
+        self.assertIsNone(guide.reassess_wrong_point({}))
+        self.assertEqual(guide.reassess_wrong_point({"wrongPoint": {"x": 0.25, "y": 1}}), (0.25, 1.0))
+        for bad in ({"x": 2, "y": 0}, {"x": 0.5}, "here"):
+            with self.assertRaises(guide.BadRequest):
+                guide.reassess_wrong_point({"wrongPoint": bad})
+
     def test_an_unread_brand_stays_empty(self):
         self.assertIn("If you can't read one, leave it empty", guide.PLAN_PROMPT)
 

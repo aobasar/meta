@@ -89,6 +89,8 @@ final class GuideModel: ObservableObject {
     @Published private(set) var finishLine: String?
     /// "Re-evaluate" is running; and afterwards, Nova looked again and stands by the step.
     @Published private(set) var reassessing = false
+    /// How many times the marker was called wrong on each step.
+    @Published private(set) var wrongSpots: [Int: Int] = [:]
     @Published private(set) var stepDefended = false
     /// How often each step failed its check; two in a row and Nova offers to look again.
     @Published private(set) var failedChecks: [Int: Int] = [:]
@@ -574,6 +576,7 @@ final class GuideModel: ObservableObject {
         ar.keepAnchors(first: start)
         if plan.isLocated { ar.place(plan, from: capture, startingAt: start) }
         records = Array(records.prefix(start)) + plan.steps.dropFirst(start).map { StepRecord(expected: $0.success) }
+        wrongSpots = wrongSpots.filter { $0.key < start }
         phase = .guiding
         go(to: start)
     }
@@ -728,6 +731,18 @@ final class GuideModel: ObservableObject {
     /// "Re-evaluate": one tap, no choices. Nova looks at the step again from a new frame: it locates the control again,
     /// plans again if the step doesn't fit, or says what it can't tell.
     func reassess() {
+        reassess(markerWrong: false)
+    }
+
+    /// "Wrong spot": the mistake is Kokobubu's, so it looks again and moves the marker itself. Only after that has
+    /// failed twice can the user show the place by hand.
+    func wrongSpot() {
+        reassess(markerWrong: true)
+    }
+
+    var canShowByHand: Bool { (wrongSpots[stepIndex] ?? 0) >= 2 }
+
+    private func reassess(markerWrong: Bool) {
         discardPrepared()
         guard phase == .guiding, !reassessing, !isLocating, let step = currentStep else { return }
         guard let capture = ar.capture() else {
@@ -741,13 +756,15 @@ final class GuideModel: ObservableObject {
         stepDefended = false
         reassessing = true
         speak(language.phrase(nextLookingPhrase()))
+        if markerWrong { wrongSpots[stepIndex, default: 0] += 1 }
+        let wrongPoint = markerWrong ? ar.markerPoint(step: stepIndex, in: capture) : nil
         let index = stepIndex, context = taskContext(), settings = self.settings
         voiceTask = Task {
             do {
                 let language = self.language.serverName, record = settings.record, spark = settings.sparkChoice
                 let review = try await send {
                     try await $0.reassess(jpeg: capture.jpeg, target: step.target, language: language, context: context,
-                                          record: record, spark: spark)
+                                          record: record, spark: spark, wrongPoint: wrongPoint)
                 }
                 reassessing = false
                 guard phase == .guiding, index == stepIndex else { return }
@@ -762,7 +779,12 @@ final class GuideModel: ObservableObject {
                         plan?.steps[index] = located
                         ar.relocate(step: index, to: located, from: capture)
                     }
-                    stepDefended = true
+                    if markerWrong {
+                        haptic(.success)
+                        sound(.moved)
+                    } else {
+                        stepDefended = true
+                    }
                     failedChecks[index] = 0
                     reply = review.explanation
                     speak(review.explanation)
@@ -1175,6 +1197,7 @@ final class GuideModel: ObservableObject {
         stepDefended = false
         failedChecks = [:]
         unsureChecks = [:]
+        wrongSpots = [:]
         goalCheck = nil
         lastShowRequest = nil
         answers = []

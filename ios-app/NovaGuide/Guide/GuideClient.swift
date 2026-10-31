@@ -210,8 +210,14 @@ struct GuideClient {
     }
 
     private struct ReassessRequest: Encodable {
+        struct Spot: Encodable {
+            var x: Double
+            var y: Double
+        }
+
         var frame: String
         var target: String
+        var wrongPoint: Spot?
         var language: String
         var context: TaskContext
         var record: Bool
@@ -219,8 +225,9 @@ struct GuideClient {
     }
 
     func reassess(jpeg: Data, target: String, language: String, context: TaskContext, record: Bool,
-                  spark: SparkChoice? = nil) async throws -> Review {
-        let request = ReassessRequest(frame: jpeg.base64EncodedString(), target: target, language: language,
+                  spark: SparkChoice? = nil, wrongPoint: NormalizedPoint? = nil) async throws -> Review {
+        let request = ReassessRequest(frame: jpeg.base64EncodedString(), target: target,
+                                      wrongPoint: wrongPoint.map { .init(x: $0.x, y: $0.y) }, language: language,
                                       context: context, record: record, spark: spark)
         let (data, _) = try await send(path: "api/guide/reassess", body: try JSONEncoder().encode(request), timeout: 45)
         guard let review = try? JSONDecoder().decode(Review.self, from: data) else { throw Failure.unreadable }

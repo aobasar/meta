@@ -15,6 +15,7 @@ struct CameraScreen: View {
     @State private var showStoppedVideo = false
     @State private var focusMark: FocusMark.Tap?
     @State private var sceneOrientation = UIInterfaceOrientation.unknown
+    @State private var cardFrame = CGRect.zero
 
     enum Panel: String, Identifiable {
         case more, settings, recording
@@ -36,8 +37,11 @@ struct CameraScreen: View {
                 cameraArea(land: land, card: place, docked: docked)
                     .padding(.leading, docked && place.left ? SidePanel.dockedWidth - inset : 0)
                     .padding(.trailing, docked && !place.left ? SidePanel.dockedWidth - inset : 0)
-                SidePanel(land: land, docked: docked)
+                SidePanel(land: land, docked: docked, targetCovered: targetCovered)
                     .frame(maxWidth: docked ? SidePanel.dockedWidth : land ? SidePanel.width : .infinity, maxHeight: docked ? .infinity : nil)
+                    .background(GeometryReader { card in
+                        Color.clear.preference(key: CardFrameKey.self, value: card.frame(in: .global))
+                    })
                     .padding(.horizontal, docked ? 0 : 8)
                     .padding(.vertical, docked ? 0 : 8)
                     .offset(x: place.left ? -inset : inset)
@@ -46,6 +50,7 @@ struct CameraScreen: View {
         // Later than the turn itself would read the old side.
         .onReceive(NotificationCenter.default.publisher(for: UIDevice.orientationDidChangeNotification).delay(for: .seconds(0.4), scheduler: RunLoop.main)) { _ in readOrientation() }
         .onAppear(perform: readOrientation)
+        .onPreferenceChange(CardFrameKey.self) { cardFrame = $0 }
         .background(Color.black.ignoresSafeArea())
         .preferredColorScheme(.dark)
         .sheet(item: $panel, onDismiss: { Task { await model.checkConnection() } }) { which in
@@ -195,7 +200,8 @@ struct CameraScreen: View {
                     .allowsHitTesting(false)
             }
             if model.phase == .guiding, let marker = ar.marker {
-                MarkerOverlay(marker: marker, tint: ringTint, motion: model.feedback == .correct ? nil : model.currentStep?.motionKind, brightness: handBrightness)
+                MarkerOverlay(marker: marker, tint: ringTint, motion: model.feedback == .correct ? nil : model.currentStep?.motionKind, brightness: handBrightness,
+                              card: docked ? .zero : ar.cameraRect(fromGlobal: cardFrame), aims: model.feedback != .correct)
                     .id("\(model.stepIndex)-\(markerShown)")
             }
             if model.correcting == .moving {
@@ -229,6 +235,12 @@ struct CameraScreen: View {
 
     private var cameraOptions: CameraOptions {
         CameraOptions(lens: settings.lens, highDetail: settings.highDetail, torch: settings.torch)
+    }
+
+    /// The card sits on the step's target: it folds out of the way.
+    private var targetCovered: Bool {
+        guard model.phase == .guiding, model.correcting == nil, model.feedback != .correct, let marker = ar.marker, marker.onScreen else { return false }
+        return ar.cameraRect(fromGlobal: cardFrame).contains(marker.center)
     }
 
     /// Settings › Hand animation: how the hand reads the picture behind it, or nil for no hand.
@@ -283,6 +295,11 @@ private struct FocusMark: View {
             withAnimation(.easeIn(duration: 0.3)) { gone = true }
         }
     }
+}
+
+private struct CardFrameKey: PreferenceKey {
+    static let defaultValue = CGRect.zero
+    static func reduce(value: inout CGRect, nextValue: () -> CGRect) { value = nextValue() }
 }
 
 extension CardPlace {
@@ -380,7 +397,7 @@ private struct MoreMenu: View {
                         row("Say it again", "speaker.wave.2") { model.repeatStep() }
                         row("Re-evaluate", "arrow.triangle.2.circlepath") { model.reassess() }
                         row("Explain it in more detail", "text.bubble") { model.explainMore() }
-                        row("The marker is in the wrong place", "scope") { model.startMovingMarker() }
+                        row("The marker is in the wrong place", "scope") { model.wrongSpot() }
                         row("This step is wrong", "exclamationmark.bubble") { model.openCorrection() }
                         row("Previous step", "chevron.left") { model.back() }
                     }
