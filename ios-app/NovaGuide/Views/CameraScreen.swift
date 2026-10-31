@@ -2,8 +2,8 @@ import Combine
 import RealityKit
 import SwiftUI
 
-/// The camera screen: the camera fills the screen, with one card over it (at the bottom in portrait, at the right in
-/// landscape, under the thumb, until the user drags it elsewhere). Everything used rarely is behind the ⋯ button.
+/// The camera screen: the whole camera frame, the same one Spark gets, with one card (at the bottom in portrait, at the
+/// right in landscape, under the thumb, until the user drags it elsewhere). Everything used rarely is behind the ⋯ button.
 struct CameraScreen: View {
     @EnvironmentObject private var model: GuideModel
     @EnvironmentObject private var ar: ARGuideController
@@ -126,44 +126,7 @@ struct CameraScreen: View {
         // The top bar stays clear of the card: at the bottom under a card on top, and beside it in landscape.
         let barsAtBottom = !land && card.top
         return ZStack {
-            ARViewContainer(arView: ar.arView).ignoresSafeArea()
-            #if DEBUG
-            if DemoMode.screen != nil { DemoBackdrop().ignoresSafeArea() }
-            #endif
-            // A tap on the camera focuses there. A tap, or a new step, also shows the ring and the motion again.
-            Color.clear
-                .contentShape(Rectangle())
-                .ignoresSafeArea()
-                // Global, then the camera's own points: .local here starts below the safe area.
-                .onTapGesture(coordinateSpace: .global) { global in
-                    let point = ar.cameraPoint(fromGlobal: global)
-                    ar.focus(atScreen: point)
-                    focusMark = FocusMark.Tap(point: point)
-                    markerShown += 1
-                }
-            if let focusMark {
-                FocusMark(tap: focusMark)
-                    .id(focusMark.id)
-                    .ignoresSafeArea()
-                    .allowsHitTesting(false)
-            }
-            if model.phase == .guiding, let marker = ar.marker {
-                MarkerOverlay(marker: marker, tint: ringTint, motion: model.currentStep?.motionKind)
-                    .id("\(model.stepIndex)-\(markerShown)")
-                    .ignoresSafeArea()
-            }
-            if model.correcting == .moving {
-                Color.clear
-                    .contentShape(Rectangle())
-                    .ignoresSafeArea()
-                    .onTapGesture(coordinateSpace: .global) { model.markerTapped(at: ar.cameraPoint(fromGlobal: $0)) }
-            }
-            if model.phase == .thinking {
-                ScanOverlay().padding(.horizontal, 20)
-                    .padding(.top, land ? 60 : barsAtBottom ? 300 : 110)
-                    .padding(.bottom, land ? 60 : barsAtBottom ? 110 : 300)
-                    .allowsHitTesting(false)
-            }
+            cameraPicture(land: land, card: card, docked: docked)
             VStack(spacing: 8) {
                 if barsAtBottom { Spacer() }
                 TopBar(openMore: { panel = .more }, stopRecording: stopRecording)
@@ -207,12 +170,61 @@ struct CameraScreen: View {
             .padding(.trailing, land && !docked && !card.left ? SidePanel.width : 0)
             .padding(barsAtBottom ? .bottom : .top, 12)
         }
+    }
+
+    /// The whole frame and what is drawn on it, at the frame's own shape: the screen shows exactly what Spark reads, and
+    /// the markers and taps share the camera view's points. A tap beside the picture does nothing.
+    private func cameraPicture(land: Bool, card: CardPlace, docked: Bool) -> some View {
+        ZStack {
+            ARViewContainer(arView: ar.arView)
+            #if DEBUG
+            if DemoMode.screen != nil { DemoBackdrop() }
+            #endif
+            // A tap on the camera focuses there. A tap, or a new step, also shows the ring and the motion again.
+            Color.clear
+                .contentShape(Rectangle())
+                .onTapGesture(coordinateSpace: .global) { global in
+                    let point = ar.cameraPoint(fromGlobal: global)
+                    ar.focus(atScreen: point)
+                    focusMark = FocusMark.Tap(point: point)
+                    markerShown += 1
+                }
+            if let focusMark {
+                FocusMark(tap: focusMark)
+                    .id(focusMark.id)
+                    .allowsHitTesting(false)
+            }
+            if model.phase == .guiding, let marker = ar.marker {
+                MarkerOverlay(marker: marker, tint: ringTint, motion: model.currentStep?.motionKind)
+                    .id("\(model.stepIndex)-\(markerShown)")
+            }
+            if model.correcting == .moving {
+                Color.clear
+                    .contentShape(Rectangle())
+                    .onTapGesture(coordinateSpace: .global) { model.markerTapped(at: ar.cameraPoint(fromGlobal: $0)) }
+            }
+            if model.phase == .thinking {
+                ScanOverlay().padding(.horizontal, 20).padding(.vertical, 60)
+                    .allowsHitTesting(false)
+            }
+        }
         #if DEBUG
         .background(GeometryReader { geometry in
             Color.clear.onAppear { DemoMode.placeMarker(in: geometry.size, ar: ar) }
                 .onChange(of: geometry.size) { _, size in DemoMode.placeMarker(in: size, ar: ar) }
-        }.ignoresSafeArea())
+        })
         #endif
+        .aspectRatio(land ? ar.frameAspect : 1 / ar.frameAspect, contentMode: .fit)
+        .clipped()
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: pictureAlignment(land: land, card: card, docked: docked))
+        // Landscape uses the full height and the edges beside the panel. Portrait stays below the Dynamic Island.
+        .ignoresSafeArea(.all, edges: land ? Edge.Set.all : Edge.Set())
+    }
+
+    /// The free room stays together: under the picture for a card in portrait, beside it in landscape.
+    private func pictureAlignment(land: Bool, card: CardPlace, docked: Bool) -> Alignment {
+        guard land else { return card.top ? .bottom : .top }
+        return docked == card.left ? .leading : .trailing
     }
 
     private var cameraOptions: CameraOptions {

@@ -230,7 +230,8 @@ SHOW_RULE = """when something is not working, or the task depends on something t
    this photo already shows what you need, give steps instead, and leave what and why empty.
    A screen or menu inside this same device is not a thing to ask for: they may not know the way. Give the step that
    leads there, marking the control in this photo. If you can't read that control here, ask for one thing only: to bring
-   the phone closer to the screen, and if this whole photo looks blurry or hazy, to wipe the camera lens first. Don't ask again for what the earlier photos say you already asked for. When they say
+   the phone closer to the screen and hold it still for a moment. A blurry photo usually means the phone moved or missed
+   its focus: say to wipe the camera lens only when everything in the photo, near and far, looks hazy. Don't ask again for what the earlier photos say you already asked for. When they say
    they don't know how to get there, never ask them to open it: give the step, or ask them to come closer.
    When the right steps depend on the exact make or model (what a blinking light or an error code means, a pairing
    sequence, a menu only some models have) and this photo doesn't show it, ask once to see the model label: say where it

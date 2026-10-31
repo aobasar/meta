@@ -83,6 +83,12 @@ final class ARGuideController: NSObject, ObservableObject, ARSessionDelegate {
     var currentStep: Int? { didSet { updateMarker() } }
     /// The camera ARKit is running, for Settings: "Ultra wide · 1920×1440".
     @Published private(set) var activeCamera = ""
+    /// The running format's long side over its short side: the screen shows the whole frame, the same one Spark gets.
+    @Published private(set) var frameAspect: CGFloat = 4.0 / 3.0
+    /// The last half second, for the sharpest frame. ARKit stalls when too many of its frames are held.
+    private var recentFrames: [RecentFrame] = []
+    private var recentTime: TimeInterval = 0
+    private static let recentFrameCount = 5
     private(set) var options = CameraOptions()
     private var running = false
     /// Whether the torch is lit now, for the top bar's torch button.
@@ -115,6 +121,9 @@ final class ARGuideController: NSObject, ObservableObject, ARSessionDelegate {
             configuration.videoFormat = format
         }
         activeCamera = Self.describe(configuration.videoFormat)
+        let resolution = configuration.videoFormat.imageResolution
+        if resolution.height > 0 { frameAspect = resolution.width / resolution.height }
+        recentFrames = []
         configuration.planeDetection = [.horizontal, .vertical]
         if ARWorldTrackingConfiguration.supportsFrameSemantics(.sceneDepth) {
             configuration.frameSemantics.insert(.sceneDepth)
@@ -145,6 +154,7 @@ final class ARGuideController: NSObject, ObservableObject, ARSessionDelegate {
         running = false
         applyTorch()  // off while the camera is paused
         arView.session.pause()
+        recentFrames = []
         displayLink?.invalidate()
         displayLink = nil
     }
@@ -274,9 +284,31 @@ final class ARGuideController: NSObject, ObservableObject, ARSessionDelegate {
 
     // MARK: Capture
 
-    /// The current frame, or nil while tracking is not ready.
+    private struct RecentFrame {
+        let frame: ARFrame
+        let sharpness: Double
+    }
+
+    /// About ten times a second, so a capture can choose instead of taking whatever moment the hand was moving.
+    private func remember(_ frame: ARFrame) {
+        guard frame.timestamp - recentTime >= 0.1 else { return }
+        recentTime = frame.timestamp
+        recentFrames.append(RecentFrame(frame: frame, sharpness: FrameSharpness.score(frame.capturedImage)))
+        if recentFrames.count > Self.recentFrameCount { recentFrames.removeFirst() }
+    }
+
+    /// The sharpest moment of the last half second; each frame carries its own camera, so markers still land right.
+    private func sharpestFrame() -> ARFrame? {
+        guard let current = arView.session.currentFrame else { return nil }
+        let frames = recentFrames.filter { current.timestamp - $0.frame.timestamp <= 0.6 }.map(\.frame)
+        let scores = recentFrames.filter { current.timestamp - $0.frame.timestamp <= 0.6 }.map(\.sharpness)
+        let all = frames + [current]
+        return FrameSharpness.choose(scores: scores + [FrameSharpness.score(current.capturedImage)]).map { all[$0] } ?? current
+    }
+
+    /// The sharpest recent frame, or nil while tracking is not ready.
     func capture() -> CapturedFrame? {
-        guard let frame = arView.session.currentFrame else { return nil }
+        guard let frame = sharpestFrame() else { return nil }
         let pixelBuffer = frame.capturedImage
         let size = CGSize(width: CVPixelBufferGetWidth(pixelBuffer), height: CVPixelBufferGetHeight(pixelBuffer))
         // Turned to the interface orientation, so Spark reads the panel's labels upright.
@@ -301,9 +333,9 @@ final class ARGuideController: NSObject, ObservableObject, ARSessionDelegate {
         case notReady
     }
 
-    /// A full-resolution close-up of a step's control in the current frame, for step verification.
+    /// A full-resolution close-up of a step's control in the sharpest recent frame, for step verification.
     func closeUp(step index: Int) -> CloseUp {
-        guard anchors.indices.contains(index), let frame = arView.session.currentFrame,
+        guard anchors.indices.contains(index), let frame = sharpestFrame(),
               case .normal = frame.camera.trackingState else { return .notReady }
         let anchor = anchors[index]
         let pixelBuffer = frame.capturedImage
@@ -482,6 +514,7 @@ final class ARGuideController: NSObject, ObservableObject, ARSessionDelegate {
 
     func session(_ session: ARSession, didUpdate frame: ARFrame) {
         updateGaze(frame)
+        remember(frame)
         guard options.torch == .automatic, let lumens = frame.lightEstimate?.ambientIntensity else { return }
         let was = autoTorch.isLit
         if autoTorch.update(lumens: Double(lumens), at: frame.timestamp, hold: holdTorch) != was { applyTorch() }

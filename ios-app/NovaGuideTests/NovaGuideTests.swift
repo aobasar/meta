@@ -813,3 +813,39 @@ final class CardPlaceTests: XCTestCase {
         XCTAssertTrue(GuideSettings(defaults: defaults).cardDocked)
     }
 }
+
+final class FrameSharpnessTests: XCTestCase {
+    private func score(_ pixels: [UInt8], side: Int) -> Double {
+        pixels.withUnsafeBufferPointer { FrameSharpness.score(luma: $0.baseAddress!, rowBytes: side, width: side, height: side) }
+    }
+
+    func testFineDetailScoresHigherThanTheSameSceneBlurred() {
+        let side = 200
+        let sharp = (0..<side * side).map { UInt8((($0 % side) / 3 + ($0 / side) / 3) % 2 == 0 ? 220 : 30) }
+        var blurred = sharp
+        for y in 0..<side {
+            for x in 0..<side {
+                let span = (max(x - 6, 0)...min(x + 6, side - 1)).map { Int(sharp[y * side + $0]) }
+                blurred[y * side + x] = UInt8(span.reduce(0, +) / span.count)
+            }
+        }
+        XCTAssertGreaterThan(score(sharp, side: side), score(blurred, side: side) * 2)
+    }
+
+    func testAFlatPictureAndATinyOneScoreZero() {
+        XCTAssertEqual(score([UInt8](repeating: 128, count: 40_000), side: 200), 0)
+        XCTAssertEqual(score([UInt8](repeating: 128, count: 9), side: 3), 0)
+    }
+
+    func testTheNewestFrameCloseToTheBestWins() {
+        XCTAssertEqual(FrameSharpness.choose(scores: [100, 10, 90]), 2)
+    }
+
+    func testABlurryNewestFrameLosesToASharperOne() {
+        XCTAssertEqual(FrameSharpness.choose(scores: [20, 100, 40, 10]), 1)
+    }
+
+    func testNoFramesChoosesNothing() {
+        XCTAssertNil(FrameSharpness.choose(scores: []))
+    }
+}
