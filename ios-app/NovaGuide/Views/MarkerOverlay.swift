@@ -110,8 +110,9 @@ private struct MotionCue: View {
     @State private var touched = 0.0
     @State private var onDark = true
 
-    /// A press or a swipe shows the hand. A turn keeps its arrow: one finger can't show turning a dial.
-    private var showsHand: Bool { brightness != nil && (motion == .press || motion.swipe != nil) }
+    /// A press, a swipe, a drag or a step with no named motion shows the hand. A turn keeps its arrow: one finger can't
+    /// show turning a dial.
+    private var showsHand: Bool { brightness != nil && (motion == .press || motion == .point || motion.swipe != nil) }
     private var flipX: Bool { center.x + HandCue.width * 0.72 > room.width }
     private var flipY: Bool { center.y + HandCue.height > room.height }
 
@@ -131,16 +132,24 @@ private struct MotionCue: View {
                     HandCue(onDark: onDark, flipX: flipX, flipY: flipY)
                         .offset(x: (1 - progress) * (flipX ? -16 : 16), y: (1 - progress) * (flipY ? -24 : 24))
                 }
+            case .point:
+                if showsHand { HandCue(onDark: onDark, flipX: flipX, flipY: flipY) }
             case .pull, .push, .press:
                 // A pull comes toward the user: the ring grows. A push or a press goes away: it shrinks.
                 Circle().stroke(Color.white, lineWidth: 3)
                     .frame(width: radius * 2, height: radius * 2)
                     .scaleEffect(motion == .pull ? 0.7 + progress * 0.8 : 1.4 - progress * 0.7)
                     .shadow(color: .black.opacity(0.7), radius: 2)
-            case .swipeLeft, .swipeRight, .swipeUp, .swipeDown:
+            case .swipeLeft, .swipeRight, .swipeUp, .swipeDown, .dragLeft, .dragRight, .dragUp, .dragDown:
                 let way = motion.swipe ?? CGVector(dx: 0, dy: -1)
                 let length = SwipeTrail.length(from: center, way: way, room: room)
                 ZStack {
+                    if motion.holds {
+                        Circle().stroke(onDark ? Color.white : Color.black, lineWidth: 3)
+                            .frame(width: 44, height: 44)
+                            .scaleEffect(0.4 + touched * 1.1)
+                            .opacity(touched > 0 && progress == 0 ? 1 - touched / 2 : 0)
+                    }
                     SwipeTrail(way: way, length: length, progress: progress, fingertip: !showsHand)
                     if showsHand {
                         HandCue(onDark: onDark, flipX: flipX, flipY: flipY)
@@ -164,6 +173,12 @@ private struct MotionCue: View {
                     try? await Task.sleep(for: .seconds(0.7))
                     withAnimation(.easeOut(duration: 0.8)) { touched = 1 }
                     try? await Task.sleep(for: .seconds(0.9))
+                } else if motion.holds {
+                    // Pressed and held first: that is what makes it a drag and not a swipe.
+                    withAnimation(.easeOut(duration: 0.5)) { touched = 1 }
+                    try? await Task.sleep(for: .seconds(0.6))
+                    withAnimation(.easeInOut(duration: 1.2)) { progress = 1 }
+                    try? await Task.sleep(for: .seconds(1.2))
                 } else {
                     withAnimation(.easeInOut(duration: 1.6)) { progress = 1 }
                     try? await Task.sleep(for: .seconds(1.6))

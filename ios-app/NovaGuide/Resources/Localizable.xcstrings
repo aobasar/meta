@@ -112,6 +112,46 @@
         }
       }
     },
+    "Hold and drag down": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Basılı tut, aşağı sürükle"
+          }
+        }
+      }
+    },
+    "Hold and drag left": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Basılı tut, sola sürükle"
+          }
+        }
+      }
+    },
+    "Hold and drag right": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Basılı tut, sağa sürükle"
+          }
+        }
+      }
+    },
+    "Hold and drag up": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Basılı tut, yukarı sürükle"
+          }
+        }
+      }
+    },
     "How do I get there?": {
       "localizations": {
         "tr": {

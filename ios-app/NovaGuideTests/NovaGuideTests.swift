@@ -912,6 +912,12 @@ final class PictureBrightnessTests: XCTestCase {
 }
 
 final class SwipeMotionTests: XCTestCase {
+    func testADragHoldsFirstAndHasItsWay() {
+        XCTAssertEqual(GuideStep.Motion(rawValue: "drag_up")?.swipe, CGVector(dx: 0, dy: -1))
+        XCTAssertEqual(GuideStep.Motion(rawValue: "drag_up")?.holds, true)
+        XCTAssertEqual(GuideStep.Motion(rawValue: "swipe_up")?.holds, false)
+    }
+
     func testEachSwipeHasItsWay() {
         XCTAssertEqual(GuideStep.Motion(rawValue: "swipe_left")?.swipe, CGVector(dx: -1, dy: 0))
         XCTAssertEqual(GuideStep.Motion(rawValue: "swipe_right")?.swipe, CGVector(dx: 1, dy: 0))

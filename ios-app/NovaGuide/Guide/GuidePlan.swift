@@ -132,17 +132,26 @@ struct GuideStep: Decodable, Equatable {
         case swipeRight = "swipe_right"
         case swipeUp = "swipe_up"
         case swipeDown = "swipe_down"
+        case dragLeft = "drag_left"
+        case dragRight = "drag_right"
+        case dragUp = "drag_up"
+        case dragDown = "drag_down"
+        /// The app's own, when the plan names no motion: the hand still shows where. The server never sends it.
+        case point
 
-        /// The way the finger moves on the screen (y down), for a swipe.
+        /// The way the finger moves on the screen (y down), for a swipe or a drag.
         var swipe: CGVector? {
             switch self {
-            case .swipeLeft: CGVector(dx: -1, dy: 0)
-            case .swipeRight: CGVector(dx: 1, dy: 0)
-            case .swipeUp: CGVector(dx: 0, dy: -1)
-            case .swipeDown: CGVector(dx: 0, dy: 1)
+            case .swipeLeft, .dragLeft: CGVector(dx: -1, dy: 0)
+            case .swipeRight, .dragRight: CGVector(dx: 1, dy: 0)
+            case .swipeUp, .dragUp: CGVector(dx: 0, dy: -1)
+            case .swipeDown, .dragDown: CGVector(dx: 0, dy: 1)
             default: nil
             }
         }
+
+        /// The finger presses and holds before it moves.
+        var holds: Bool { [.dragLeft, .dragRight, .dragUp, .dragDown].contains(self) }
 
         var title: String {
             switch self {
@@ -155,6 +164,11 @@ struct GuideStep: Decodable, Equatable {
             case .swipeRight: String(localized: "Swipe right", bundle: .ui)
             case .swipeUp: String(localized: "Swipe up", bundle: .ui)
             case .swipeDown: String(localized: "Swipe down", bundle: .ui)
+            case .dragLeft: String(localized: "Hold and drag left", bundle: .ui)
+            case .dragRight: String(localized: "Hold and drag right", bundle: .ui)
+            case .dragUp: String(localized: "Hold and drag up", bundle: .ui)
+            case .dragDown: String(localized: "Hold and drag down", bundle: .ui)
+            case .point: ""
             }
         }
 
@@ -165,15 +179,16 @@ struct GuideStep: Decodable, Equatable {
             case .turnCounterclockwise: "arrow.counterclockwise"
             case .pull: "arrow.up.left.and.arrow.down.right"
             case .push: "arrow.down.right.and.arrow.up.left"
-            case .swipeLeft: "arrow.left"
-            case .swipeRight: "arrow.right"
-            case .swipeUp: "arrow.up"
-            case .swipeDown: "arrow.down"
+            case .swipeLeft, .dragLeft: "arrow.left"
+            case .swipeRight, .dragRight: "arrow.right"
+            case .swipeUp, .dragUp: "arrow.up"
+            case .swipeDown, .dragDown: "arrow.down"
+            case .point: "hand.point.up.left"
             }
         }
     }
 
-    var motionKind: Motion? { motion.flatMap(Motion.init(rawValue:)) }
+    var motionKind: Motion? { motion.flatMap(Motion.init(rawValue:)).flatMap { $0 == .point ? nil : $0 } }
 
     /// Where the marker goes: the SAM box's center when SAM found a usable box, otherwise Spark's point.
     var markerPoint: NormalizedPoint {

@@ -498,6 +498,12 @@ class VerifyTests(unittest.TestCase):
         guide.verify(tiny_jpeg(520, 520), "i", "s", "Turkish", FAKE_KEY, opener, view="whole")
         self.assertIn("further along", guide.VERIFY_WHOLE_PROMPT)
 
+    def test_a_drag_keeps_its_direction(self):
+        plan = {**PLAN, "steps": [{**PLAN["steps"][0], "motion": "drag_up"}, {**PLAN["steps"][1], "motion": "drag_around"}]}
+        first, second = guide.plan(tiny_jpeg(), "q", "English", FAKE_KEY, RoutingOpener(plan=plan))["steps"]
+        self.assertEqual((first["motion"], second["motion"]), ("drag_up", "unknown"))
+        self.assertIn("presses and holds one thing", guide.PLAN_PROMPT)
+
     def test_a_swipe_keeps_its_direction(self):
         plan = {**PLAN, "steps": [{**PLAN["steps"][0], "motion": "swipe_left"}, {**PLAN["steps"][1], "motion": "swipe_diagonal"}]}
         first, second = guide.plan(tiny_jpeg(), "q", "English", FAKE_KEY, RoutingOpener(plan=plan))["steps"]
