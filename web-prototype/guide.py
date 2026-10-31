@@ -934,6 +934,7 @@ def ask(frame: bytes, question: str, language: str, context: dict, api_key: str,
 
 def spoken_language(name, fallback: str) -> str:
     """The language Spark says it wrote in, if the app can speak it; otherwise the language the app asked for."""
+    name = "Mandarin Chinese" if name == "Chinese" else name
     return name if isinstance(name, str) and name in nova.SPEECH_LANGUAGES else fallback
 
 

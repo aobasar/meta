@@ -353,6 +353,15 @@ class PlanTests(unittest.TestCase):
         self.assertEqual(len(opener.bodies), 1)
 
 
+class SpokenLanguageTests(unittest.TestCase):
+    def test_spark_calling_it_chinese_is_the_mandarin_the_app_speaks(self) -> None:
+        self.assertEqual(guide.spoken_language("Chinese", "English"), "Mandarin Chinese")
+        self.assertEqual(guide.spoken_language("Mandarin Chinese", "English"), "Mandarin Chinese")
+        self.assertEqual(guide.spoken_language("Spanish", "English"), "Spanish")
+        self.assertEqual(guide.spoken_language("Klingon", "English"), "English")
+        self.assertEqual(guide.spoken_language(None, "Turkish"), "Turkish")
+
+
 class TourPromptTests(unittest.TestCase):
     def test_a_general_question_gets_a_tour_of_unchecked_controls(self):
         for words in ('"How do I use this?"', "at most 5", "without asking them to press it", "visible_result is false",
