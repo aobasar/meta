@@ -407,7 +407,7 @@ private struct MicButton: View {
                 } else if model.pulse == .thinking {
                     Orb(size: large ? 24 : 18)
                 } else {
-                    Image(systemName: "mic").font(.system(size: large ? 26 : 18, weight: .semibold)).foregroundStyle(.white)
+                    Image(systemName: "mic").font(.system(size: large ? 26 : 18, weight: .semibold)).foregroundStyle(large ? Color.white : Color.black)
                 }
             }
             .frame(width: large ? 64 : 44, height: large ? 64 : 44)
