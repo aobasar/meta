@@ -34,7 +34,6 @@ struct KokobubuMascot: View {
 
     private static let shell = Color(red: 0.957, green: 0.965, blue: 0.984)  // #F4F6FB
     private static let trim = Color(red: 0.184, green: 0.435, blue: 0.749)  // #2F6FBF
-    private static let band = Color(red: 0.29, green: 0.525, blue: 0.816)  // #4A86D0
     private static let visor = Color(red: 0.812, green: 0.894, blue: 0.973)  // #CFE4F8
     private static let ink = Color(red: 0.047, green: 0.267, blue: 0.486)  // #0C447C
     private static let mouth = Color(red: 0.847, green: 0.353, blue: 0.188)  // #D85A30
@@ -45,8 +44,6 @@ struct KokobubuMascot: View {
         let pupilRoom: CGFloat = 4
         let line = (small ? 5 : 3.5) * unit
         ZStack {
-            MascotArc(from: CGPoint(x: 12, y: 54), control: CGPoint(x: 50, y: -24), to: CGPoint(x: 88, y: 54))
-                .stroke(Self.trim, style: StrokeStyle(lineWidth: (small ? 6 : 5) * unit, lineCap: .round))
             Circle().fill(Self.shell)
                 .overlay(Circle().stroke(Self.visor, lineWidth: unit))
                 .frame(width: 74 * unit, height: 74 * unit)
@@ -60,16 +57,13 @@ struct KokobubuMascot: View {
             ZStack {
                 Self.visor
                 Self.trim.frame(height: 2 * unit)
-                    .offset(y: (scanDown ? 11 : -11) * unit)
+                    .offset(y: (scanDown ? 14 : -14) * unit)
                     .opacity(mood == .looking && !reduceMotion ? 1 : 0)
                 Color.white.opacity(flash ? 0.9 : 0)
             }
-            .frame(width: 56 * unit, height: 28 * unit)
-            .clipShape(RoundedRectangle(cornerRadius: 11 * unit, style: .continuous))
+            .frame(width: 60 * unit, height: 34 * unit)
+            .clipShape(RoundedRectangle(cornerRadius: 14 * unit, style: .continuous))
             .position(x: 50 * unit, y: 55 * unit)
-            RoundedRectangle(cornerRadius: 5 * unit, style: .continuous).fill(Self.band)
-                .frame(width: 60 * unit, height: 12 * unit)
-                .position(x: 50 * unit, y: 38 * unit)
             if mood == .yes {
                 MascotArc(from: CGPoint(x: 29, y: 57), control: CGPoint(x: 38, y: 47), to: CGPoint(x: 47, y: 57))
                     .stroke(Self.ink, style: StrokeStyle(lineWidth: line, lineCap: .round))
