@@ -1126,12 +1126,21 @@ final class GuideModel: ObservableObject {
             }
             if let label = plan?.steps[index].setTo?.label, check.reason != "too_small" {
                 records[index].result = .uncertain
-                let question = language.phrase("I can't read it clearly. Is the pointer on %@? Hold the phone straight in front of the dial.")
-                say(.confirmDial(question.replacingOccurrences(of: "%@", with: "«\(label)»")))
+                say(.confirmDial(Self.dialQuestion(check, label: label, segments: plan?.steps[index].setTo?.segments == true, phrase: language.phrase)))
                 return
             }
             applyMiss(check, to: index)
         }
+    }
+
+    /// On a program dial the marks can be too close for a photo, however good it is, so the question says that.
+    nonisolated static func dialQuestion(_ check: StepCheck, label: String, segments: Bool, phrase: (String) -> String) -> String {
+        if segments, check.reason == "near", let reading = check.reading {
+            return phrase("{target} and {now} are very close. I can't tell them apart in a photo. Is the pointer on {target}?")
+                .replacingOccurrences(of: "{target}", with: "«\(label)»").replacingOccurrences(of: "{now}", with: "«\(reading)»")
+        }
+        return phrase("I can't read it clearly. Is the pointer on %@? Hold the phone straight in front of the dial.")
+            .replacingOccurrences(of: "%@", with: "«\(label)»")
     }
 
     private func lookAgain(after first: StepCheck, at index: Int) {

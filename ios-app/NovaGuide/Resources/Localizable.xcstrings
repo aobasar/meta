@@ -2078,6 +2078,16 @@
         }
       }
     },
+    "{target} and {now} are very close. I can't tell them apart in a photo. Is the pointer on {target}?": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{target} ile {now} çok yakın. Fotoğraftan ayıramıyorum. İbre {target} çizgisinde mi?"
+          }
+        }
+      }
+    },
     "Set the server's address in Settings.": {
       "localizations": {
         "tr": {

@@ -347,6 +347,14 @@ final class GuideSettingsTests: XCTestCase {
 }
 
 final class DialRequestTests: XCTestCase {
+    func testAProgramDialSaysItsMarksAreTooClose() {
+        let near = StepCheck(status: .unsure, observed: "", correction: "", confirmation: nil, reason: "near", reading: "off", recording: nil)
+        let close = GuideModel.dialQuestion(near, label: "express", segments: true) { $0 }
+        XCTAssertTrue(close.contains("«express» and «off» are very close"))
+        XCTAssertFalse(close.contains("{"))
+        XCTAssertTrue(GuideModel.dialQuestion(near, label: "warm", segments: false) { $0 }.contains("I can't read it clearly"))
+    }
+
     func testTwoLooksThatDisagreeBecomeAQuestion() {
         let check = StepCheck(status: .done, observed: "", correction: "", confirmation: nil, reason: "", reading: "warm", recording: nil)
         XCTAssertEqual(GuideModel.settled(check, firstReading: nil).status, .done)
