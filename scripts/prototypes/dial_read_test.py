@@ -16,16 +16,15 @@ sys.path.insert(0, ".")
 import guide
 
 TEMPERATURE = ["cool darks", "cool brights", "warm", "hot", "tap cold", "cold"]
-PROGRAM = ["regular express", "normal", "casual", "delicate", "hand wash", "soak", "prewash", "heavy duty", "comforters/bedding"]
+PROGRAM = ["regular", "express", "normal", "casual", "delicate", "hand wash", "soak", "prewash", "heavy duty", "comforters/bedding"]
 KNOBS = {
     "20261031-063103": "cool brights", "20261031-063112": "cool brights", "20261031-063118": "cool brights",
     "20261031-071437": "hot", "20261031-071445": "hot", "20261031-074215": "warm", "20261101-020127": "cold",
     "20261101-021300": "cold", "20261101-022122": "cool brights", "20261101-031726": "warm", "20261101-031733": "warm",
 }
 PROGRAM_CHECKS = {
-    "20261031-065705": "comforters/bedding", "20261031-065719": "comforters/bedding", "20261031-065953": "regular express",
-    "20261031-070000": "regular express", "20261101-021708": "regular express", "20261101-022155": "regular express",
-    "20261101-031457": "regular express", "20261101-031746": "comforters/bedding",
+    "20261101-040946": "casual", "20261101-040957": "casual", "20261101-041005": "casual", "20261101-041017": "casual",
+    "20261101-041341": "express", "20261101-041357": "express", "20261101-041409": "express",
 }
 
 
@@ -41,7 +40,7 @@ def main():
     def read(job):
         stamp, target, positions, segments = job
         image = base64.b64encode((frames[stamp] / "frame.jpg").read_bytes()).decode()
-        text, _ = guide.spark(guide.DIAL_READ_PROMPT.format(positions=", ".join(positions)), "data:image/jpeg;base64," + image,
+        text, _ = guide.spark(guide.dial_prompt(dial(target, positions, segments)), "data:image/jpeg;base64," + image,
                               key, urllib.request.urlopen, guide.DIAL_READ_SCHEMA)
         return job, guide.parse_json(text)
 
@@ -51,10 +50,14 @@ def main():
         results = list(pool.map(read, jobs))
 
     right, wrong, programs = collections.Counter(), collections.Counter(), collections.Counter()
+    program_wrong = collections.Counter()
     for (stamp, truth, positions, segments), reading in results:
         if segments:
             decision = guide.decide_dial(reading, dial(truth, positions, True))
             programs[decision] += 1
+            for other in positions:
+                if other != truth:
+                    program_wrong[guide.decide_dial(reading, dial(other, positions, True))[0]] += 1
             print(stamp, truth, "->", decision, reading.get("position"), reading.get("pointer_clock"))
             continue
         right[guide.decide_dial(reading, dial(truth, positions))] += 1
@@ -66,6 +69,7 @@ def main():
     print("right target:", dict(right))
     print("wrong targets:", dict(wrong))
     print("program dial:", dict(programs))
+    print("program dial, wrong targets:", dict(program_wrong))
 
 
 def report_sizes(results, frames):

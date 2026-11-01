@@ -1128,14 +1128,28 @@ class DialDecisionTests(unittest.TestCase):
 
     def test_a_program_runs_from_its_tick_and_asks_at_its_edges(self):
         self.assertEqual(self.decide(self.PROGRAM, "normal", 3), ("done", ""))
-        self.assertEqual(self.decide(self.PROGRAM, "normal", 2), ("unsure", "near"))
+        self.assertEqual(self.decide(self.PROGRAM, "normal", 2), ("done", ""))
+        self.assertEqual(self.decide(self.PROGRAM, "express", 3), ("unsure", "near"))
+        self.assertEqual(self.decide({**self.PROGRAM, "target": "regular express"}, "express", 12), ("done", ""))
+        self.assertEqual(self.decide(self.PROGRAM, "off", 2), ("unsure", "near"))
         self.assertEqual(self.decide(self.PROGRAM, "delicate", 5), ("unsure", "near"))
         self.assertEqual(self.decide(self.PROGRAM, "soak", 9), ("not_done", "other_position"))
 
-    def test_a_program_without_ticks_trusts_only_the_label_to_ask(self):
-        dial = {**self.PROGRAM}
-        reading = {"position": "normal", "pointer_clock": 3, "tick_clocks": [], "clear": True}
-        self.assertEqual(guide.decide_dial(reading, dial), ("unsure", "near"))
+    def test_a_program_without_ticks_trusts_the_label(self):
+        decide = lambda position: guide.decide_dial({"position": position, "pointer_clock": 3, "tick_clocks": [], "clear": True}, self.PROGRAM)
+        self.assertEqual(decide("normal"), ("done", ""))
+        self.assertEqual(decide("off"), ("unsure", "near"))
+        self.assertEqual(decide("delicate"), ("unsure", "near"))
+        self.assertEqual(decide("soak"), ("not_done", "other_position"))
+
+    def test_words_printed_many_times_are_not_positions(self):
+        self.assertEqual(guide.dial_positions(["off", "regular", "spin", "off", "spin", "casual"], "casual"), ["regular", "casual"])
+        self.assertEqual(guide.dial_positions(["off", "on", "off"], "off"), ["off", "on", "off"])
+
+    def test_only_a_program_dial_gets_the_tick_rule(self):
+        self.assertIn("hook-shaped", guide.dial_prompt(self.PROGRAM))
+        self.assertIn(", off", guide.dial_prompt(self.PROGRAM))
+        self.assertNotIn("hook-shaped", guide.dial_prompt(self.KNOB))
 
     def test_a_small_close_up_asks_to_come_closer_without_a_model_call(self):
         def opener(*_):
