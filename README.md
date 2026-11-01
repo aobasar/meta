@@ -6,10 +6,12 @@
 
 Kokobubu is an iPhone app that shows you how to use a physical device. Point your iPhone at a washing machine, a screen or a control panel and ask out loud. It reads the labels, marks the exact control in AR, guides you one step at a time, and checks your work with the camera where a photo can show the result.
 
-- **Demo video (2:55):** https://www.youtube.com/watch?v=xyJxzW4g8xU
-- **Project page:** https://www.aobasar.com/projects/kokobubu/
-- **Try it in a browser (illustrated examples, no install):** https://www.aobasar.com/projects/kokobubu/try/
-- **TestFlight:** https://testflight.apple.com/join/jkXDy8nX (the app requires an invitation code, because it uses API credits)
+| | |
+|---|---|
+| **Watch** | [Demo video on YouTube](https://www.youtube.com/watch?v=xyJxzW4g8xU) (2:55) |
+| **Read** | [Project page](https://www.aobasar.com/projects/kokobubu/) |
+| **Try in a browser** | [Illustrated examples](https://www.aobasar.com/projects/kokobubu/try/), no install |
+| **Try on iPhone** | [TestFlight](https://testflight.apple.com/join/jkXDy8nX). The app requires an invitation code, because it uses API credits |
 
 Built for the Meta Global AI Developer Hackathon, Oct 26 – Nov 4, 2026. Track: Indie Developer. Problem statement: Build for Your World. An independent project, not made or endorsed by Meta.
 
