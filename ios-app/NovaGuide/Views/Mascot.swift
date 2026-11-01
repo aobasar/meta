@@ -31,8 +31,10 @@ struct KokobubuMascot: View {
     @State private var flash = false
     @State private var scanDown = false
 
-    private static let ink = Color(red: 0.082, green: 0.094, blue: 0.11)  // #15181C
-    private static let visor = Color(red: 1, green: 0.914, blue: 0.639)  // #FFE9A3
+    private static let shell = Color(red: 0.957, green: 0.965, blue: 0.984)  // #F4F6FB
+    private static let trim = Color(red: 0.216, green: 0.541, blue: 0.867)  // #378ADD
+    private static let visor = Color(red: 0.71, green: 0.831, blue: 0.957)  // #B5D4F4
+    private static let ink = Color(red: 0.047, green: 0.267, blue: 0.486)  // #0C447C
     private static let mouth = Color(red: 0.847, green: 0.353, blue: 0.188)  // #D85A30
 
     var body: some View {
@@ -40,19 +42,19 @@ struct KokobubuMascot: View {
         let small = size < 60  // at the card's size a mouth can't be seen, and lines need more weight
         let pupilRoom: CGFloat = 4
         ZStack {
-            Circle().fill(Self.ink)
-                .overlay(Circle().stroke(Color.novaYellow, lineWidth: (small ? 4 : 2) * unit))
+            Circle().fill(Self.shell)
+                .overlay(Circle().stroke(Self.trim, lineWidth: (small ? 4 : 2) * unit))
                 .frame(width: 80 * unit, height: 80 * unit)
                 .position(x: 50 * unit, y: 52 * unit)
             ForEach([8.5, 91.5], id: \.self) { x in
                 RoundedRectangle(cornerRadius: 5.5 * unit, style: .continuous)
-                    .fill(glowing && mood == .listening ? Color.white : Color.novaYellow)
+                    .fill(glowing && mood == .listening ? Self.visor : Self.trim)
                     .frame(width: 11 * unit, height: 24 * unit)
                     .position(x: x * unit, y: 54 * unit)
             }
             ZStack {
                 Self.visor
-                Color.novaYellow.frame(height: 2.5 * unit)
+                Self.trim.frame(height: 2.5 * unit)
                     .offset(y: (scanDown ? 13 : -13) * unit)
                     .opacity(mood == .looking && !reduceMotion ? 1 : 0)
                 Color.white.opacity(flash ? 0.9 : 0)
