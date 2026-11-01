@@ -61,9 +61,47 @@ def main():
         for other in positions:
             if other != truth:
                 wrong[guide.decide_dial(reading, dial(other, positions))[0]] += 1
+    report_sizes(results, frames)
+    report_second_look(results)
     print("right target:", dict(right))
     print("wrong targets:", dict(wrong))
     print("program dial:", dict(programs))
+
+
+def report_sizes(results, frames):
+    """How often each frame reads right, by the short side of the crop."""
+    scores = collections.defaultdict(collections.Counter)
+    for (stamp, truth, positions, segments), reading in results:
+        if not segments:
+            scores[stamp][guide.plain_label(reading.get("position", "")) == truth] += 1
+    for stamp in sorted(scores, key=lambda s: min(guide.jpeg_size((frames[s] / "frame.jpg").read_bytes()))):
+        side = min(guide.jpeg_size((frames[stamp] / "frame.jpg").read_bytes()))
+        print(f"{side:5d} px {stamp} right {scores[stamp][True]} of {sum(scores[stamp].values())}")
+
+
+def report_second_look(results):
+    """A not-sure first reading looks again at another frame of the same setting: must the two agree, or may a pass stand?"""
+    groups = collections.defaultdict(list)
+    for (stamp, truth, positions, segments), reading in results:
+        if not segments:
+            groups[truth].append((stamp, reading))
+    same_rule, pass_rule = collections.Counter(), collections.Counter()
+    wrong_same, wrong_pass = collections.Counter(), collections.Counter()
+    for truth, readings in groups.items():
+        pairs = [(a, b) for sa, a in readings for sb, b in readings if sa != sb]
+        for first, second in pairs:
+            for target, same, passed in ((t, wrong_same, wrong_pass) if t != truth else (t, same_rule, pass_rule) for t in TEMPERATURE):
+                one = guide.decide_dial(first, dial(target, TEMPERATURE))
+                two = guide.decide_dial(second, dial(target, TEMPERATURE))
+                if one[1] not in ("near", "unclear"):
+                    same[one[0]] += 1
+                    passed[one[0]] += 1
+                    continue
+                agree = guide.plain_label(first.get("position", "")) == guide.plain_label(second.get("position", ""))
+                same[two[0] if agree else "unsure"] += 1
+                passed[two[0] if two[0] == "done" or agree else "unsure"] += 1
+    print("second look, readings must agree: right", dict(same_rule), "wrong", dict(wrong_same))
+    print("second look, a pass stands: right", dict(pass_rule), "wrong", dict(wrong_pass))
 
 
 if __name__ == "__main__":

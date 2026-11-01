@@ -347,6 +347,15 @@ final class GuideSettingsTests: XCTestCase {
 }
 
 final class DialRequestTests: XCTestCase {
+    func testTwoLooksThatDisagreeBecomeAQuestion() {
+        let check = StepCheck(status: .done, observed: "", correction: "", confirmation: nil, reason: "", reading: "warm", recording: nil)
+        XCTAssertEqual(GuideModel.settled(check, firstReading: nil).status, .done)
+        XCTAssertEqual(GuideModel.settled(check, firstReading: "Warm").status, .done)
+        let unsure = GuideModel.settled(check, firstReading: "hot")
+        XCTAssertEqual(unsure.status, .unsure)
+        XCTAssertEqual(unsure.reason, "near")
+    }
+
     func testAPlanWithPositionsSendsADialAndAnOlderOneDoesNot() {
         var setTo = GuideStep.SetTo(label: "warm", meaning: "", point: nil)
         XCTAssertNil(GuideClient.Dial(setTo))

@@ -434,6 +434,8 @@ DIAL_NEAR_HOURS = 0.5  # a reading this close to the edge of a program's range i
 
 ANY_POSITION = "the control's pointer is at any of its labeled positions"
 MIN_CROP_SIDE = 160  # pixels; a smaller close-up can't show a pointer reliably
+# Recorded knob close-ups read right 21 of 21 times from 740 px up, and 2 of 12 below 540 (dial_read_test.py).
+MIN_DIAL_CROP_SIDE = 600
 MAX_STEP_TEXT_CHARS = 600
 MAX_POINTER_CHARS = 200
 MAX_DIAL_POSITIONS = 24
@@ -1081,7 +1083,7 @@ def plan_parts(frame: bytes, question: str, language: str, api_key: str, opener,
 def read_dial(crop: bytes, dial: dict, api_key: str, opener) -> dict:
     """Where the knob is, read without the target, and what that means for the step."""
     width, height = jpeg_size(crop)
-    if min(width, height) < MIN_CROP_SIDE:
+    if min(width, height) < MIN_DIAL_CROP_SIDE:
         return {"status": "unsure", "observed": "", "correction": "", "confirmation": "", "reason": "too_small", "seconds": 0, "served": []}
     started = time.monotonic()
     text, model = spark(DIAL_READ_PROMPT.format(positions=", ".join(dial["positions"])),

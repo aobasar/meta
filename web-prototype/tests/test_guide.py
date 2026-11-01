@@ -1137,6 +1137,12 @@ class DialDecisionTests(unittest.TestCase):
         reading = {"position": "normal", "pointer_clock": 3, "tick_clocks": [], "clear": True}
         self.assertEqual(guide.decide_dial(reading, dial), ("unsure", "near"))
 
+    def test_a_small_close_up_asks_to_come_closer_without_a_model_call(self):
+        def opener(*_):
+            self.fail("a small close-up must not reach the model")
+        result = guide.read_dial(tiny_jpeg(520, 520), self.KNOB, FAKE_KEY, opener)
+        self.assertEqual((result["status"], result["reason"]), ("unsure", "too_small"))
+
     def test_a_request_without_positions_gets_the_plain_check(self):
         self.assertIsNone(guide.dial_request(None))
         self.assertIsNone(guide.dial_request({"target": "warm", "positions": ["warm"]}))

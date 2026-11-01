@@ -151,6 +151,10 @@ final class GuideModel: ObservableObject {
     private var task: Task<Void, Never>?
     private var prepared: PreparedPlan?
     private var prepareTask: Task<Void, Never>?
+    /// A dial read as not clear or next to its target gets one more look from a new frame.
+    private var firstReading: String?
+    private var lookedTwice = false
+    private static let secondLookSeconds = 0.4
     /// Photos coming within a second; the camera shows a small icon while there are any.
     @Published private(set) var photoWaits = 0
     var photoSoon: Bool { photoWaits > 0 }
@@ -1024,6 +1028,8 @@ final class GuideModel: ObservableObject {
         }
         feedback = .checking
         reply = nil
+        firstReading = nil
+        lookedTwice = false
         let index = stepIndex
         checkTask = Task {
             await warnOfPhoto()
@@ -1033,7 +1039,7 @@ final class GuideModel: ObservableObject {
     }
 
     private func look(at step: GuideStep) {
-        if step.checksWholeView || (unsureChecks[stepIndex] ?? 0) > 0 {
+        if step.checksWholeView || ((unsureChecks[stepIndex] ?? 0) > 0 && GuideClient.Dial(step.setTo) == nil) {
             guard let capture = takePhoto() else {
                 say(.unsure(language.phrase("Hold the phone steady, then check again.")))
                 return
@@ -1078,7 +1084,17 @@ final class GuideModel: ObservableObject {
         }
     }
 
-    private func apply(_ check: StepCheck, to index: Int) {
+    private func apply(_ first: StepCheck, to index: Int) {
+        // A program dial's edges stay close on every frame, so a second look there only adds a wait.
+        if let reading = first.reading, !lookedTwice, first.reason == "near" || first.reason == "unclear",
+           plan?.steps[index].setTo?.segments != true {
+            lookedTwice = true
+            firstReading = reading
+            lookAgain(after: first, at: index)
+            return
+        }
+        let check = Self.settled(first, firstReading: firstReading)
+        firstReading = nil
         records[index].observed = check.observed
         switch check.status {
         case .done:
@@ -1116,6 +1132,29 @@ final class GuideModel: ObservableObject {
             }
             applyMiss(check, to: index)
         }
+    }
+
+    private func lookAgain(after first: StepCheck, at index: Int) {
+        checkTask = Task {
+            try? await Task.sleep(for: .seconds(Self.secondLookSeconds))
+            guard !Task.isCancelled, index == stepIndex, let step = currentStep else { return }
+            guard case .jpeg(let jpeg) = ar.closeUp(step: index) else {
+                firstReading = nil
+                apply(first, to: index)
+                return
+            }
+            check(step, jpeg: jpeg, wholeView: false)
+        }
+    }
+
+    /// Two looks that read different positions can't tell: the check becomes a question for the user.
+    nonisolated static func settled(_ check: StepCheck, firstReading: String?) -> StepCheck {
+        guard let firstReading, let reading = check.reading,
+              firstReading.caseInsensitiveCompare(reading) != .orderedSame else { return check }
+        var unsure = check
+        unsure.status = .unsure
+        unsure.reason = "near"
+        return unsure
     }
 
     private func applyMiss(_ check: StepCheck, to index: Int) {
