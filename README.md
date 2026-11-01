@@ -70,7 +70,7 @@ The iPhone app never calls the models directly. It talks to a small Python serve
 | `scripts/prototypes/` | Small test scripts used while tuning the models |
 | `docs/testflight.md` | What App Store Connect asks for |
 
-The project was first called Nova, then Koko, so some internal names still say Nova.
+`Nova` was the project's working name. It remains in internal code names, such as the `NovaGuide` folder and `NOVA_` settings, and in the first-day browser experiment. The iPhone app and the website are Kokobubu.
 
 ## Run it
 
