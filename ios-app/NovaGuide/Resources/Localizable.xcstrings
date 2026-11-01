@@ -82,6 +82,26 @@
         }
       }
     },
+    "Consent at every launch": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Her açılışta onay"
+          }
+        }
+      }
+    },
+    "Depth scan": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Derinlik taraması"
+          }
+        }
+      }
+    },
     "Dial line": {
       "localizations": {
         "tr": {
@@ -2014,6 +2034,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Gör. Anla."
+          }
+        }
+      }
+    },
+    "Photo notice": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fotoğraf uyarısı"
+          }
+        }
+      }
+    },
+    "Taking a photo in 1 second": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 saniye sonra fotoğraf çekilecek"
           }
         }
       }

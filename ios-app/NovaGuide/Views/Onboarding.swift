@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// First launch: Welcome, the consent screen (App Review Guideline 5.1.2(i)), then How Nova works and the camera.
+/// Each launch: Welcome, the consent screen (App Review Guideline 5.1.2(i)), then the camera; the first launch shows How Nova works too.
 /// Nothing leaves the phone before the user agrees.
 struct OnboardingView: View {
     enum Page { case welcome, how, consent }
@@ -13,6 +13,7 @@ struct OnboardingView: View {
     @State private var page: Page = .welcome
     #endif
     @State private var sawHow = false
+    @State private var showSettings = false
 
     var body: some View {
         Group {
@@ -21,12 +22,13 @@ struct OnboardingView: View {
                 WelcomeView(onStart: { withAnimation { page = .consent } }, onHow: {
                     sawHow = true
                     withAnimation { page = .how }
-                })
+                }, onSettings: { showSettings = true })
+                .sheet(isPresented: $showSettings) { SettingsView() }
             case .how: HowView(buttonTitle: String(localized: "Continue", bundle: .ui)) { withAnimation { page = .consent } }
             case .consent: ConsentView {
                 withAnimation {
                     model.showWelcome = false  // the user has just seen it
-                    model.showHowNext = !sawHow
+                    model.showHowNext = !sawHow && !settings.hasAcceptedTerms
                     settings.acceptTerms()
                 }
             }
@@ -45,8 +47,7 @@ private struct Orientation {
 struct WelcomeView: View {
     var onStart: () -> Void
     var onHow: () -> Void
-    /// Later launches and Home only: on first launch Settings waits until the terms are accepted.
-    var onSettings: (() -> Void)? = nil
+    var onSettings: () -> Void
 
     var body: some View {
         lightScreen { GeometryReader { geometry in
@@ -68,13 +69,11 @@ struct WelcomeView: View {
                     .padding(.horizontal, 28)
                     .padding(.vertical, 36)
                 }
-                if let onSettings {
-                    RoundIconButton(action: onSettings, accessibility: Text("Settings")) {
-                        Image(systemName: "gearshape").font(.system(size: 18, weight: .medium)).foregroundStyle(.white)
-                    }
-                    .padding(.trailing, 14)
-                    .padding(.top, 8)
+                RoundIconButton(action: onSettings, accessibility: Text("Settings")) {
+                    Image(systemName: "gearshape").font(.system(size: 18, weight: .medium)).foregroundStyle(.white)
                 }
+                .padding(.trailing, 14)
+                .padding(.top, 8)
             }
         } }
     }
@@ -96,9 +95,9 @@ struct WelcomeView: View {
     private func text(land: Bool) -> some View {
         VStack(alignment: land ? .leading : .center, spacing: land ? 22 : 40) {
             VStack(alignment: land ? .leading : .center, spacing: 10) {
-                (Text("See it. Understand it.") + Text(verbatim: " ") + Text("Do it right.").foregroundColor(.novaGold))
+                (Text("See it. Understand it.") + Text(verbatim: "\n") + Text("Do it right.").foregroundColor(.novaGold))
                     .font(.system(size: land ? 21 : 24, weight: .bold))
-                    .lineLimit(land ? 1 : nil)
+                    .multilineTextAlignment(land ? .leading : .center)
                     .minimumScaleFactor(0.8)
                 Text("Shows where to touch, guides you step by step and checks every step.")
                     .font(.subheadline)

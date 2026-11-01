@@ -109,6 +109,20 @@ final class ARGuideController: NSObject, ObservableObject, ARSessionDelegate {
     private let ciContext = CIContext()
 
     var hasLiDAR: Bool { ARWorldTrackingConfiguration.supportsFrameSemantics(.sceneDepth) }
+    var hasDepthMesh: Bool { ARWorldTrackingConfiguration.supportsSceneReconstruction(.mesh) }
+    private var depthMeshEnd: Task<Void, Never>?
+    private static let depthMeshSeconds = 0.7
+
+    /// Shows ARKit's real depth mesh for a moment. It is drawn on the screen only: the photos are the camera's own frames.
+    func flashDepthMesh() {
+        guard hasDepthMesh, !UIAccessibility.isReduceMotionEnabled else { return }
+        depthMeshEnd?.cancel()
+        arView.debugOptions.insert(.showSceneUnderstanding)
+        depthMeshEnd = Task { @MainActor in
+            try? await Task.sleep(for: .seconds(Self.depthMeshSeconds))
+            if !Task.isCancelled { arView.debugOptions.remove(.showSceneUnderstanding) }
+        }
+    }
 
     /// The interface orientation, as the turn that makes the sensor image upright.
     var frameOrientation: FrameOrientation {

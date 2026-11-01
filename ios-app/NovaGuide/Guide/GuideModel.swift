@@ -68,6 +68,7 @@ final class GuideModel: ObservableObject {
     static let maxScreens = 6
     /// The next screen needs a moment to settle before the new frame.
     static let screenSettleSeconds = 1.0
+    static let photoNoticeSeconds = 1.0
 
     @Published var phase: Phase = .asking
     @Published var question = ""
@@ -111,7 +112,7 @@ final class GuideModel: ObservableObject {
     @Published private(set) var stepCorrections: [Int: Int] = [:]
     /// The welcome screen opens every launch and comes back with Home; "Get Started" goes to the camera.
     @Published var showWelcome = true
-    /// The first launch shows how Nova works right after the consent screen.
+    /// The first accepted consent shows how Nova works right after it.
     @Published var showHowNext = false
 
     enum Listening: Equatable {
@@ -149,6 +150,10 @@ final class GuideModel: ObservableObject {
     private let sounds = SoundEffects()
     private var task: Task<Void, Never>?
     private var prepared: PreparedPlan?
+    private var prepareTask: Task<Void, Never>?
+    /// Photos coming within a second; the camera shows a small icon while there are any.
+    @Published private(set) var photoWaits = 0
+    var photoSoon: Bool { photoWaits > 0 }
     /// What the final check said is missing, while Kokobubu finds the control for it.
     private var goalMiss: String?
     private var checkTask: Task<Void, Never>?
@@ -270,10 +275,6 @@ final class GuideModel: ObservableObject {
     func ask() {
         let text = question.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty, phase != .thinking else { return }
-        guard let capture = ar.capture() else {
-            phase = .failed(String(localized: "The camera isn't ready yet. Point it at the device and try again.", bundle: .ui))
-            return
-        }
         ar.clear()
         plan = nil
         taskID = UUID().uuidString  // a new plan is a new task
@@ -288,7 +289,6 @@ final class GuideModel: ObservableObject {
         pendingCorrection = nil
         unsolved = false
         taskQuestion = text
-        planCapture = capture
         answers = []
         findings = []
         shows = 0
@@ -297,7 +297,30 @@ final class GuideModel: ObservableObject {
         unsureChecks = [:]
         correcting = nil
         acknowledge(text)
-        requestPlan(capture: capture)
+        task = Task {
+            await warnOfPhoto()
+            if Task.isCancelled { return }
+            guard let capture = takePhoto() else {
+                phase = .failed(String(localized: "The camera isn't ready yet. Point it at the device and try again.", bundle: .ui))
+                return
+            }
+            planCapture = capture
+            requestPlan(capture: capture)
+        }
+    }
+
+    private func takePhoto() -> CapturedFrame? {
+        guard let capture = ar.capture() else { return nil }
+        if settings.depthScan { ar.flashDepthMesh() }
+        return capture
+    }
+
+    /// A second's warning before a photo, when Settings has it on. Callers check for cancellation afterwards.
+    private func warnOfPhoto() async {
+        guard settings.photoNotice else { return }
+        photoWaits += 1
+        defer { photoWaits -= 1 }
+        try? await Task.sleep(for: .seconds(Self.photoNoticeSeconds))
     }
 
     /// Says the fixed greeting once per task, with no model call.
@@ -357,8 +380,9 @@ final class GuideModel: ObservableObject {
             kind: "continue", wrongStep: "", said: plan?.remaining ?? "", done: earlier.map(\.instruction))
         task = Task {
             try? await Task.sleep(for: .seconds(Self.screenSettleSeconds))
+            await warnOfPhoto()
             if Task.isCancelled { return }
-            guard let capture = ar.capture() else {
+            guard let capture = takePhoto() else {
                 if let plan, let asked = plan.showRequest { phase = .showing(asked) }
                 show(message: String(localized: "The camera isn't ready yet. Point it at the device and try again.", bundle: .ui))
                 return
@@ -631,8 +655,9 @@ final class GuideModel: ObservableObject {
         let correction = Self.continuing(plan)
         task = Task {
             try? await Task.sleep(for: .seconds(Self.screenSettleSeconds))
+            await warnOfPhoto()
             if Task.isCancelled { return }
-            guard let capture = ar.capture() else {  // tracking is lost, for example the screen went dark
+            guard let capture = takePhoto() else {  // tracking is lost, for example the screen went dark
                 phase = .guiding
                 show(message: String(localized: "The camera isn't ready yet. Point it at the device and try again.", bundle: .ui))
                 return
@@ -649,26 +674,31 @@ final class GuideModel: ObservableObject {
     /// The last step passed and the task goes on: start on the next screen now, while the user reads the check.
     private func prepareNextScreen() {
         discardPrepared()
-        guard let plan, plan.goesOn, stepIndex == plan.steps.count - 1, screensPassed < Self.maxScreens,
-              let capture = ar.capture() else { return }
-        let waiting = PreparedPlan(capture: capture, correction: Self.continuing(plan), start: plan.steps.count)
-        let text = taskQuestion, answers = self.answers, findings = self.findings, shows = self.shows, settings = self.settings
-        let language = self.language.serverName
-        waiting.task = Task {
-            defer { waiting.finished() }
-            return try await send {
-                try await $0.plan(jpeg: capture.jpeg, question: text, language: language, autoLanguage: settings.isAutomaticLanguage,
-                                  record: settings.record, camera: capture.cameraInfo, spark: settings.sparkChoice, answers: answers,
-                                  correction: waiting.correction, allowQuestions: false, findings: findings, shows: shows) { steps in
-                    waiting.received(steps: steps)
+        guard let plan, plan.goesOn, stepIndex == plan.steps.count - 1, screensPassed < Self.maxScreens else { return }
+        let index = stepIndex
+        prepareTask = Task {
+            await warnOfPhoto()
+            guard !Task.isCancelled, index == stepIndex, feedback == .correct, let capture = takePhoto() else { return }
+            let waiting = PreparedPlan(capture: capture, correction: Self.continuing(plan), start: plan.steps.count)
+            let text = taskQuestion, answers = self.answers, findings = self.findings, shows = self.shows, settings = self.settings
+            let language = self.language.serverName
+            waiting.task = Task {
+                defer { waiting.finished() }
+                return try await send {
+                    try await $0.plan(jpeg: capture.jpeg, question: text, language: language, autoLanguage: settings.isAutomaticLanguage,
+                                      record: settings.record, camera: capture.cameraInfo, spark: settings.sparkChoice, answers: answers,
+                                      correction: waiting.correction, allowQuestions: false, findings: findings, shows: shows) { steps in
+                        waiting.received(steps: steps)
+                    }
                 }
             }
+            prepared = waiting
         }
-        prepared = waiting
     }
 
     /// The prepared plan if it fits this screen and still stands; one that doesn't is dropped and the camera looks again.
     private func takePrepared(from start: Int) -> PreparedPlan? {
+        prepareTask?.cancel()
         guard let waiting = prepared else { return nil }
         prepared = nil
         if waiting.start == start, let now = ar.cameraTransform {
@@ -682,6 +712,7 @@ final class GuideModel: ObservableObject {
     }
 
     private func discardPrepared() {
+        prepareTask?.cancel()
         prepared?.task?.cancel()
         prepared = nil
     }
@@ -762,10 +793,6 @@ final class GuideModel: ObservableObject {
     private func reassess(markerWrong: Bool) {
         discardPrepared()
         guard phase == .guiding, !reassessing, !isLocating, let step = currentStep else { return }
-        guard let capture = ar.capture() else {
-            show(message: String(localized: "The camera isn't ready yet. Point it at the device and try again.", bundle: .ui))
-            return
-        }
         checkTask?.cancel()
         correcting = nil
         feedback = nil
@@ -774,9 +801,15 @@ final class GuideModel: ObservableObject {
         reassessing = true
         speak(language.phrase(nextLookingPhrase()))
         if markerWrong { wrongSpots[stepIndex, default: 0] += 1 }
-        let wrongPoint = markerWrong ? ar.markerPoint(step: stepIndex, in: capture) : nil
         let index = stepIndex, context = taskContext(), settings = self.settings
         voiceTask = Task {
+            await warnOfPhoto()
+            guard !Task.isCancelled, let capture = takePhoto() else {
+                reassessing = false
+                if !Task.isCancelled { show(message: String(localized: "The camera isn't ready yet. Point it at the device and try again.", bundle: .ui)) }
+                return
+            }
+            let wrongPoint = markerWrong ? ar.markerPoint(step: index, in: capture) : nil
             do {
                 let language = self.language.serverName, record = settings.record, spark = settings.sparkChoice
                 let review = try await send {
@@ -879,10 +912,18 @@ final class GuideModel: ObservableObject {
     private func runCorrection(kind: String, said: String) {
         correcting = nil
         listening = .idle
-        guard let plan, let step = currentStep, let capture = ar.capture() else {
-            show(message: String(localized: "The camera isn't ready yet. Point it at the device and try again.", bundle: .ui))
-            return
+        task = Task {
+            await warnOfPhoto()
+            if Task.isCancelled { return }
+            guard let plan, let step = currentStep, let capture = takePhoto() else {
+                show(message: String(localized: "The camera isn't ready yet. Point it at the device and try again.", bundle: .ui))
+                return
+            }
+            correct(kind: kind, said: said, plan: plan, step: step, capture: capture)
         }
+    }
+
+    private func correct(kind: String, said: String, plan: GuidePlan, step: GuideStep, capture: CapturedFrame) {
         if kind == "outcome" {
             outcomeTries += 1
             answers = []
@@ -981,8 +1022,19 @@ final class GuideModel: ObservableObject {
             mark(.unchecked)
             return
         }
+        feedback = .checking
+        reply = nil
+        let index = stepIndex
+        checkTask = Task {
+            await warnOfPhoto()
+            guard !Task.isCancelled, index == stepIndex else { return }
+            look(at: step)
+        }
+    }
+
+    private func look(at step: GuideStep) {
         if step.checksWholeView || (unsureChecks[stepIndex] ?? 0) > 0 {
-            guard let capture = ar.capture() else {
+            guard let capture = takePhoto() else {
                 say(.unsure(language.phrase("Hold the phone steady, then check again.")))
                 return
             }
@@ -997,6 +1049,7 @@ final class GuideModel: ObservableObject {
         case .notReady:
             say(.unsure(language.phrase("Hold the phone steady, then check again.")))
         case .jpeg(let jpeg):
+            if settings.depthScan { ar.flashDepthMesh() }
             check(step, jpeg: jpeg, wholeView: false)
         }
     }
@@ -1143,15 +1196,17 @@ final class GuideModel: ObservableObject {
     /// The camera looks for the task's end state. Only a clear "done" ends the task without asking.
     func checkGoal() {
         guard phase == .confirming, goalCheck != .checking, let goal = plan?.goal, !goal.isEmpty else { return }
-        guard let capture = ar.capture() else {
-            goalCheck = .unclear
-            reply = language.phrase("Hold the phone steady, then check again.")
-            return
-        }
         goalCheck = .checking
         reply = nil
         let settings = self.settings, task = question.isEmpty ? goal : question
         checkTask = Task {
+            await warnOfPhoto()
+            if Task.isCancelled { return }
+            guard let capture = takePhoto() else {
+                goalCheck = .unclear
+                reply = language.phrase("Hold the phone steady, then check again.")
+                return
+            }
             do {
                 let language = self.language.serverName, record = settings.record, spark = settings.sparkChoice
                 let check = try await send {
@@ -1496,7 +1551,7 @@ final class GuideModel: ObservableObject {
 
     /// A question in the middle of the task: answer it and keep the user's place, or start the new task they asked for.
     private func askDuringTask(_ text: String, correction: String? = nil) {
-        guard plan != nil, let capture = ar.capture() else {
+        guard plan != nil else {
             show(message: String(localized: "The camera isn't ready yet. Point it at the device and try again.", bundle: .ui))
             return
         }
@@ -1504,6 +1559,12 @@ final class GuideModel: ObservableObject {
         listening = .answering
         let settings = self.settings
         voiceTask = Task {
+            await warnOfPhoto()
+            guard !Task.isCancelled, let capture = takePhoto() else {
+                listening = .idle
+                if !Task.isCancelled { show(message: String(localized: "The camera isn't ready yet. Point it at the device and try again.", bundle: .ui)) }
+                return
+            }
             do {
                 // The "more detail" request is written by the app, so its language says nothing about the user's.
                 let language = self.language.serverName, auto = settings.isAutomaticLanguage && correction == nil, record = settings.record
@@ -1601,6 +1662,8 @@ final class GuideModel: ObservableObject {
     }
 
     #if DEBUG
+    func holdPhotoNotice() { photoWaits = 1 }
+
     /// Simulator screenshots only (launch argument `-NovaDemo <screen>`): a fixed plan without the server.
     func loadDemo(_ screen: String, plan: GuidePlan, correction: String) {
         self.plan = plan

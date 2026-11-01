@@ -103,6 +103,27 @@ private struct CornerMarks: View {
 
 /// A moving dashed line from a dial to the position it should reach. It needs no turning direction: the user sees where
 /// to arrive, even when the model can't tell the shorter way.
+/// A photo comes when the ring closes.
+struct PhotoNotice: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var closed = false
+
+    var body: some View {
+        ZStack {
+            Circle().fill(Color(red: 0.082, green: 0.094, blue: 0.11).opacity(0.82))
+            Circle().stroke(Color.white.opacity(0.22), lineWidth: 2)
+            Circle().trim(from: 0, to: closed || reduceMotion ? 1 : 0)
+                .stroke(Color.novaYellow, style: StrokeStyle(lineWidth: 2, lineCap: .round))
+                .rotationEffect(.degrees(-90))
+            Image(systemName: "camera.fill").font(.system(size: 13, weight: .semibold)).foregroundStyle(Color.novaYellow)
+        }
+        .frame(width: 32, height: 32)
+        .onAppear { withAnimation(.linear(duration: GuideModel.photoNoticeSeconds)) { closed = true } }
+        .accessibilityElement()
+        .accessibilityLabel(Text("Taking a photo in 1 second", bundle: .ui))
+    }
+}
+
 private struct DialLine: View {
     var from: CGPoint
     var to: CGPoint

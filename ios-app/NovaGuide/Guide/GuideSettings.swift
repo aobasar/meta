@@ -305,6 +305,14 @@ final class GuideSettings: ObservableObject {
     @Published var soundEffects: Bool { didSet { defaults.set(soundEffects, forKey: "soundEffects") } }
     @Published var handAnimation: Bool { didSet { defaults.set(handAnimation, forKey: "handAnimation") } }
     @Published var dialLine: Bool { didSet { defaults.set(dialLine, forKey: "dialLine") } }
+    /// Ask for consent at every launch, not only until the terms are accepted. A change counts from the next launch.
+    @Published var consentEveryLaunch: Bool { didSet { defaults.set(consentEveryLaunch, forKey: "consentEveryLaunch") } }
+    private let asksConsentThisLaunch: Bool
+    @Published private var acceptedThisLaunch = false
+    /// The real depth mesh for a moment after each photo, on a phone with LiDAR.
+    @Published var depthScan: Bool { didSet { defaults.set(depthScan, forKey: "depthScan") } }
+    /// A small icon for the second before each photo.
+    @Published var photoNotice: Bool { didSet { defaults.set(photoNotice, forKey: "photoNotice") } }
     @Published var showMascot: Bool { didSet { defaults.set(showMascot, forKey: "showMascot") } }
     @Published var speakAloud: Bool { didSet { defaults.set(speakAloud, forKey: "speakAloud") } }
     /// Check each step on a close-up; when off, "I've done it" moves on and counts as the user's own confirmation.
@@ -349,6 +357,10 @@ final class GuideSettings: ObservableObject {
         soundEffects = defaults.object(forKey: "soundEffects") as? Bool ?? true
         handAnimation = defaults.object(forKey: "handAnimation") as? Bool ?? true
         dialLine = defaults.object(forKey: "dialLine") as? Bool ?? true
+        photoNotice = defaults.object(forKey: "photoNotice") as? Bool ?? true
+        depthScan = defaults.object(forKey: "depthScan") as? Bool ?? true
+        consentEveryLaunch = defaults.object(forKey: "consentEveryLaunch") as? Bool ?? true
+        asksConsentThisLaunch = defaults.object(forKey: "consentEveryLaunch") as? Bool ?? true
         showMascot = defaults.object(forKey: "showMascot") as? Bool ?? true
         cardPortrait = CardPlace(rawValue: defaults.string(forKey: "cardPortrait")) ?? .portraitDefault
         cardLandscape = CardPlace(rawValue: defaults.string(forKey: "cardLandscape")) ?? .landscapeDefault
@@ -404,10 +416,12 @@ final class GuideSettings: ObservableObject {
 
     var routes: [Route] { Route.candidates(publicURL: publicURL, inviteCode: inviteCode, tailscaleURL: "") }
 
-    var needsConsent: Bool { !acceptedTerms.hasPrefix(Self.termsVersion + " ") }
+    var hasAcceptedTerms: Bool { acceptedTerms.hasPrefix(Self.termsVersion + " ") }
+    var needsConsent: Bool { !hasAcceptedTerms || (asksConsentThisLaunch && !acceptedThisLaunch) }
 
     func acceptTerms(on date: Date = Date()) {
         acceptedTerms = Self.termsVersion + " " + ISO8601DateFormatter().string(from: date)
+        acceptedThisLaunch = true
     }
 
     #if DEBUG

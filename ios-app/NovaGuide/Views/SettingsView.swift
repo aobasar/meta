@@ -30,6 +30,11 @@ struct SettingsView: View {
                     Toggle(String(localized: "Mascot", bundle: .ui), isOn: $settings.showMascot)
                     Toggle(String(localized: "Hand animation", bundle: .ui), isOn: $settings.handAnimation)
                     Toggle(String(localized: "Dial line", bundle: .ui), isOn: $settings.dialLine)
+                    Toggle(String(localized: "Photo notice", bundle: .ui), isOn: $settings.photoNotice)
+                    if ar.hasDepthMesh {
+                        Toggle(String(localized: "Depth scan", bundle: .ui), isOn: $settings.depthScan)
+                    }
+                    Toggle(String(localized: "Consent at every launch", bundle: .ui), isOn: $settings.consentEveryLaunch)
                     Picker(String(localized: "Torch", bundle: .ui), selection: $settings.torch) {
                         ForEach(TorchChoice.allCases) { Text($0.title).tag($0) }
                     }

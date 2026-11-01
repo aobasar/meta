@@ -327,9 +327,22 @@ final class GuideSettingsTests: XCTestCase {
         XCTAssertTrue(settings.needsConsent)
         settings.acceptTerms(on: Date(timeIntervalSince1970: 0))
         XCTAssertFalse(settings.needsConsent)
-        XCTAssertFalse(GuideSettings(defaults: defaults).needsConsent)  // kept across launches
+        XCTAssertTrue(GuideSettings(defaults: defaults).needsConsent)  // every launch asks by default
+        settings.consentEveryLaunch = false
+        XCTAssertFalse(settings.needsConsent)
+        XCTAssertFalse(GuideSettings(defaults: defaults).needsConsent)  // the switch off: kept across launches
         defaults.set("2026-01-01 1970-01-01T00:00:00Z", forKey: "acceptedTerms")
         XCTAssertTrue(GuideSettings(defaults: defaults).needsConsent)  // an older version asks again
+    }
+
+    func testTurningConsentOnWaitsForTheNextLaunch() {
+        let defaults = freshDefaults()
+        defaults.set(false, forKey: "consentEveryLaunch")
+        let settings = GuideSettings(defaults: defaults)
+        settings.acceptTerms()
+        settings.consentEveryLaunch = true
+        XCTAssertFalse(settings.needsConsent)
+        XCTAssertTrue(GuideSettings(defaults: defaults).needsConsent)
     }
 }
 

@@ -218,6 +218,12 @@ struct CameraScreen: View {
                 ScanOverlay().padding(.horizontal, 20).padding(.vertical, 60)
                     .allowsHitTesting(false)
             }
+            if model.photoSoon {
+                PhotoNotice()
+                    .padding(.top, 12)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                    .allowsHitTesting(false)
+            }
         }
         #if DEBUG
         .background(GeometryReader { geometry in
