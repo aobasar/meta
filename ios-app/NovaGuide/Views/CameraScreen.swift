@@ -269,7 +269,7 @@ struct CameraScreen: View {
         case .correct: .novaGreen
         case .notDone: .novaRed
         case .unsure: .novaOrange
-        default: .novaYellow
+        default: .novaBlue
         }
     }
 
@@ -298,7 +298,7 @@ private struct FocusMark: View {
     var body: some View {
         GeometryReader { _ in
             RoundedRectangle(cornerRadius: 4)
-                .stroke(Color.novaYellow, lineWidth: 2)
+                .stroke(Color.novaBlue, lineWidth: 2)
                 .frame(width: 70, height: 70)
                 .scaleEffect(settled || reduceMotion ? 1 : 1.35)
                 .opacity(gone ? 0 : 1)
@@ -370,7 +370,7 @@ private struct TopBar: View {
             if ar.torchOn {
                 // The torch is lit (automatically in the dark, or from Settings): one tap turns it off for this task.
                 RoundIconButton(action: { ar.turnTorchOffForTask() }, accessibility: Text("Turn the torch off")) {
-                    Image(systemName: "flashlight.on.fill").font(.system(size: 17, weight: .semibold)).foregroundStyle(Color.novaYellow)
+                    Image(systemName: "flashlight.on.fill").font(.system(size: 17, weight: .semibold)).foregroundStyle(Color.novaBlue)
                 }
             }
             RoundIconButton(action: openMore, accessibility: Text("More options")) {
@@ -482,7 +482,7 @@ private struct ScanOverlay: View {
                 LinearGradient(colors: [.novaPurple.opacity(0), .novaPurple, .novaPurple.opacity(0)], startPoint: .leading, endPoint: .trailing)
                     .frame(height: 2)
                     .offset(y: sweep ? geometry.size.height - 2 : 0)
-                CornerBrackets().stroke(Color.novaYellow, style: StrokeStyle(lineWidth: 4, lineCap: .round))
+                CornerBrackets().stroke(Color.novaBlue, style: StrokeStyle(lineWidth: 4, lineCap: .round))
             }
             .onAppear {
                 withAnimation(.easeInOut(duration: 1.6).repeatForever(autoreverses: true)) { sweep = true }

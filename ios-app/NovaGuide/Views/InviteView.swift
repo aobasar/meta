@@ -42,13 +42,13 @@ struct InviteView: View {
                     Button(action: check) {
                         Group {
                             if checking {
-                                ProgressView().tint(.black)
+                                ProgressView().tint(.white)
                             } else {
                                 Text("Continue")
                             }
                         }
                     }
-                    .buttonStyle(PrimaryButtonStyle(fill: .novaYellow))
+                    .buttonStyle(PrimaryButtonStyle(fill: .novaBlue))
                     .disabled(checking || code.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 }
                 .padding(24)

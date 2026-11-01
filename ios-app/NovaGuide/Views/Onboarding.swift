@@ -95,7 +95,7 @@ struct WelcomeView: View {
     private func text(land: Bool) -> some View {
         VStack(alignment: land ? .leading : .center, spacing: land ? 22 : 40) {
             VStack(alignment: land ? .leading : .center, spacing: 10) {
-                (Text("See it. Understand it.") + Text(verbatim: "\n") + Text("Do it right.").foregroundColor(.novaGold))
+                (Text("See it. Understand it.") + Text(verbatim: "\n") + Text("Do it right.").foregroundColor(.novaBlueText))
                     .font(.system(size: land ? 21 : 24, weight: .bold))
                     .multilineTextAlignment(land ? .leading : .center)
                     .minimumScaleFactor(0.8)
@@ -145,9 +145,9 @@ struct HowView: View {
                         content {
                             Image(systemName: card.icon)
                                 .font(.system(size: 20, weight: .semibold))
-                                .foregroundStyle(Color.novaGold)
+                                .foregroundStyle(Color.novaBlueText)
                                 .frame(width: land ? 36 : 44, height: land ? 36 : 44)
-                                .background(Color.novaYellow.opacity(0.15), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                                .background(Color.novaBlue.opacity(0.15), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                             VStack(alignment: land ? .center : .leading, spacing: 3) {
                                 Text(card.title).font(.system(size: land ? 16 : 18, weight: .bold))
                                 Text(card.text)
@@ -190,7 +190,7 @@ struct ConsentView: View {
     @State private var glow = false
 
     private var items: [(icon: String, color: Color, text: String)] {
-        [("paperplane", .novaYellow, String(localized: "Frames and your voice go to the Kokobubu server and the Meta Model API only when you ask. Kokobubu's server doesn't keep them; Meta's terms apply.", bundle: .ui)),
+        [("paperplane", .novaBlue, String(localized: "Frames and your voice go to the Kokobubu server and the Meta Model API only when you ask. Kokobubu's server doesn't keep them; Meta's terms apply.", bundle: .ui)),
          ("exclamationmark.triangle", .novaOrange, String(localized: "AI-generated guidance. Check before you press. It can be wrong; labels and manuals come first.", bundle: .ui)),
          ("nosign", .novaRed, String(localized: "Not for gas, electrical panels, vehicles or medication.", bundle: .ui)),
          ("person", .novaCyan, String(localized: "For ages 18 and up.", bundle: .ui))]
@@ -226,13 +226,13 @@ struct ConsentView: View {
                     Button { agreed.toggle() } label: {
                         HStack(spacing: 10) {
                             RoundedRectangle(cornerRadius: 8, style: .continuous)
-                                .fill(agreed ? Color.novaYellow : .clear)
-                                .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).stroke(Color.novaGold, lineWidth: 2))
+                                .fill(agreed ? Color.novaBlue : .clear)
+                                .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).stroke(Color.novaBlueText, lineWidth: 2))
                                 .overlay {
-                                    if agreed { Image(systemName: "checkmark").font(.system(size: 14, weight: .heavy)).foregroundStyle(.black) }
+                                    if agreed { Image(systemName: "checkmark").font(.system(size: 14, weight: .heavy)).foregroundStyle(.white) }
                                 }
                                 .frame(width: 28, height: 28)
-                                .shadow(color: .novaYellow.opacity(agreed ? 0 : (glow ? 0.8 : 0.1)), radius: 8)
+                                .shadow(color: .novaBlue.opacity(agreed ? 0 : (glow ? 0.8 : 0.1)), radius: 8)
                             Text("I've read and agree (18+)")
                                 .font(.body)
                                 .foregroundStyle(.primary)

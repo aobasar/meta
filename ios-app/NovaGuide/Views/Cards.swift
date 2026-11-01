@@ -315,10 +315,10 @@ private struct FoldedBar: View {
                         .font(.footnote.weight(.bold))
                         .lineLimit(1)
                         .fixedSize()
-                        .foregroundStyle(.black)
+                        .foregroundStyle(.white)
                         .padding(.horizontal, 12)
                         .frame(minHeight: 44)
-                        .background(Color.novaYellow, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                        .background(Color.novaBlue, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                 }
                 .disabled(model.isLocating || model.reassessing)
             } else {
@@ -395,8 +395,8 @@ private struct MicButton: View {
     private var microphone: some View {
             ZStack {
                 if large {
-                    Circle().fill(listening ? Color.novaRed : Color.novaYellow)
-                        .shadow(color: Color.novaYellow.opacity(model.awaitingFirstTap && glow ? 0.9 : 0), radius: 14)
+                    Circle().fill(listening ? Color.novaRed : Color.novaBlue)
+                        .shadow(color: Color.novaBlue.opacity(model.awaitingFirstTap && glow ? 0.9 : 0), radius: 14)
                 } else {
                     RoundedRectangle(cornerRadius: 12, style: .continuous)
                         .fill(listening ? Color.novaRed : Color.clear)
@@ -407,7 +407,7 @@ private struct MicButton: View {
                 } else if model.pulse == .thinking {
                     Orb(size: large ? 24 : 18)
                 } else {
-                    Image(systemName: "mic").font(.system(size: large ? 26 : 18, weight: .semibold)).foregroundStyle(.black)
+                    Image(systemName: "mic").font(.system(size: large ? 26 : 18, weight: .semibold)).foregroundStyle(.white)
                 }
             }
             .frame(width: large ? 64 : 44, height: large ? 64 : 44)
@@ -511,7 +511,7 @@ private struct ChoiceRow: View {
             .frame(maxWidth: .infinity, minHeight: 42, alignment: .leading)
             .padding(.horizontal, 12)
             .padding(.vertical, 3)
-            .background(Color.novaYellow.opacity(0.18), in: RoundedRectangle(cornerRadius: 11, style: .continuous))
+            .background(Color.novaBlue.opacity(0.18), in: RoundedRectangle(cornerRadius: 11, style: .continuous))
             .overlay(RoundedRectangle(cornerRadius: 11, style: .continuous).stroke(Color.black.opacity(0.12), lineWidth: 1.5))
         }
     }
@@ -536,7 +536,7 @@ private struct ShowCard: View {
             HStack(spacing: 8) {
                 MicButton()
                 Button(String(localized: "I'm showing it", bundle: .ui)) { model.shown() }
-                    .buttonStyle(PrimaryButtonStyle(fill: .novaYellow))
+                    .buttonStyle(PrimaryButtonStyle(fill: .novaBlue))
             }
             HStack(spacing: 8) {
                 Button(String(localized: "How do I get there?", bundle: .ui)) { model.showTheWay() }
@@ -602,7 +602,7 @@ private struct ConfirmCard: View {
                 Text(GuideText.display(reply)).font(.footnote).foregroundStyle(Color.sheetMuted).fixedSize(horizontal: false, vertical: true)
             }
             if model.goalCheck == .waiting {
-                Button(String(localized: "Check now", bundle: .ui)) { model.checkGoal() }.buttonStyle(PrimaryButtonStyle(fill: .novaYellow))
+                Button(String(localized: "Check now", bundle: .ui)) { model.checkGoal() }.buttonStyle(PrimaryButtonStyle(fill: .novaBlue))
                 Button(String(localized: "Yes, solved", bundle: .ui)) { model.confirmSolved() }.buttonStyle(SheetButtonStyle())
             } else {
                 Button(String(localized: "Yes, solved", bundle: .ui)) { model.confirmSolved() }.buttonStyle(PrimaryButtonStyle(fill: .novaGreen))
@@ -758,11 +758,11 @@ private struct StepCard: View {
                 MicButton()
                 Button { model.primary() } label: {
                     HStack(spacing: 8) {
-                        if busy { ProgressView().tint(.black) }
+                        if busy { ProgressView().tint(.white) }
                         Text(primaryTitle)
                     }
                 }
-                .buttonStyle(PrimaryButtonStyle(fill: model.feedback == .correct ? .novaGreen : .novaYellow))
+                .buttonStyle(PrimaryButtonStyle(fill: model.feedback == .correct ? .novaGreen : .novaBlue))
                 .disabled(busy)
             }
             let extras = extraButtons
@@ -793,7 +793,7 @@ private struct StepCard: View {
 
     private func segmentColor(_ i: Int) -> Color {
         let result = model.records[i].result
-        if i == index && result == .pending { return .novaYellow }
+        if i == index && result == .pending { return .novaBlue }
         return result == .pending ? Color.black.opacity(0.14) : StepCardColors.color(result)
     }
 

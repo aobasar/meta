@@ -5,7 +5,7 @@ import SwiftUI
 /// turn to, and an edge chip shows when the control is off screen. A tap on the camera shows it all again.
 struct MarkerOverlay: View {
     var marker: MarkerState
-    var tint: Color = .novaYellow
+    var tint: Color = .novaBlue
     var motion: GuideStep.Motion? = nil
     var brightness: ((CGPoint) -> Double?)? = nil
     var card: CGRect = .zero
@@ -113,9 +113,9 @@ struct PhotoNotice: View {
             Circle().fill(Color(red: 0.082, green: 0.094, blue: 0.11).opacity(0.82))
             Circle().stroke(Color.white.opacity(0.22), lineWidth: 2)
             Circle().trim(from: 0, to: closed || reduceMotion ? 1 : 0)
-                .stroke(Color.novaYellow, style: StrokeStyle(lineWidth: 2, lineCap: .round))
+                .stroke(Color.novaBlue, style: StrokeStyle(lineWidth: 2, lineCap: .round))
                 .rotationEffect(.degrees(-90))
-            Image(systemName: "camera.fill").font(.system(size: 13, weight: .semibold)).foregroundStyle(Color.novaYellow)
+            Image(systemName: "camera.fill").font(.system(size: 13, weight: .semibold)).foregroundStyle(Color.novaBlue)
         }
         .frame(width: 32, height: 32)
         .onAppear { withAnimation(.linear(duration: GuideModel.photoNoticeSeconds)) { closed = true } }
@@ -271,7 +271,7 @@ private struct SwipeTrail: View {
                 .offset(x: length + 10)
             if fingertip {
                 Circle().fill(Color.white)
-                    .overlay(Circle().stroke(Color.novaYellow, lineWidth: 3))
+                    .overlay(Circle().stroke(Color.novaBlue, lineWidth: 3))
                     .frame(width: 26, height: 26)
                     .offset(x: length * progress)
             }
@@ -466,7 +466,7 @@ private struct AimHint: View {
         VStack(spacing: 6) {
             Image(systemName: "arrow.up.circle.fill")
                 .font(.system(size: 44))
-                .foregroundStyle(Color.novaYellow)
+                .foregroundStyle(Color.novaBlue)
                 .rotationEffect(.radians(atan2(direction.dy, direction.dx) + .pi / 2))
             Chip(text: hint, systemImage: "iphone.gen3")
         }
