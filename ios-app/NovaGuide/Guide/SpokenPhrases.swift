@@ -28,6 +28,8 @@ enum SpokenPhrases {
             "Point the camera at the control, then check again.": "Apunta la cámara al control y vuelve a comprobar.",
             "Move the phone closer to the control, then check again.": "Acerca el teléfono al control y vuelve a comprobar.",
             "Hold the phone steady, then check again.": "Mantén el teléfono quieto y vuelve a comprobar.",
+            "It's on {now}. Turn it to {target}.": "Está en {now}. Gíralo a {target}.",
+            "{now} is set.": "{now} está ajustado.",
         ],
         "Mandarin Chinese": [
             "Kokobubu is ready to help.": "Kokobubu 准备好帮你了。",
@@ -52,6 +54,8 @@ enum SpokenPhrases {
             "Point the camera at the control, then check again.": "请把摄像头对准按钮,然后再检查一次。",
             "Move the phone closer to the control, then check again.": "请把手机靠近按钮,然后再检查一次。",
             "Hold the phone steady, then check again.": "请拿稳手机,然后再检查一次。",
+            "It's on {now}. Turn it to {target}.": "现在在 {now}。请转到 {target}。",
+            "{now} is set.": "已设为 {now}。",
         ],
         "Hindi": [
             "Kokobubu is ready to help.": "Kokobubu मदद के लिए तैयार है।",
@@ -76,6 +80,8 @@ enum SpokenPhrases {
             "Point the camera at the control, then check again.": "कैमरा बटन की ओर कीजिए, फिर दोबारा जाँचिए।",
             "Move the phone closer to the control, then check again.": "फ़ोन को बटन के पास लाइए, फिर दोबारा जाँचिए।",
             "Hold the phone steady, then check again.": "फ़ोन को स्थिर रखिए, फिर दोबारा जाँचिए।",
+            "It's on {now}. Turn it to {target}.": "यह {now} पर है। इसे {target} पर घुमाएँ।",
+            "{now} is set.": "{now} सेट हो गया।",
         ],
         "Arabic": [
             "Kokobubu is ready to help.": "كوكوبوبو جاهز للمساعدة.",
@@ -100,6 +106,8 @@ enum SpokenPhrases {
             "Point the camera at the control, then check again.": "وجّه الكاميرا نحو الزر، ثم تحقق مرة أخرى.",
             "Move the phone closer to the control, then check again.": "قرّب الهاتف من الزر، ثم تحقق مرة أخرى.",
             "Hold the phone steady, then check again.": "ثبّت الهاتف، ثم تحقق مرة أخرى.",
+            "It's on {now}. Turn it to {target}.": "إنه على {now}. أدره إلى {target}.",
+            "{now} is set.": "تم الضبط على {now}.",
         ],
         "Portuguese": [
             "Kokobubu is ready to help.": "O Kokobubu está pronto para ajudar.",
@@ -124,6 +132,8 @@ enum SpokenPhrases {
             "Point the camera at the control, then check again.": "Aponte a câmera para o controle e verifique de novo.",
             "Move the phone closer to the control, then check again.": "Aproxime o celular do controle e verifique de novo.",
             "Hold the phone steady, then check again.": "Mantenha o celular parado e verifique de novo.",
+            "It's on {now}. Turn it to {target}.": "Está em {now}. Gire para {target}.",
+            "{now} is set.": "{now} está definido.",
         ],
     ]
 }

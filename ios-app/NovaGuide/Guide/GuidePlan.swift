@@ -99,6 +99,13 @@ struct GuideStep: Decodable, Equatable {
         /// What the label means, in the user's language.
         var meaning: String
         var point: NormalizedPoint?
+        /// Every position printed around the knob, clockwise; an older server sends none, and the check stays the plain one.
+        var positions: [String]? = nil
+        /// A label starts a range that runs to the next one, as on a program dial.
+        var segments: Bool? = nil
+        var aliases: [String]? = nil
+        /// Kokobubu only suggested this position, so another is fine too.
+        var any: Bool? = nil
     }
 
     var instruction: String
@@ -214,6 +221,8 @@ struct StepCheck: Decodable, Equatable {
     var confirmation: String?
     /// "too_small" when the server judged the close-up too small to read.
     var reason: String?
+    /// The position a dial was read at, when the check was a dial reading.
+    var reading: String?
     var recording: String?
 }
 

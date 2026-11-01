@@ -1085,7 +1085,8 @@ final class GuideModel: ObservableObject {
             records[index].result = .verified
             let ready = Self.readyPhrase(after: lastReadyPhrase)
             lastReadyPhrase = ready
-            let line = Self.doneLine(confirmation: check.confirmation, ready: ready,
+            let read = check.reading.map { language.phrase("{now} is set.").replacingOccurrences(of: "{now}", with: "«\($0)»") }
+            let line = Self.doneLine(confirmation: read ?? check.confirmation, ready: ready,
                                      stepsLeft: (plan?.steps.count ?? 0) - index - 1, goesOn: plan?.goesOn ?? false,
                                      phrase: language.phrase)
             doneText = line
@@ -1099,6 +1100,14 @@ final class GuideModel: ObservableObject {
         case .notDone, .unsure, .inProgress:
             // A dial's pointer is often a small mark on the rim, and Spark misreads it on a setting that is right. A red
             // failure would be wrong there, so the user is asked instead. A photo too small to read says so as before.
+            // A dial clearly read at a position far from the target says where it is.
+            if let reading = check.reading, check.reason == "other_position", let label = plan?.steps[index].setTo?.label {
+                var miss = check
+                miss.correction = language.phrase("It's on {now}. Turn it to {target}.")
+                    .replacingOccurrences(of: "{now}", with: "«\(reading)»").replacingOccurrences(of: "{target}", with: "«\(label)»")
+                applyMiss(miss, to: index)
+                return
+            }
             if let label = plan?.steps[index].setTo?.label, check.reason != "too_small" {
                 records[index].result = .uncertain
                 let question = language.phrase("I can't read it clearly. Is the pointer on %@? Hold the phone straight in front of the dial.")

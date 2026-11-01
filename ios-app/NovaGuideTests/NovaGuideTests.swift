@@ -346,6 +346,19 @@ final class GuideSettingsTests: XCTestCase {
     }
 }
 
+final class DialRequestTests: XCTestCase {
+    func testAPlanWithPositionsSendsADialAndAnOlderOneDoesNot() {
+        var setTo = GuideStep.SetTo(label: "warm", meaning: "", point: nil)
+        XCTAssertNil(GuideClient.Dial(setTo))
+        XCTAssertNil(GuideClient.Dial(nil))
+        setTo.positions = ["cold", "warm"]
+        setTo.segments = true
+        XCTAssertEqual(GuideClient.Dial(setTo)?.target, "warm")
+        XCTAssertEqual(GuideClient.Dial(setTo)?.segments, true)
+        XCTAssertEqual(GuideClient.Dial(setTo)?.any, false)
+    }
+}
+
 final class GuideTextTests: XCTestCase {
     func testMarkedDeviceWordsAreSplitOut() {
         XCTAssertEqual(GuideText.segments("Sıcaklık düğmesini «warm» konumuna getirin."), [

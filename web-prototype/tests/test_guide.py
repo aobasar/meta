@@ -197,7 +197,8 @@ class PlanTests(unittest.TestCase):
         self.assertEqual(first["point"], {"x": 0.21, "y": 0.41})
         self.assertEqual(first["boxMethod"], "point")
         self.assertEqual(first["box"]["x1"], 0.18)
-        self.assertEqual(first["setTo"], {"label": "hot", "meaning": "sıcak", "point": {"x": 0.26, "y": 0.3}})
+        self.assertEqual(first["setTo"], {"label": "hot", "meaning": "sıcak", "point": {"x": 0.26, "y": 0.3},
+                                          "positions": [], "segments": False, "aliases": [], "any": False})
         self.assertEqual(first["success"], "the pointer is at 'hot'")
         self.assertEqual(first["detail"], "Soldaki düğme.")
         self.assertEqual((result["language"], result["labelLanguage"]), ("Turkish", "English"))
@@ -1101,6 +1102,45 @@ class StartTests(unittest.TestCase):
     def test_a_non_tailscale_address_is_refused(self):
         with self.assertRaises(server.ConfigError):
             guide.tailscale_address("localhost")
+
+
+
+class DialDecisionTests(unittest.TestCase):
+    KNOB = {"target": "warm", "positions": ["cold", "cool", "warm", "hot", "off"], "aliases": [], "segments": False, "any": False}
+    PROGRAM = {"target": "normal", "positions": ["express", "normal", "delicate", "soak"], "aliases": ["regular"], "segments": True, "any": False}
+    TICKS = [{"label": "express", "clock": 12}, {"label": "normal", "clock": 2}, {"label": "delicate", "clock": 5}, {"label": "soak", "clock": 8}]
+
+    def decide(self, dial, position, clock=None, clear=True):
+        return guide.decide_dial({"position": position, "pointer_clock": clock, "tick_clocks": self.TICKS, "clear": clear}, dial)
+
+    def test_a_knob_passes_on_its_target_and_asks_next_to_it(self):
+        self.assertEqual(self.decide(self.KNOB, "«Warm»"), ("done", ""))
+        self.assertEqual(self.decide(self.KNOB, "hot"), ("unsure", "near"))
+        self.assertEqual(self.decide(self.KNOB, "cold"), ("not_done", "other_position"))
+
+    def test_an_unclear_or_unknown_reading_never_fails(self):
+        self.assertEqual(self.decide(self.KNOB, "warm", clear=False), ("unsure", "unclear"))
+        self.assertEqual(self.decide(self.KNOB, "tap cold"), ("unsure", "unclear"))
+
+    def test_a_suggested_knob_takes_any_reading_but_a_program_does_not(self):
+        self.assertEqual(self.decide({**self.KNOB, "any": True}, "cold"), ("done", ""))
+        self.assertEqual(self.decide({**self.PROGRAM, "any": True}, "soak", 9), ("not_done", "other_position"))
+
+    def test_a_program_runs_from_its_tick_and_asks_at_its_edges(self):
+        self.assertEqual(self.decide(self.PROGRAM, "normal", 3), ("done", ""))
+        self.assertEqual(self.decide(self.PROGRAM, "normal", 2), ("unsure", "near"))
+        self.assertEqual(self.decide(self.PROGRAM, "delicate", 5), ("unsure", "near"))
+        self.assertEqual(self.decide(self.PROGRAM, "soak", 9), ("not_done", "other_position"))
+
+    def test_a_program_without_ticks_trusts_only_the_label_to_ask(self):
+        dial = {**self.PROGRAM}
+        reading = {"position": "normal", "pointer_clock": 3, "tick_clocks": [], "clear": True}
+        self.assertEqual(guide.decide_dial(reading, dial), ("unsure", "near"))
+
+    def test_a_request_without_positions_gets_the_plain_check(self):
+        self.assertIsNone(guide.dial_request(None))
+        self.assertIsNone(guide.dial_request({"target": "warm", "positions": ["warm"]}))
+        self.assertFalse(guide.dial_request({"target": "warm", "positions": ["cold", "warm"]})["segments"])
 
 
 if __name__ == "__main__":

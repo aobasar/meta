@@ -111,6 +111,23 @@ struct GuideClient {
         throw Failure.unreadable
     }
 
+    struct Dial: Encodable, Equatable {
+        var target: String
+        var positions: [String]
+        var aliases: [String]
+        var segments: Bool
+        var any: Bool
+
+        init?(_ setTo: GuideStep.SetTo?) {
+            guard let setTo, let positions = setTo.positions, positions.count >= 2 else { return nil }
+            target = setTo.label
+            self.positions = positions
+            aliases = setTo.aliases ?? []
+            segments = setTo.segments ?? false
+            any = setTo.any ?? false
+        }
+    }
+
     private struct VerifyRequest: Encodable {
         var frame: String
         var instruction: String
@@ -120,12 +137,14 @@ struct GuideClient {
         var record: Bool
         var spark: SparkChoice?
         var view: String?
+        var dial: Dial? = nil
     }
 
     func verify(jpeg: Data, step: GuideStep, language: String, record: Bool, spark: SparkChoice? = nil,
                 wholeView: Bool = false, task: String = "") async throws -> StepCheck {
         try await check(jpeg: jpeg, instruction: step.instruction, success: step.success, language: language, record: record,
-                        spark: spark, view: wholeView ? "whole" : nil, task: wholeView && !task.isEmpty ? String(task.prefix(500)) : nil)
+                        spark: spark, view: wholeView ? "whole" : nil, task: wholeView && !task.isEmpty ? String(task.prefix(500)) : nil,
+                        dial: wholeView ? nil : Dial(step.setTo))
     }
 
     /// Is the whole task finished? Asked after the last step, on a photo of the whole device.
@@ -136,9 +155,9 @@ struct GuideClient {
     }
 
     private func check(jpeg: Data, instruction: String, success: String, language: String, record: Bool,
-                       spark: SparkChoice?, view: String?, task: String? = nil) async throws -> StepCheck {
+                       spark: SparkChoice?, view: String?, task: String? = nil, dial: Dial? = nil) async throws -> StepCheck {
         let request = VerifyRequest(frame: jpeg.base64EncodedString(), instruction: instruction, success: success, task: task,
-                                    language: language, record: record, spark: spark, view: view)
+                                    language: language, record: record, spark: spark, view: view, dial: dial)
         let (data, _) = try await send(path: "api/guide/verify", body: try JSONEncoder().encode(request), timeout: 30)
         do {
             return try JSONDecoder().decode(StepCheck.self, from: data)

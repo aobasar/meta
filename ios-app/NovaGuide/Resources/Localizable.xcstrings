@@ -2058,6 +2058,26 @@
         }
       }
     },
+    "It's on {now}. Turn it to {target}.": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{now} konumunda. {target} konumuna çevirin."
+          }
+        }
+      }
+    },
+    "{now} is set.": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{now} ayarlandı."
+          }
+        }
+      }
+    },
     "Set the server's address in Settings.": {
       "localizations": {
         "tr": {
