@@ -2,6 +2,8 @@
 
 **Shows you where to touch. Checks you got it right.**
 
+[![Watch the Kokobubu demo video on YouTube](docs/cover.jpg)](https://www.youtube.com/watch?v=xyJxzW4g8xU)
+
 Kokobubu is an iPhone app that shows you how to use a physical device. Point your iPhone at a washing machine, a screen or a control panel and ask out loud. It reads the labels, marks the exact control in AR, guides you one step at a time, and checks your work with the camera where a photo can show the result.
 
 - **Demo video (2:55):** https://www.youtube.com/watch?v=xyJxzW4g8xU
