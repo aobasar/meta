@@ -67,7 +67,9 @@ struct SettingsView: View {
                             .disabled(!settings.verifyEach)
                         Toggle(String(localized: "Haptics", bundle: .ui), isOn: $settings.haptics)
                         Toggle(String(localized: "Record tasks on screen", bundle: .ui), isOn: $settings.screenRecording)
+                        #if DEBUG
                         Toggle(String(localized: "Record a demo video with your voice from the next launch", bundle: .ui), isOn: $settings.demoVideo)
+                        #endif
                         Button { showLastRecording = true } label: {
                             LabeledContent(String(localized: "Share the last recording", bundle: .ui), value: lastRecordingText)
                         }
