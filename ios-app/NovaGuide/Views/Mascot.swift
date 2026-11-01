@@ -45,7 +45,7 @@ struct KokobubuMascot: View {
         let line = (small ? 5 : 3.5) * unit
         ZStack {
             Circle().fill(Self.shell)
-                .overlay(Circle().stroke(Self.visor, lineWidth: unit))
+                .overlay(Circle().stroke(Self.trim, lineWidth: (small ? 4 : 2) * unit))
                 .frame(width: 74 * unit, height: 74 * unit)
                 .position(x: 50 * unit, y: 55 * unit)
             ForEach([9.5, 90.5], id: \.self) { x in
