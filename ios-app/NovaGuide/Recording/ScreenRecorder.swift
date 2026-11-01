@@ -66,6 +66,11 @@ final class ScreenRecorder: ObservableObject {
             return
         }
         recorder.isMicrophoneEnabled = audio
+        if audio {
+            // Playback alone leaves the room's sound out until the first tap on the microphone, so a demo records from the start.
+            try? AVAudioSession.sharedInstance().setCategory(.playAndRecord, mode: .default, options: [.defaultToSpeaker, .duckOthers])
+            try? AVAudioSession.sharedInstance().setActive(true)
+        }
         let writer = VideoWriter(url: FileManager.default.temporaryDirectory.appendingPathComponent("Nova-\(UUID().uuidString).mp4"), audio: audio)
         writer.setPaused(paused)
         wantPaused = paused
