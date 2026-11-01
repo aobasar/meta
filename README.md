@@ -40,6 +40,25 @@ flowchart LR
 
 The API key stays on the server and never ships in the app. The app sends frames and audio only when you ask, and the consent screen says so first. See the [privacy page](https://www.aobasar.com/projects/kokobubu/legal/).
 
+### The server
+
+The iPhone app never calls the models directly. It talks to a small Python server, `web-prototype/guide.py`, which holds the API key and calls the Meta Model API. In the beta it runs in Docker on a VPS behind HTTPS.
+
+| Endpoint | What it does |
+|---|---|
+| `POST /api/guide/plan` | Takes a camera frame and a question. Returns the device, the steps, and each control's position in frame coordinates |
+| `POST /api/guide/verify` | Takes a new photo of a step. Returns whether the success condition is met |
+| `POST /api/guide/ask` | Answers a follow-up question about the current step |
+| `POST /api/guide/reassess` | Looks again when a mark or step seems wrong |
+| `POST /api/guide/correction` | Records that the user moved a mark or said it was wrong |
+| `POST /api/guide/transcribe`, `GET /api/guide/listen` | Turn speech into text, as a whole clip or live |
+| `GET /api/guide/status` | Tells the app whether the server is ready |
+
+- **Access:** every request needs an invite code, which the server stores only as a hash. Each code has daily limits, so a shared code can't use up the credits.
+- **Models:** only Standard models, pinned by exact model ID. A response from a Contributor model is discarded.
+- **Data:** the server passes frames and audio to the models and doesn't keep them. It logs usage per invite code to measure cost and speed. Recording mode, off by default, saves requests only for invitations that allow it.
+- **Region:** requests from the Meta Model API's Restricted Territories are refused.
+
 ## Repository
 
 | Path | What it is |
