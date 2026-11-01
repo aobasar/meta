@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Nova's colors (the prototype's palette): near-black ground, signal yellow for the one thing to do next.
+/// Nova's colors (the prototype's palette): near-black ground, signal blue for the one thing to do next.
 extension Color {
     /// "#RRGGBB"; nil for anything else.
     init?(hex: String?) {
@@ -26,7 +26,7 @@ extension Color {
     static let novaCyan = Color(red: 0.392, green: 0.824, blue: 1)  // #64D2FF
 }
 
-/// The yellow call-to-action button used on every screen.
+/// The blue call-to-action button used on every screen.
 struct PrimaryButtonStyle: ButtonStyle {
     var fill: Color = .novaBlue
     var enabled = true

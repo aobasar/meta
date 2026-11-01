@@ -458,7 +458,7 @@ private struct EdgeHint: View {
     }
 }
 
-/// Which way to move the phone: a yellow arrow and a few words.
+/// Which way to move the phone: a blue arrow and a few words.
 private struct AimHint: View {
     var direction: CGVector
 

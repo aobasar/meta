@@ -268,7 +268,6 @@ struct CameraScreen: View {
         switch model.feedback {
         case .correct: .novaGreen
         case .notDone: .novaRed
-        case .unsure: .novaOrange
         default: .novaBlue
         }
     }
@@ -283,7 +282,7 @@ struct CameraScreen: View {
     }
 }
 
-/// A small yellow square where the user tapped to focus; it fades by itself.
+/// A small blue square where the user tapped to focus; it fades by itself.
 private struct FocusMark: View {
     struct Tap: Equatable {
         let id = UUID()

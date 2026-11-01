@@ -748,7 +748,7 @@ private struct StepCard: View {
                 Bubble(icon: box.icon, color: box.color, title: box.title, text: box.text)
             }
             if model.seemsStuck {
-                Bubble(icon: "arrow.triangle.2.circlepath", color: .orange, title: nil,
+                Bubble(icon: "arrow.triangle.2.circlepath", color: .novaBlue, title: nil,
                        text: String(localized: "We seem stuck. Shall I look at this again?", bundle: .ui))
             }
             if index == 0 && resultBox == nil {
@@ -801,7 +801,7 @@ private struct StepCard: View {
         switch model.feedback {
         case .correct: ("checkmark", .green, model.doneText.map(GuideText.display) ?? String(localized: "Verified.", bundle: .ui), "")
         case .notDone(let text): ("xmark", .red, nil, text)
-        case .unsure(let text), .confirmDial(let text): ("questionmark.circle", .orange, nil, text)
+        case .unsure(let text), .confirmDial(let text): ("questionmark.circle", .novaBlue, nil, text)
         case .error(let text): ("exclamationmark.triangle", .orange, nil, text)
         case .checking, nil: nil
         }
@@ -918,7 +918,7 @@ enum StepCardColors {
         switch result {
         case .verified: .novaGreen
         case .failed: .novaRed
-        case .uncertain: .novaOrange
+        case .uncertain: .novaBlue
         case .confirmed: .novaCyan
         case .unchecked, .skipped: Color(white: 0.56)
         case .pending: .novaLine
