@@ -1,6 +1,7 @@
 import SwiftUI
 
-/// Kokobubu's mascot, drawn as shapes (in a 100×100 box) so its parts can move: a head with headphones, a visor, one big eye.
+/// Kokobubu's mascot, drawn as shapes (in a 100×100 box) from an image made with Muse Image, so its parts can move: a head with
+/// headphones, a visor, one big eye.
 /// Its mood says what the app is doing. Reduce Motion keeps it still: it holds the pose, without hops or scans.
 struct KokobubuMascot: View {
     enum Mood: Equatable {
@@ -32,8 +33,9 @@ struct KokobubuMascot: View {
     @State private var scanDown = false
 
     private static let shell = Color(red: 0.957, green: 0.965, blue: 0.984)  // #F4F6FB
-    private static let trim = Color(red: 0.216, green: 0.541, blue: 0.867)  // #378ADD
-    private static let visor = Color(red: 0.71, green: 0.831, blue: 0.957)  // #B5D4F4
+    private static let trim = Color(red: 0.184, green: 0.435, blue: 0.749)  // #2F6FBF
+    private static let band = Color(red: 0.29, green: 0.525, blue: 0.816)  // #4A86D0
+    private static let visor = Color(red: 0.812, green: 0.894, blue: 0.973)  // #CFE4F8
     private static let ink = Color(red: 0.047, green: 0.267, blue: 0.486)  // #0C447C
     private static let mouth = Color(red: 0.847, green: 0.353, blue: 0.188)  // #D85A30
 
@@ -41,46 +43,56 @@ struct KokobubuMascot: View {
         let unit = size / 100
         let small = size < 60  // at the card's size a mouth can't be seen, and lines need more weight
         let pupilRoom: CGFloat = 4
+        let line = (small ? 5 : 3.5) * unit
         ZStack {
+            MascotArc(from: CGPoint(x: 12, y: 54), control: CGPoint(x: 50, y: -24), to: CGPoint(x: 88, y: 54))
+                .stroke(Self.trim, style: StrokeStyle(lineWidth: (small ? 6 : 5) * unit, lineCap: .round))
             Circle().fill(Self.shell)
-                .overlay(Circle().stroke(Self.trim, lineWidth: (small ? 4 : 2) * unit))
-                .frame(width: 80 * unit, height: 80 * unit)
-                .position(x: 50 * unit, y: 52 * unit)
-            ForEach([8.5, 91.5], id: \.self) { x in
-                RoundedRectangle(cornerRadius: 5.5 * unit, style: .continuous)
+                .overlay(Circle().stroke(Self.visor, lineWidth: unit))
+                .frame(width: 74 * unit, height: 74 * unit)
+                .position(x: 50 * unit, y: 55 * unit)
+            ForEach([9.5, 90.5], id: \.self) { x in
+                RoundedRectangle(cornerRadius: 6.5 * unit, style: .continuous)
                     .fill(glowing && mood == .listening ? Self.visor : Self.trim)
-                    .frame(width: 11 * unit, height: 24 * unit)
-                    .position(x: x * unit, y: 54 * unit)
+                    .frame(width: 13 * unit, height: 28 * unit)
+                    .position(x: x * unit, y: 56 * unit)
             }
             ZStack {
                 Self.visor
-                Self.trim.frame(height: 2.5 * unit)
-                    .offset(y: (scanDown ? 13 : -13) * unit)
+                Self.trim.frame(height: 2 * unit)
+                    .offset(y: (scanDown ? 11 : -11) * unit)
                     .opacity(mood == .looking && !reduceMotion ? 1 : 0)
                 Color.white.opacity(flash ? 0.9 : 0)
             }
-            .frame(width: 60 * unit, height: 42 * unit)
-            .clipShape(RoundedRectangle(cornerRadius: 17 * unit, style: .continuous))
-            .position(x: 50 * unit, y: 53 * unit)
+            .frame(width: 56 * unit, height: 28 * unit)
+            .clipShape(RoundedRectangle(cornerRadius: 11 * unit, style: .continuous))
+            .position(x: 50 * unit, y: 55 * unit)
+            RoundedRectangle(cornerRadius: 5 * unit, style: .continuous).fill(Self.band)
+                .frame(width: 60 * unit, height: 12 * unit)
+                .position(x: 50 * unit, y: 38 * unit)
             if mood == .yes {
-                MascotArc(from: CGPoint(x: 29, y: 53), control: CGPoint(x: 39, y: 41), to: CGPoint(x: 49, y: 53))
-                    .stroke(Self.ink, style: StrokeStyle(lineWidth: (small ? 5 : 3.5) * unit, lineCap: .round))
+                MascotArc(from: CGPoint(x: 29, y: 57), control: CGPoint(x: 38, y: 47), to: CGPoint(x: 47, y: 57))
+                    .stroke(Self.ink, style: StrokeStyle(lineWidth: line, lineCap: .round))
             } else {
+                let pupil = CGSize(width: max(-pupilRoom, min(pupilRoom, glance + look.x * 3.3)) * unit, height: look.y * 3.3 * unit)
                 ZStack {
                     Circle().fill(Color.white).frame(width: 20 * unit, height: 20 * unit)
-                    Circle().fill(Self.ink)
-                        .frame(width: 12 * unit, height: 12 * unit)
-                        .offset(x: max(-pupilRoom, min(pupilRoom, glance + look.x * 3.3)) * unit, y: look.y * 3.3 * unit)
-                        .animation(.easeOut(duration: 0.2), value: look)
+                    Circle().fill(Self.trim).frame(width: 14 * unit, height: 14 * unit).offset(pupil)
+                    Circle().fill(Self.ink).frame(width: 8 * unit, height: 8 * unit).offset(pupil)
+                    if !small {
+                        Circle().fill(Color.white).frame(width: 4 * unit, height: 4 * unit)
+                            .offset(x: pupil.width - 2.5 * unit, y: pupil.height - 2.5 * unit)
+                    }
                 }
+                .animation(.easeOut(duration: 0.2), value: look)
                 .scaleEffect(x: eyeScale, y: eyeScale * (blinking ? 0.08 : 1))
-                .position(x: 39 * unit, y: 51 * unit)
+                .position(x: 38 * unit, y: 56 * unit)
             }
-            MascotArc(from: CGPoint(x: 57, y: 50), control: CGPoint(x: 63, y: 43), to: CGPoint(x: 69, y: 50))
-                .stroke(Self.ink, style: StrokeStyle(lineWidth: (small ? 5 : 3.5) * unit, lineCap: .round))
+            MascotArc(from: CGPoint(x: 56, y: 57), control: CGPoint(x: 62, y: 49), to: CGPoint(x: 69, y: 57))
+                .stroke(Self.ink, style: StrokeStyle(lineWidth: line, lineCap: .round))
             if !small {
                 MascotSmile().fill(Self.mouth)
-                    .scaleEffect(x: smileScale, y: smileScale, anchor: UnitPoint(x: 0.61, y: 0.62))
+                    .scaleEffect(x: smileScale, y: smileScale, anchor: UnitPoint(x: 0.5, y: 0.76))
             }
         }
         .frame(width: size, height: size)
@@ -206,10 +218,9 @@ private struct MascotSmile: Shape {
     func path(in rect: CGRect) -> Path {
         let s = min(rect.width, rect.height) / 100
         var path = Path()
-        path.move(to: CGPoint(x: 54 * s, y: 60 * s))
-        path.addQuadCurve(to: CGPoint(x: 68 * s, y: 57 * s), control: CGPoint(x: 63 * s, y: 58 * s))
-        path.addQuadCurve(to: CGPoint(x: 59 * s, y: 68 * s), control: CGPoint(x: 67 * s, y: 69 * s))
-        path.addQuadCurve(to: CGPoint(x: 54 * s, y: 60 * s), control: CGPoint(x: 55 * s, y: 66 * s))
+        path.move(to: CGPoint(x: 43 * s, y: 73 * s))
+        path.addQuadCurve(to: CGPoint(x: 57 * s, y: 73 * s), control: CGPoint(x: 50 * s, y: 76 * s))
+        path.addQuadCurve(to: CGPoint(x: 43 * s, y: 73 * s), control: CGPoint(x: 50 * s, y: 85 * s))
         path.closeSubpath()
         return path
     }
