@@ -120,7 +120,7 @@ An experimental prototype. Tested in Turkish and English; other languages are ex
 
 ## How it was made
 
-All of this repository was built during the event, starting Oct 26, 2026; the history starts there. It was developed with the help of AI coding tools. The app's mascot and icon, the illustrations in the demo video's story, and the device photos in the browser examples were generated with Muse Image. It uses Apple's system frameworks and no third-party code packages.
+All of this repository was built during the event, starting Oct 26, 2026; the history starts there. It was developed with the help of AI coding tools. The app's mascot and icon, the device images in the browser examples, and the comic panels in the demo video were generated with Muse Image. The mascot's animation and the video's editing and music were made with code, using the same AI coding tools. No video-generation model was used. It uses Apple's system frameworks and no third-party code packages.
 
 ## License
 
