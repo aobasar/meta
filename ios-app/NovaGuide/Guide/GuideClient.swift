@@ -1,6 +1,6 @@
 import Foundation
 
-/// Talks to the Nova server on the user's Mac. The phone never holds an API key (HACKATHON.md, design rule 2).
+/// Talks to the Nova server on the user's Mac. The phone never holds an API key (project rules, design rule 2).
 struct GuideClient {
     enum Failure: LocalizedError {
         case noServer

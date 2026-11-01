@@ -6,7 +6,7 @@ Reads test-photos/verify_cases.json:
 For each photo, asks Spark for done / not_done / unsure plus what it observed and a correction, with the same
 prompt the iPhone app uses (web-prototype/guide.py, VERIFY_PROMPT), then prints a
 table and the share of correct answers ("unsure" counts as safe but not correct). Photos are resized and stripped
-of metadata first (see sam_test.prepared_photo). Standard model IDs only (HACKATHON.md rule 1).
+of metadata first (see sam_test.prepared_photo). Standard model IDs only (the hackathon rules rule 1).
 Usage: python3 verify_test.py [--effort low|medium]
 """
 import argparse

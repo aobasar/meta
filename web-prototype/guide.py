@@ -7,7 +7,7 @@ After each step the phone sends a close-up of the control, and Muse Spark checks
 
 The guide endpoints are served by their own small server, bound to the Mac's Tailscale address only when
 NOVA_GUIDE_HOST is set in .env.local. It answers nothing but /api/guide/*, so the phone cannot reach the notes,
-lists or the realtime relay of the main prototype. The API key stays on the Mac (HACKATHON.md, design rule 2).
+lists or the realtime relay of the main prototype. The API key stays on the Mac (project rules, design rule 2).
 
 A second guide listener, for testers outside the tailnet, binds to 127.0.0.1 (NOVA_GUIDE_PUBLIC_PORT, 9015) when
 NOVA_PUBLIC_HOST is set; a tunnel (Cloudflare Tunnel) is meant to forward the public host name to it. Every request
@@ -59,7 +59,7 @@ MAX_FRAME_BYTES = 12 * 1024 * 1024  # base64 JPEG inside JSON
 MAX_QUESTION_CHARS = 500
 MAX_STEPS = 6
 HOME_PAGE = "https://www.aobasar.com/projects/kokobubu/"
-# Restricted Territories in the Meta Model API policy, by Cloudflare's country code (HACKATHON.md).
+# Restricted Territories in the Meta Model API policy, by Cloudflare's country code (the hackathon rules).
 RESTRICTED_COUNTRIES = frozenset({"AF","BY","KH","CN","HK","MO","CU","ER","ET","HT","IR","IQ","LY","MM","NI","KP","PK","RU","SO","SY","VE","EH"})
 CLIENT_HEADER = "X-Nova-Client"  # a custom header: browsers can't send it cross-origin without a preflight we never answer
 CLIENT_NAME = "guide-ios"

@@ -24,7 +24,6 @@ venv/
 
 # Local tooling
 AOB/
-.claude-sessions
 web-prototype/data/
 test-photos/
 web-prototype/static/reports/
@@ -35,3 +34,7 @@ ios-app/Config/Local.xcconfig
 ios-app/build/
 *.xcuserstate
 xcuserdata/
+
+# Private project notes
+TODO.md
+HACKATHON.md

@@ -52,7 +52,7 @@ struct CameraOptions: Equatable {
 }
 
 /// Owns the AR session. ARKit is used only for tracking and geometry (depth, raycasts); every recognition task
-/// stays with Meta's models on the Mac (HACKATHON.md, Approved Exceptions, 2026-10-27).
+/// stays with Meta's models on the Mac (project rules, Approved Exceptions, 2026-10-27).
 /// Where the phone is moving, for the mascot's eye. Separate from the controller, so a moving phone redraws only the eye.
 final class CameraGaze: ObservableObject {
     @Published var look = CGPoint.zero

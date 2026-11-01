@@ -38,7 +38,7 @@ API_BASE = "https://api.meta.ai/v1"
 KEY_NAME = "MODEL_API_KEY"
 KEY_PLACEHOLDERS = {"", "your_model_api_key_here", "your-api-key-here"}
 
-# Standard-tier models only (HACKATHON.md, design rule 1). The browser cannot
+# Standard-tier models only (project rules, design rule 1). The browser cannot
 # choose a model; every request uses these pinned IDs.
 TRANSCRIBE_MODEL = "muse-voice-transcribe-1.0"
 REASONING_MODEL = "muse-spark-1.3"

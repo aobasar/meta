@@ -11,7 +11,7 @@ For each case (photo + question) it runs:
 Reads test-photos/cases.json ([{"image": "<file in test-photos/>", "question": "..."}]); photos are resized and
 stripped of metadata before they are sent. Writes results.json and report.html to
 web-prototype/static/reports/sam-test/ (both folders are git-ignored).
-Standard model IDs only; any Contributor model in a response aborts (HACKATHON.md rule 1).
+Standard model IDs only; any Contributor model in a response aborts (the hackathon rules rule 1).
 Usage: python3 sam_test.py [image ...]   (no args: all cases; an unknown arg: rebuild the report only)
 """
 import base64
@@ -112,7 +112,7 @@ def post(path: str, payload: dict, key: str, timeout: int = 180) -> tuple[dict, 
         sys.exit(f"{path} failed: HTTP {error.code} {error.read()[:400]!r}")
     served = str(data.get("model") or "")
     if "contributor" in served.lower():
-        sys.exit(f"Meta served a Contributor model ({served}); stopping (HACKATHON.md rule 1).")
+        sys.exit(f"Meta served a Contributor model ({served}); stopping (the hackathon rules rule 1).")
     return data, round(time.time() - started, 2)
 
 

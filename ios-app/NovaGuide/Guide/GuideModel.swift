@@ -2,7 +2,7 @@ import Foundation
 import UIKit
 
 /// The guide's state: ask, think, then walk through the steps. Nova only shows; the user does every step
-/// (HACKATHON.md, design rule 3).
+/// (project rules, design rule 3).
 @MainActor
 final class GuideModel: ObservableObject {
     enum Phase: Equatable {

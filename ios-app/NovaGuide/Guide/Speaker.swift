@@ -1,6 +1,6 @@
 import AVFoundation
 
-/// Reads steps aloud with the iOS system voice (HACKATHON.md, Approved Exceptions, 2026-10-27).
+/// Reads steps aloud with the iOS system voice (project rules, Approved Exceptions, 2026-10-27).
 final class Speaker: NSObject, AVSpeechSynthesizerDelegate {
     private let synthesizer = AVSpeechSynthesizer()
     private var lastUtterance: AVSpeechUtterance?
@@ -36,7 +36,7 @@ final class Speaker: NSObject, AVSpeechSynthesizerDelegate {
     }
 
     /// The best voice this iPhone has for a language: Premium, then Enhanced, then the default. Users download the
-    /// better ones in iOS Settings; they are still the system's voices (HACKATHON.md, Approved Exceptions).
+    /// better ones in iOS Settings; they are still the system's voices (project rules, Approved Exceptions).
     static func bestVoice(for language: String) -> AVSpeechSynthesisVoice? {
         let candidates = AVSpeechSynthesisVoice.speechVoices().filter {
             $0.language.hasPrefix(language.prefix(2)) && $0.quality != .default

@@ -5,7 +5,7 @@
 # calls to the Meta Model API, so the browser never sees the key.
 set -euo pipefail
 
-# Fixed port, claimed for Nova with ~/.claude/AOBClaudeCodeSync/scripts/port-claim.sh.
+# Fixed port; override with NOVA_PORT.
 PORT="${NOVA_PORT:-9005}"
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 

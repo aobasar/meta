@@ -1,7 +1,6 @@
 # TestFlight: what App Store Connect asks for
 
-Kokobubu's beta. Paste from here. The review invite code is not in this file: it stays in
-`AOB/deploy/apple-review-invite.txt` (git-ignored). Every upload to Apple needs the maintainer's approval.
+Kokobubu's beta. Paste from here. The review invite code is not in this file: it is kept privately. Every upload to Apple needs the maintainer's approval.
 
 ## App record (the maintainer creates it)
 
@@ -40,7 +39,7 @@ privacy@aobasar.com
 
 - Contact: Ahmet Basar, privacy@aobasar.com. The maintainer adds the phone number.
 - Sign-in required: yes, an invite code, entered on the first screen. There is no user name or password.
-- Invite code: paste it from `AOB/deploy/apple-review-invite.txt`. The form's user name field: `invite code`.
+- Invite code: the privately kept review code. The form's user name field: `invite code`.
 
 ### Review notes
 

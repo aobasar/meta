@@ -14,7 +14,7 @@ struct RecordedVideo: Identifiable, Equatable {
 /// last recording is kept, on the phone; it never goes to the server. Settings shares, saves or deletes it.
 /// The demo video (Settings › Demo video) runs from launch to Home with the app's audio and the microphone, so both
 /// Kokobubu and the maintainer are heard. It is only ever on by their choice, and it stays on the phone. A task's video
-/// never has sound: no one else's voice is captured by it (HACKATHON.md, design rule 6).
+/// never has sound: no one else's voice is captured by it (project rules, design rule 6).
 @MainActor
 final class ScreenRecorder: ObservableObject {
     enum State: Equatable {

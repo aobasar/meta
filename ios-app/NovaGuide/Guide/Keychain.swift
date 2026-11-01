@@ -1,7 +1,7 @@
 import Foundation
 import Security
 
-/// The invite code lives in the iPhone's Keychain, never in the app build (HACKATHON.md, design rule 2).
+/// The invite code lives in the iPhone's Keychain, never in the app build (project rules, design rule 2).
 enum Keychain {
     private static let service = "com.aobasar.nova.guide"
 

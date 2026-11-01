@@ -2,7 +2,7 @@ import AVFoundation
 
 /// Records one utterance after the user taps the microphone: 24 kHz mono WAV, in memory only. It stops when the user
 /// taps again, after a short silence once speech was heard, or at a time limit. The microphone is never open
-/// otherwise (HACKATHON.md, design rule 6).
+/// otherwise (project rules, design rule 6).
 final class VoiceRecorder: ObservableObject {
     static let sampleRate = 24_000.0  // what Meta's realtime endpoint takes
     static let maxSeconds = 20.0

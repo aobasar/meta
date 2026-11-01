@@ -1,142 +1,104 @@
-# Nova
+# Kokobubu
 
-> Project repository for the **Meta Global AI Developer Hackathon**
-> (Oct 26 – Nov 4, 2026). Rules, dates, and judging criteria:
-> [HACKATHON.md](HACKATHON.md).
+**Shows you where to touch. Checks you got it right.**
 
-## Overview
+Kokobubu is an iPhone app that shows you how to use a physical device. Point your iPhone at a washing machine, a screen or a control panel and ask out loud. It reads the labels, marks the exact control in AR, guides you one step at a time, and checks your work with the camera where a photo can show the result.
 
-Nova is a macOS AI companion that helps users understand on-screen content,
-translate and rewrite text, and complete desktop tasks through voice commands
-and a contextual radial menu.
+- **Demo video (2:55):** https://www.youtube.com/watch?v=xyJxzW4g8xU
+- **Project page:** https://www.aobasar.com/projects/kokobubu/
+- **Try it in a browser (illustrated examples, no install):** https://www.aobasar.com/projects/kokobubu/try/
+- **TestFlight:** https://testflight.apple.com/join/jkXDy8nX (the app requires an invitation code, because it uses API credits)
 
-**Status:** 🚧 Early prototype. This description is a working draft.
+Built for the Meta Global AI Developer Hackathon, Oct 26 – Nov 4, 2026. Track: Indie Developer. Problem statement: Build for Your World. An independent project, not made or endorsed by Meta.
 
-## How It Works
+## Why I built it
 
-1. The user shares context (on-screen content or selected text) by voice or
-   through the radial menu.
-2. Meta open-weight models, deployed behind inference endpoints on
-   [Modal](https://modal.com) GPU infrastructure, interpret the context and
-   plan multi-step actions.
-3. The macOS app executes approved actions through local tools and verifies
-   the results.
+When I moved to the US, I was still learning English. I stood in front of a washing machine translating every word, and I once shrank my clothes on the wrong dryer setting. How do you ask for help with a button you can't name?
 
-## Key Features
+Kokobubu is for people living far from home, people getting used to new technology, and anyone afraid of doing it wrong.
 
-- Understand and explain on-screen content
-- Translate and rewrite text
-- Complete desktop tasks with voice commands
-- Contextual radial menu for quick actions
-- User approval before any action runs
+## How it works
 
-## Tech Stack
-
-- **Client:** native macOS app
-- **Models:** Meta open-weight models
-- **Inference:** Modal GPU endpoints, also used to measure latency,
-  reliability, and inference cost during prototyping
-
-## Getting Started
-
-### Prerequisites
-
-- macOS with Python 3.10+ (standard library only, nothing to install)
-- Chrome or Edge, for microphone recording and verified file saving
-- A Meta Model API key from https://dev.meta.ai (API keys, then Create API key)
-
-### Installation
-
-```bash
-git clone https://github.com/aobasar/Nova.git
-cd Nova
-cp .env.example .env.local   # then set MODEL_API_KEY
+```mermaid
+flowchart LR
+    A[iPhone: question and camera frame] --> B[Muse Voice Transcribe: speech to text]
+    B --> C[Muse Spark: read the device, plan the steps]
+    C --> D[SAM 3.1: find the exact control]
+    D --> E[ARKit and LiDAR: pin the mark to the real world]
+    E --> F[You do the step]
+    F --> G[Muse Spark: check the result in a new photo]
+    G -->|next step, or fix it| E
 ```
 
-### Running the local web prototype
+| Part | Job |
+|---|---|
+| Muse Voice Transcribe | Turns the spoken question into text |
+| Muse Spark 1.3 | Reads the frame and its labels, plans the steps, asks a question when it needs one, and checks each step against its success condition |
+| SAM 3.1 | Finds the control that Muse Spark named, so the mark sits on the real knob or button |
+| ARKit and LiDAR | Keep the mark in place while the phone moves. They do no recognition |
+| iOS system voice | Reads the steps aloud |
+
+The API key stays on the server and never ships in the app. The app sends frames and audio only when you ask, and the consent screen says so first. See the [privacy page](https://www.aobasar.com/projects/kokobubu/legal/).
+
+## Repository
+
+| Path | What it is |
+|---|---|
+| `ios-app/` | The iPhone app (SwiftUI, ARKit, RealityKit). The source folder keeps its early name, `NovaGuide` |
+| `web-prototype/guide.py` | The guide server the app talks to: plan, verify, ask, transcribe, invite codes and usage logs |
+| `web-prototype/server.py`, `ws.py`, `workspace.py`, `static/` | The first-day browser experiment. `guide.py` still builds on `server.py` |
+| `web-prototype/tests/` | Python and JavaScript tests |
+| `scripts/prototypes/` | Small test scripts used while tuning the models |
+| `docs/testflight.md` | What App Store Connect asks for |
+
+The project was first called Nova, then Koko, so some internal names still say Nova.
+
+## Run it
+
+You need a Meta Model API key. For the app you also need a Mac with Xcode, [XcodeGen](https://github.com/yonaskolb/XcodeGen) and a real iPhone, because ARKit doesn't run in the simulator.
+
+**Server**
 
 ```bash
-scripts/serve.sh             # serves http://127.0.0.1:9005 on this Mac only
+cp .env.example .env.local   # set MODEL_API_KEY
+scripts/serve.sh             # the browser experiment, http://127.0.0.1:9005
 ```
 
-The server is registered in SwiftBar as **Nova** (port 9005), so you can also
-start and stop it from the menu bar.
-
-A small Python server reads
-`MODEL_API_KEY` from `.env.local` on each request and forwards calls to the Meta
-Model API, so the key never reaches the browser.
-
-1. Record with the microphone, or add an audio file. The page converts it to
-   24 kHz mono WAV.
-2. Press **Send for transcription** to get the transcript (Muse Voice
-   Transcribe).
-3. Pick an action (Auto, Ask, Translate, Rewrite, Summarize, Plan task) and
-   press **Run** (Muse Spark 1.3).
-4. Copy the result, or save it as a text file. The file is read back to
-   verify the write.
-
-**Conversation mode.** Tap the microphone once to start talking with Nova:
-- Nova streams what you say to Meta's realtime transcription while you talk.
-  Meta detects the end of your sentence, so the transcript is ready about
-  0.2–0.6 s after you stop. If streaming fails, Nova uploads the clip instead.
-- It answers out loud with the macOS system voice, then listens again.
-- If you start talking while Nova is speaking, it stops.
-- Tap the microphone again to end, or stay quiet for a minute.
-- Headphones keep Nova from hearing its own voice.
-
-**Lists and notes.** Ask in your own words, by voice or text:
-- “Make a shopping list with milk, eggs and bread.”
-- “Add tomatoes to the shopping list.” / “I bought the milk, check it off.”
-- “Take a note: meeting with Ali tomorrow at 10, prepare the slides.”
-
-Nova uses Muse Spark tool calling to make these changes and shows them in the
-Lists and Notes panels. They are saved on this Mac in `web-prototype/data/`
-(git-ignored). Nova never deletes anything; deleting is done from the panels,
-after a confirmation.
-
-Paste a screenshot with ⌘V, or use **Attach image**, to ask about an image.
-Nothing is stored: recordings, images and results live only in the open tab.
-
-### Tests
+For the app's internet route, set `NOVA_PUBLIC_HOST` and `NOVA_GUIDE_PUBLIC_PORT` in `.env.local`, put HTTPS in front of that port, and create a code:
 
 ```bash
-python3 -m unittest discover -s web-prototype/tests
+python3 web-prototype/guide.py invite NAME
+```
+
+**App**
+
+```bash
+cp ios-app/Config/Local.example.xcconfig ios-app/Config/Local.xcconfig   # set your team and server URL
+cd ios-app && xcodegen generate && open Kokobubu.xcodeproj
+```
+
+**Tests**
+
+```bash
+python3 -m unittest discover web-prototype/tests
 node --test web-prototype/tests/
 ```
 
-## Project Structure
+The app's unit tests run from Xcode, in the `Kokobubu` scheme.
 
-```
-Nova/
-├── README.md          # This file
-├── HACKATHON.md       # Hackathon rules, dates, and judging criteria
-├── CLAUDE.md          # Rules for AI-assisted development in this repo
-├── .env.example       # Required environment variables (copy to .env.local)
-├── scripts/serve.sh   # Starts the local web prototype on port 9005
-└── web-prototype/
-    ├── server.py      # Local server: UI files + Meta Model API proxy
-    ├── static/        # Browser UI (HTML, CSS, JavaScript)
-    └── tests/         # Server (Python) and audio helper (Node) tests
-```
+## Status and limits
 
-## Hackathon Submission Checklist
+An experimental prototype. Tested in Turkish and English; other languages are experimental.
 
-Submissions are due **Nov 4, 9:00 PM ET (6:00 PM PT)**.
+- Guidance is generated by AI and can be wrong. Check before you press. Labels and manuals come first.
+- It is not for gas, electrical panels, vehicles or medication. For adults, 18 and up.
+- The user does every step. Kokobubu never touches the device.
+- A check can only judge what a photo can show.
 
-- [ ] Pick the problem statement Nova fits
-- [ ] Choose the track (Indie or Startup)
-- [ ] Claim Meta Model API credits (by Nov 4, 9:00 PM ET)
-- [ ] Finalize the product concept and tech stack
-- [ ] Build the MVP
-- [ ] Record the demo video
-- [ ] Decide on repository visibility (currently private) and add a license
-- [ ] Submit through the Cerebral Valley portal
+## How it was made
 
-## Team
+All of this repository was built during the event, starting Oct 26, 2026; the history starts there. It was developed with the help of AI coding tools. The app's mascot and icon were generated with Muse Image. It uses Apple's system frameworks and no third-party code packages.
 
-- **Ahmet Basar** ([@aobasar](https://github.com/aobasar))
+## License
 
-## Language Policy
-
-Everything in this repository (code, comments, documentation, commit
-messages, issues, and pull requests) is written in **English**.
+Code: [GNU AGPL-3.0](LICENSE). The Kokobubu name and mascot are not licensed: please don't use them for your own product.
