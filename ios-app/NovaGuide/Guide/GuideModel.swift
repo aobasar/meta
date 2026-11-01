@@ -725,7 +725,10 @@ final class GuideModel: ObservableObject {
 
     func confirmSolved() {
         guard phase == .confirming else { return }
-        let line = language.phrase("Done. It should be working now.")
+        finishSolved(line: language.phrase("Done. It should be working now."))
+    }
+
+    private func finishSolved(line: String) {
         finish()
         finishLine = line
         note("solved")
@@ -1237,12 +1240,20 @@ final class GuideModel: ObservableObject {
             reply = nil
             phase = .confirming
             goalCheck = nil
-            if settings.verifyEach, plan.goal?.isEmpty == false {
+            if Self.endsByStarting(plan) {
+                finishSolved(line: language.phrase("Everything is set. Once it starts, you'll hear or see it."))
+            } else if settings.verifyEach, plan.goal?.isEmpty == false {
                 checkGoal()
             } else {
                 askIfSolved()
             }
         }
+    }
+
+    /// The last step starts the device by pulling or pushing: a photo can't show that, so the camera doesn't check it.
+    nonisolated static func endsByStarting(_ plan: GuidePlan) -> Bool {
+        guard let motion = plan.steps.last?.motionKind else { return false }
+        return motion == .pull || motion == .push
     }
 
     private func askIfSolved() {

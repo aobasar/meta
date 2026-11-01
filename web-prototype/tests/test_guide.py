@@ -1105,6 +1105,13 @@ class StartTests(unittest.TestCase):
 
 
 
+class StartingStepTests(unittest.TestCase):
+    def test_a_pull_or_push_has_no_photo_check(self):
+        for motion, check in (("pull", "none"), ("push", "none"), ("press", "whole_view")):
+            entry = guide.step_entry({"instruction": "i", "check_view": "whole_view", "motion": motion}, "t", "", (5, 5), 10, 10)
+            self.assertEqual((entry["check"], entry["verifiable"]), (check, False))
+
+
 class DialDecisionTests(unittest.TestCase):
     KNOB = {"target": "warm", "positions": ["cold", "cool", "warm", "hot", "off"], "aliases": [], "segments": False, "any": False}
     PROGRAM = {"target": "normal", "positions": ["express", "normal", "delicate", "soak"], "aliases": ["regular"], "segments": True, "any": False}

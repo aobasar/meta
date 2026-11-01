@@ -347,6 +347,20 @@ final class GuideSettingsTests: XCTestCase {
 }
 
 final class DialRequestTests: XCTestCase {
+    func testAPlanEndingInAPullFinishesWithoutALook() throws {
+        func plan(_ motion: String) throws -> GuidePlan {
+            let json = """
+            {"device": {"type": "washer", "brand": ""}, "safe": true, "safetyNote": "", "uncertainty": "",
+             "frame": {"width": 100, "height": 100}, "served": [],
+             "steps": [{"instruction": "i", "target": "t", "success": "s", "point": {"x": 0.5, "y": 0.5}, "boxMethod": "point", "motion": "\(motion)"}]}
+            """
+            return try JSONDecoder().decode(GuidePlan.self, from: Data(json.utf8))
+        }
+        XCTAssertTrue(GuideModel.endsByStarting(try plan("pull")))
+        XCTAssertTrue(GuideModel.endsByStarting(try plan("push")))
+        XCTAssertFalse(GuideModel.endsByStarting(try plan("press")))
+    }
+
     func testAProgramDialSaysItsMarksAreTooClose() {
         let near = StepCheck(status: .unsure, observed: "", correction: "", confirmation: nil, reason: "near", reading: "off", recording: nil)
         let close = GuideModel.dialQuestion(near, label: "express", segments: true) { $0 }

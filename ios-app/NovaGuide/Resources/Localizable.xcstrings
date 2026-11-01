@@ -2088,6 +2088,16 @@
         }
       }
     },
+    "Everything is set. Once it starts, you'll hear or see it.": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Her şey hazır. Başlayınca sesinden ya da görüntüsünden anlarsın."
+          }
+        }
+      }
+    },
     "Set the server's address in Settings.": {
       "localizations": {
         "tr": {

@@ -857,6 +857,9 @@ def plan(frame: bytes, question: str, language: str, api_key: str, opener, auto_
 def step_entry(step: dict, target: str, label: str, point: tuple[int, int], width: int, height: int,
                box: dict | None = None, method: str = "pending", grounded: dict | None = None) -> dict:
     check = step.get("check_view") if step.get("check_view") in CHECK_VIEWS else "close_up"
+    # A photo can't show a knob pulled out or pushed in: all 15 recorded checks of such a step came back unsure.
+    if step.get("motion") in ("pull", "push"):
+        check = "none"
     entry = {
         "instruction": str(step.get("instruction", "")),
         "detail": str(step.get("detail", "")),
